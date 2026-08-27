@@ -27,3 +27,8 @@ export type FilterOptions = {
 	limit?: number;
 	offset?: number;
 };
+
+export type FilterOptionLists = {
+	sources: string[];
+	events: string[];
+};

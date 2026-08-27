@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
 import { DEFAULT_DB_DIR, DEFAULT_DB_NAME } from "./constants.js";
-import type { EventInsert, EventRow, FilterOptions } from "./types.js";
+import type { EventInsert, EventRow, FilterOptionLists, FilterOptions } from "./types.js";
 
 const eventsColumns = `
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,9 +127,9 @@ function buildWhereClause(options: FilterOptions): {
 		conditions.push("event = ?");
 		params.push(options.event);
 	}
-	if (options.sessionId !== undefined) {
-		conditions.push("session_id = ?");
-		params.push(options.sessionId);
+	if (options.sessionId !== undefined && options.sessionId !== "") {
+		conditions.push("session_id LIKE ?");
+		params.push(`%${options.sessionId}%`);
 	}
 	if (options.q !== undefined && options.q !== "") {
 		conditions.push("payload LIKE ?");
@@ -166,6 +166,19 @@ export const getLastEventId = (db: DatabaseSync): number => {
 	const stmt = db.prepare("SELECT id FROM events ORDER BY id DESC LIMIT 1");
 	const row = stmt.get() as { id: number | bigint } | undefined;
 	return row ? Number(row.id) : 0;
+};
+
+export const getFilterOptions = (db: DatabaseSync): FilterOptionLists => {
+	const eventRows = db
+		.prepare(
+			"SELECT DISTINCT event FROM events WHERE event IS NOT NULL AND event <> '' ORDER BY event",
+		)
+		.all() as { event: string }[];
+
+	return {
+		sources: ["claude", "cursor"],
+		events: eventRows.map((row) => row.event),
+	};
 };
 
 export const getEventById = (db: DatabaseSync, id: number): EventRow | undefined => {

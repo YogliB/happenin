@@ -11,6 +11,9 @@ const tsdownPkg = require(tsdownPkgPath);
 const tsdownBin = resolve(dirname(tsdownPkgPath), tsdownPkg.bin.tsdown);
 
 const args = process.argv.slice(2);
+if (args[0] === "dashboard" && !args.includes("--silent") && !args.includes("--no-open")) {
+	args.push("--silent");
+}
 
 const builder = spawn("node", [tsdownBin, "--config", "tsdown.config.ts", "--watch"], {
 	stdio: "inherit",

@@ -31,12 +31,13 @@ Imports existing transcripts:
 
 `store.db` is skipped because it is encrypted.
 
-### `happenin dashboard [--port <port>] [--no-open]`
+### `happenin dashboard [--port <port>] [--no-open] [--silent]`
 
 Starts a local HTTP server and opens the dashboard in your browser.
 
 - `--port` — port to listen on (default: `8765`).
 - `--no-open` — do not open the browser.
+- `--silent` — alias for `--no-open`; used automatically by `npm start`.
 
 ## Configuration
 

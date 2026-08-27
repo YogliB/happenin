@@ -12,6 +12,7 @@ import {
 	trackImport,
 	getImportMtime,
 	countEvents,
+	getFilterOptions,
 } from "../src/db.js";
 import { recordFromRaw } from "../src/record.js";
 import { runInstall } from "../src/install.js";
@@ -78,6 +79,42 @@ describe("happenin", () => {
 			trackImport(db, "/tmp/foo.jsonl", 12345);
 			expect(getImportMtime(db, "/tmp/foo.jsonl")).toBe(12345);
 			expect(getImportMtime(db, "/tmp/missing.jsonl")).toBeUndefined();
+		});
+
+		it("returns distinct filter options", () => {
+			const db = initDb(":memory:");
+			insertEvent(db, {
+				source: "cursor",
+				client: "cursor",
+				event: "preToolUse",
+				sessionId: "s-1",
+				payload: JSON.stringify({}),
+			});
+			insertEvent(db, {
+				source: "claude",
+				client: "claude_code",
+				event: "PreToolUse",
+				sessionId: "s-2",
+				payload: JSON.stringify({}),
+			});
+			insertEvent(db, {
+				source: "cursor",
+				client: "cursor",
+				event: "preToolUse",
+				sessionId: "s-1",
+				payload: JSON.stringify({}),
+			});
+			insertEvent(db, {
+				source: "cursor-transcript",
+				client: "cursor",
+				event: "prompt",
+				sessionId: "s-3",
+				payload: JSON.stringify({}),
+			});
+
+			const options = getFilterOptions(db);
+			expect(options.sources).toEqual(["claude", "cursor"]);
+			expect(options.events).toEqual(["PreToolUse", "preToolUse", "prompt"]);
 		});
 	});
 
@@ -281,6 +318,23 @@ describe("happenin", () => {
 			expect(html).toContain('sse-connect="/events/stream"');
 			expect(html).toContain("/fragments/events?page=1");
 			expect(html).toContain('id="feed-pager"');
+			expect(html).toContain('<select name="source">');
+			expect(html).toContain('<select name="event">');
+			expect(html).not.toContain('<select name="session">');
+			expect(html).toContain('name="session"');
+			expect(html).not.toContain(">Filter</button>");
+			expect(html).toContain("input changed delay:300ms");
+		});
+
+		it("renders filter select options", () => {
+			const html = dashboardHtml({
+				sources: ["cursor", "claude"],
+				events: ["preToolUse"],
+			});
+			expect(html).toContain('<option value="cursor">cursor</option>');
+			expect(html).toContain('<option value="claude">claude</option>');
+			expect(html).toContain('<option value="preToolUse">preToolUse</option>');
+			expect(html).toContain('class="search"');
 		});
 
 		it("renders an event row with escaped fields", () => {

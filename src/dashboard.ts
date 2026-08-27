@@ -1,8 +1,15 @@
 import http from "node:http";
 import { execFile } from "node:child_process";
 import process from "node:process";
-import { getDbPath, initDb, getEvents, getLastEventId, countEvents } from "./db.js";
-import type { EventRow, FilterOptions } from "./types.js";
+import {
+	getDbPath,
+	initDb,
+	getEvents,
+	getLastEventId,
+	countEvents,
+	getFilterOptions,
+} from "./db.js";
+import type { EventRow, FilterOptionLists, FilterOptions } from "./types.js";
 import { runImport } from "./import.js";
 import { DASHBOARD_PAGE_SIZE } from "./constants.js";
 
@@ -155,7 +162,7 @@ function renderPager(options: QueryOptions, total: number, rows: EventRow[]): st
 
 function sendDashboard(res: http.ServerResponse): void {
 	res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-	res.end(dashboardHtml());
+	res.end(dashboardHtml(getFilterOptions(db)));
 }
 
 function sendEventsFragment(req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
@@ -252,7 +259,11 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
 	}
 }
 
-export function dashboardHtml(): string {
+function renderSelectOptions(values: string[]): string {
+	return `<option value="" selected>all</option>${values.map((value) => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join("")}`;
+}
+
+export function dashboardHtml(options: FilterOptionLists = { sources: [], events: [] }): string {
 	return `<!DOCTYPE html>
 <html lang="en" hx-ext="sse">
 <head>
@@ -267,7 +278,7 @@ h1 { margin: 0 0 0.75rem; font-size: 1.25rem; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1rem; }
 form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; align-items: end; }
 label { display: flex; flex-direction: column; font-size: 0.75rem; gap: 0.2rem; color: #9aa3b2; }
-input, button { background: #14161b; color: #e6e6e6; border: 1px solid #2d3139; border-radius: 0.35rem; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
+input, select, button { background: #14161b; color: #e6e6e6; border: 1px solid #2d3139; border-radius: 0.35rem; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
 button { cursor: pointer; background: #1c1f26; }
 button:hover { background: #252830; }
 #feed { background: #111216; border: 1px solid #23262d; border-radius: 0.5rem; min-height: 4rem; overflow: hidden; }
@@ -307,12 +318,11 @@ details[open].session-group > summary::before { content: "−"; }
 </head>
 <body>
 <h1>happenin</h1>
-<form hx-get="/fragments/events" hx-target="#feed-items" hx-swap="innerHTML" hx-trigger="submit, change">
-	<label>source <input type="text" name="source" placeholder="all"></label>
-	<label>event <input type="text" name="event" placeholder="all"></label>
-	<label>session <input type="text" name="session" placeholder="all"></label>
-	<label>q <input type="text" name="q" placeholder="search"></label>
-	<button type="submit">Filter</button>
+<form hx-get="/fragments/events" hx-target="#feed-items" hx-swap="innerHTML" hx-trigger="change, input changed delay:300ms from:.search">
+	<label>source <select name="source">${renderSelectOptions(options.sources)}</select></label>
+	<label>event <select name="event">${renderSelectOptions(options.events)}</select></label>
+	<label>session <input type="text" name="session" class="search" placeholder="session"></label>
+	<label>q <input type="text" name="q" class="search" placeholder="search"></label>
 </form>
 <div class="layout" x-data="{ detail: null }">
 	<div id="feed">
@@ -404,7 +414,7 @@ export async function runDashboard(argv: string[]): Promise<void> {
 				process.exit(1);
 			}
 			port = n;
-		} else if (arg === "--no-open") {
+		} else if (arg === "--no-open" || arg === "--silent") {
 			open = false;
 		}
 	}
