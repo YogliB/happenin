@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+nub run typecheck
+nub run test

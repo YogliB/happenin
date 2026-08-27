@@ -1,0 +1,23 @@
+name: Verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verification:
+    name: Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: nubjs/setup-nub@v0
+        with:
+          nub-version: ^0.6.0
+
+      - run: nub --version
+
+      - run: nub ci
+      - run: nub run build

@@ -1,0 +1,54 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"jsPlugins": [
+		"eslint-plugin-security",
+		"./scripts/oxlint-repo-guidelines.js",
+		"./scripts/oxlint-no-comment.js"
+	],
+	"plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "node", "promise"],
+	"options": { "denyWarnings": true },
+	"rules": {
+		"security/detect-bidi-characters": "error",
+		"security/detect-buffer-noassert": "error",
+		"security/detect-child-process": "error",
+		"security/detect-disable-mustache-escape": "error",
+		"security/detect-eval-with-expression": "error",
+		"security/detect-new-buffer": "error",
+		"security/detect-no-csrf-before-method-override": "error",
+		"security/detect-non-literal-fs-filename": "error",
+		"security/detect-non-literal-regexp": "error",
+		"security/detect-non-literal-require": "error",
+		"security/detect-object-injection": "error",
+		"security/detect-possible-timing-attacks": "error",
+		"security/detect-pseudoRandomBytes": "error",
+		"security/detect-unsafe-regex": "error",
+		"oxlint-repo-guidelines/no-more-docs": "error",
+		"no-comment/no-comment": "error"
+	},
+	"overrides": [
+		{
+			"files": ["**/*.test.ts"],
+			"rules": {
+				"max-lines": "off",
+				"security/detect-bidi-characters": "off",
+				"security/detect-buffer-noassert": "off",
+				"security/detect-child-process": "off",
+				"security/detect-disable-mustache-escape": "off",
+				"security/detect-eval-with-expression": "off",
+				"security/detect-new-buffer": "off",
+				"security/detect-no-csrf-before-method-override": "off",
+				"security/detect-non-literal-fs-filename": "off",
+				"security/detect-non-literal-regexp": "off",
+				"security/detect-non-literal-require": "off",
+				"security/detect-object-injection": "off",
+				"security/detect-possible-timing-attacks": "off",
+				"security/detect-pseudoRandomBytes": "off",
+				"security/detect-unsafe-regex": "off"
+			}
+		}
+	],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error"
+	}
+}

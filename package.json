@@ -1,0 +1,53 @@
+{
+	"name": "happenin",
+	"version": "0.1.0",
+	"description": "A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime dashboard.",
+	"bin": {
+		"happenin": "dist/bin.js"
+	},
+	"files": [
+		"assets",
+		"dist",
+		"LICENSE.md",
+		"README.md"
+	],
+	"type": "module",
+	"scripts": {
+		"build": "tsdown --config tsdown.config.ts",
+		"typecheck": "tsc --noEmit",
+		"lint": "oxlint --fix src",
+		"lint:ci": "oxlint src",
+		"format": "oxfmt --write .",
+		"format:ci": "oxfmt --check .",
+		"test": "vitest run",
+		"test:ci": "vitest run --coverage"
+	},
+	"devDependencies": {
+		"@types/node": "24",
+		"@vitest/coverage-v8": "^4.1.10",
+		"eslint-plugin-security": "4.0.1",
+		"husky": "9.1.7",
+		"jscpd": "4.0.9",
+		"knip": "6.11.0",
+		"lint-staged": "17.1.1",
+		"oxfmt": "0.61.0",
+		"oxlint": "1.76.0",
+		"tsdown": "0.22.14",
+		"typescript": "7.0.2",
+		"vitest": "^4.1.10"
+	},
+	"lint-staged": {
+		"**/*": "oxfmt --write --no-error-on-unmatched-pattern",
+		"**/*.ts": "oxlint --fix"
+	},
+	"devEngines": {
+		"packageManager": {
+			"name": "nub",
+			"version": "^0.6.0",
+			"onFail": "warn"
+		}
+	},
+	"engines": {
+		"node": ">=24.0.0"
+	}
+}

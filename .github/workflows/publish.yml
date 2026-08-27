@@ -1,0 +1,63 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - v*
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: read
+
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+
+    steps:
+      - id: check
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { data: pulls } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            })
+
+            const openPulls = pulls.filter((pull) => pull.state === 'open')
+            core.setOutput('skip', openPulls.length > 0 ? 'true' : 'false')
+
+            if (openPulls.length > 0) {
+              core.notice(`Skipping publish for ${context.sha} because it is associated with an open pull request.`)
+            }
+
+  publish:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: nubjs/setup-nub@v0
+        with:
+          nub-version: ^0.6.0
+          registry-url: https://registry.npmjs.org
+
+      - run: nub --version
+
+      - run: nub ci
+
+      - run: nub run build
+
+      - run: nub run test
+
+      - run: npm i -g npm@latest
+
+      - run: npm stage publish

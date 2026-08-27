@@ -1,0 +1,26 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: nubjs/setup-nub@v0
+        with:
+          nub-version: ^0.6.0
+
+      - run: nub --version
+
+      - run: nub ci
+      - run: nub run lint:ci
+      - run: nub run format:ci
+      - run: nub run typecheck
+      - run: nub run test:ci

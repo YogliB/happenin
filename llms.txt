@@ -1,0 +1,30 @@
+# crewmate
+
+> crewmate is a command-line tool. The project is currently a minimal bare-metal scaffold; this file will grow alongside real functionality.
+
+Important notes:
+
+- Development of this repository requires [Nub](https://nubjs.com); end users will be able to install the published package with npm once it ships.
+- There is no CLI behavior beyond a placeholder entry point yet.
+
+## User docs
+
+- [README.md](https://raw.githubusercontent.com/YogliB/crewmate/main/README.md): Overview and usage.
+- [docs/CHANGELOG.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/CHANGELOG.md): Version history and release notes.
+
+## Contributor docs
+
+- [docs/CONTRIBUTING.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/CONTRIBUTING.md): Bug reports, enhancement suggestions, style guides, and commit conventions.
+- [docs/SECURITY.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/SECURITY.md): Supported versions and how to report vulnerabilities privately.
+- [AGENTS.md](https://raw.githubusercontent.com/YogliB/crewmate/main/AGENTS.md): Entry point for coding agents; summarizes setup, scripts, and key files.
+
+## Implementation
+
+- [src/bin.ts](https://raw.githubusercontent.com/YogliB/crewmate/main/src/bin.ts): CLI entry point.
+- [src/index.ts](https://raw.githubusercontent.com/YogliB/crewmate/main/src/index.ts): Public API and main entry function.
+
+## Optional
+
+- [docs/ARCHITECTURE.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/ARCHITECTURE.md): Repository overview and structure.
+- [docs/CODE_OF_CONDUCT.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/CODE_OF_CONDUCT.md): Community expectations and behavior standards.
+- [package.json](https://raw.githubusercontent.com/YogliB/crewmate/main/package.json): Scripts, dependencies, engines, and package metadata.

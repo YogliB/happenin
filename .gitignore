@@ -1,0 +1,12 @@
+.DS_Store
+.agents/plans/
+.agents/reports/
+.devin/
+.env
+.env.*
+!.env.example
+coverage
+dist
+node_modules
+.serena/
+logs/
