@@ -96,7 +96,7 @@ export function groupEventsBySession(
 export function renderSessionGroup(sessionId: string | undefined, rows: EventRow[]): string {
 	const title = sessionId ? escapeHtml(String(sessionId)) : "no session";
 	const count = rows.length;
-	return `<div class="session-group" data-session="${escapeAttr(String(sessionId ?? ""))}"><div class="session-header"><span class="session-title">${title}</span><span class="session-count">${count}</span></div><div class="session-events">${rows.map((row) => renderEventRow(row, { includeSession: false })).join("")}</div></div>`;
+	return `<details class="session-group" data-session="${escapeAttr(String(sessionId ?? ""))}" open><summary class="session-header"><span class="session-title">${title}</span><span class="session-count">${count}</span></summary><div class="session-events">${rows.map((row) => renderEventRow(row, { includeSession: false })).join("")}</div></details>`;
 }
 
 type QueryOptions = FilterOptions & { limit: number; offset: number; page: number };
@@ -286,6 +286,10 @@ button:hover { background: #252830; }
 .session-header .session-count { color: #6b7280; font-size: 0.75rem; }
 .session-events { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.5rem; background: #111216; }
 .session-events .event-row { background: #16181d; border: 1px solid #24282f; }
+details.session-group > summary { list-style: none; cursor: pointer; }
+details.session-group > summary::-webkit-details-marker { display: none; }
+details.session-group > summary::before { content: "+"; color: #6b7280; margin-right: 0.5rem; font-size: 0.85rem; }
+details[open].session-group > summary::before { content: "−"; }
 .detail { background: #111216; border: 1px solid #23262d; border-radius: 0.5rem; padding: 0.75rem; position: sticky; top: 1rem; height: fit-content; }
 .detail pre { white-space: pre-wrap; overflow-x: auto; background: #0d0d0f; padding: 0.75rem; border-radius: 0.35rem; border: 1px solid #23262d; font-size: 0.8rem; line-height: 1.3; }
 .detail .actions { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }

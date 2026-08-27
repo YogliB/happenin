@@ -345,6 +345,9 @@ describe("happenin", () => {
 			expect(html).toContain("sessionStart");
 			expect(html).not.toContain("session:s-1");
 			expect(html).toContain('data-session="s-1"');
+			expect(html).toContain("<details");
+			expect(html).toContain("<summary");
+			expect(html).toMatch(/<details[^>]*\bopen\b/);
 		});
 
 		it("groups non-contiguous events by session into a single group each", () => {
