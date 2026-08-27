@@ -16,7 +16,13 @@ import {
 import { recordFromRaw } from "../src/record.js";
 import { runInstall } from "../src/install.js";
 import { importTranscripts } from "../src/import.js";
-import { dashboardHtml, parseQuery, renderEventRow, renderSessionGroup } from "../src/dashboard.js";
+import {
+	dashboardHtml,
+	groupEventsBySession,
+	parseQuery,
+	renderEventRow,
+	renderSessionGroup,
+} from "../src/dashboard.js";
 import type { EventInsert, EventRow } from "../src/types.js";
 
 function tempDir(): string {
@@ -339,6 +345,67 @@ describe("happenin", () => {
 			expect(html).toContain("sessionStart");
 			expect(html).not.toContain("session:s-1");
 			expect(html).toContain('data-session="s-1"');
+		});
+
+		it("groups non-contiguous events by session into a single group each", () => {
+			const rows: EventRow[] = [
+				{
+					id: 5,
+					source: "cursor",
+					client: "cursor",
+					event: "sessionStart",
+					sessionId: "s-2",
+					happenedAt: "2024-01-01T00:00:04Z",
+					receivedAt: 1700000004000,
+					payload: JSON.stringify({}),
+				},
+				{
+					id: 4,
+					source: "cursor",
+					client: "cursor",
+					event: "preToolUse",
+					sessionId: "s-1",
+					happenedAt: "2024-01-01T00:00:03Z",
+					receivedAt: 1700000003000,
+					payload: JSON.stringify({ tool: "Shell" }),
+				},
+				{
+					id: 3,
+					source: "cursor",
+					client: "cursor",
+					event: "prompt",
+					sessionId: "s-2",
+					happenedAt: "2024-01-01T00:00:02Z",
+					receivedAt: 1700000002000,
+					payload: JSON.stringify({}),
+				},
+				{
+					id: 2,
+					source: "cursor",
+					client: "cursor",
+					event: "sessionStart",
+					sessionId: "s-1",
+					happenedAt: "2024-01-01T00:00:01Z",
+					receivedAt: 1700000001000,
+					payload: JSON.stringify({}),
+				},
+				{
+					id: 1,
+					source: "cursor",
+					client: "cursor",
+					event: "prompt",
+					sessionId: "s-1",
+					happenedAt: "2024-01-01T00:00:00Z",
+					receivedAt: 1700000000000,
+					payload: JSON.stringify({}),
+				},
+			];
+			const groups = groupEventsBySession(rows);
+			expect(groups.length).toBe(2);
+			expect(groups[0].sessionId).toBe("s-2");
+			expect(groups[0].rows.map((r) => r.id)).toEqual([5, 3]);
+			expect(groups[1].sessionId).toBe("s-1");
+			expect(groups[1].rows.map((r) => r.id)).toEqual([4, 2, 1]);
 		});
 	});
 });

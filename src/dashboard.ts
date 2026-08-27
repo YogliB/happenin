@@ -76,19 +76,21 @@ export function renderEventRow(row: EventRow, options?: RenderEventRowOptions): 
 	return `<div class="event-row" x-data="${xData}" @click="detail = event"><span class="id">#${escapeHtml(String(row.id))}</span> <span class="source">${escapeHtml(String(row.source ?? ""))}</span> <span class="event">${escapeHtml(String(row.event ?? ""))}</span> <span class="meta">${meta.join(" ")}</span> <span class="when">${escapeHtml(when)}</span></div>`;
 }
 
-function groupEventsBySession(
+export function groupEventsBySession(
 	rows: EventRow[],
 ): { sessionId: string | undefined; rows: EventRow[] }[] {
-	const groups: { sessionId: string | undefined; rows: EventRow[] }[] = [];
+	const order: (string | undefined)[] = [];
+	const bySession = new Map<string | undefined, EventRow[]>();
 	for (const row of rows) {
-		const last = groups[groups.length - 1];
-		if (last && last.sessionId === row.sessionId) {
-			last.rows.push(row);
+		const existing = bySession.get(row.sessionId);
+		if (existing) {
+			existing.push(row);
 		} else {
-			groups.push({ sessionId: row.sessionId, rows: [row] });
+			order.push(row.sessionId);
+			bySession.set(row.sessionId, [row]);
 		}
 	}
-	return groups;
+	return order.map((sessionId) => ({ sessionId, rows: bySession.get(sessionId)! }));
 }
 
 export function renderSessionGroup(sessionId: string | undefined, rows: EventRow[]): string {
