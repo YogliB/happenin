@@ -370,7 +370,16 @@ export function dashboardHtml(options: FilterOptionLists = { sources: [], events
 		form.addEventListener('input', (event) => {
 			if (event.target.classList.contains('search')) saveFilters(form);
 		});
-		if (window.htmx) htmx.trigger(form, 'change');
+
+		const feed = document.getElementById('feed-items');
+		if (!feed) return;
+		const data = new FormData(form);
+		const params = new URLSearchParams();
+		params.set('page', '1');
+		for (const [key, value] of data.entries()) {
+			if (value) params.set(key, String(value));
+		}
+		feed.setAttribute('hx-get', params.size > 1 ? '/fragments/events?' + params.toString() : '/fragments/events?page=1');
 	}
 
 	function initFeedItems() {
@@ -486,7 +495,7 @@ details[open].session-group > summary::before { content: "−"; }
 </form>
 <div class="layout" x-data="{ detail: null }">
 	<div id="feed">
-		<div id="feed-items" hx-swap="beforeend" sse-connect="/events/stream" sse-swap="message"></div>
+		<div id="feed-items" hx-get="/fragments/events?page=1" hx-trigger="load" hx-swap="beforeend" sse-connect="/events/stream" sse-swap="message"></div>
 		<div id="feed-pager" hx-target="#feed-items" hx-swap="innerHTML"></div>
 	</div>
 	<aside class="detail" x-show="detail">
