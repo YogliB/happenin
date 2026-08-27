@@ -316,7 +316,12 @@ describe("happenin", () => {
 			expect(html).toContain("htmx-ext-sse@2.2.4");
 			expect(html).toContain("alpinejs@3.14.8");
 			expect(html).toContain('sse-connect="/events/stream"');
-			expect(html).toContain("/fragments/events?page=1");
+			expect(html).toContain("data-theme-toggle");
+			expect(html).toContain("data-filter-form");
+			expect(html).toContain("happenin-theme");
+			expect(html).toContain("happenin-filters");
+
+			expect(html).toContain("🌙");
 			expect(html).toContain('id="feed-pager"');
 			expect(html).toContain('<select name="source">');
 			expect(html).toContain('<select name="event">');
