@@ -1,30 +1,36 @@
-# crewmate
+# happenin
 
-> crewmate is a command-line tool. The project is currently a minimal bare-metal scaffold; this file will grow alongside real functionality.
+> A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime dashboard.
 
 Important notes:
 
 - Development of this repository requires [Nub](https://nubjs.com); end users will be able to install the published package with npm once it ships.
-- There is no CLI behavior beyond a placeholder entry point yet.
+- The CLI exposes `install`, `record`, `import`, and `dashboard` commands.
+- There are zero runtime dependencies; the dashboard loads small client libraries (htmx, AlpineJS, htmx-ext-sse) from a CDN.
 
 ## User docs
 
-- [README.md](https://raw.githubusercontent.com/YogliB/crewmate/main/README.md): Overview and usage.
-- [docs/CHANGELOG.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/CHANGELOG.md): Version history and release notes.
+- [README.md](https://raw.githubusercontent.com/YogliB/happenin/main/README.md): Overview, quick start, commands, and usage.
+- [docs/ARCHITECTURE.md](https://raw.githubusercontent.com/YogliB/happenin/main/docs/ARCHITECTURE.md): Data flow and design choices.
 
 ## Contributor docs
 
-- [docs/CONTRIBUTING.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/CONTRIBUTING.md): Bug reports, enhancement suggestions, style guides, and commit conventions.
-- [docs/SECURITY.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/SECURITY.md): Supported versions and how to report vulnerabilities privately.
-- [AGENTS.md](https://raw.githubusercontent.com/YogliB/crewmate/main/AGENTS.md): Entry point for coding agents; summarizes setup, scripts, and key files.
+- [AGENTS.md](https://raw.githubusercontent.com/YogliB/happenin/main/AGENTS.md): Entry point for coding agents; setup, scripts, and key files.
 
 ## Implementation
 
-- [src/bin.ts](https://raw.githubusercontent.com/YogliB/crewmate/main/src/bin.ts): CLI entry point.
-- [src/index.ts](https://raw.githubusercontent.com/YogliB/crewmate/main/src/index.ts): Public API and main entry function.
+- [src/bin.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/bin.ts): CLI executable entry point.
+- [src/index.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/index.ts): CLI dispatch for `install`, `record`, `import`, `dashboard`, `--help`, and `--version`.
+- [src/db.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/db.ts): SQLite data layer.
+- [src/record.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/record.ts): Hook target; reads JSON from stdin and stores an event.
+- [src/install.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/install.ts): Backs up and appends hooks to Cursor and Claude Code configs.
+- [src/import.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/import.ts): Imports Claude and Cursor transcripts.
+- [src/dashboard.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/dashboard.ts): HTTP server and dashboard HTML.
+- [src/constants.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/constants.ts): Hook event lists and default responses.
+- [src/types.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/types.ts): Shared TypeScript types.
 
 ## Optional
 
-- [docs/ARCHITECTURE.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/ARCHITECTURE.md): Repository overview and structure.
-- [docs/CODE_OF_CONDUCT.md](https://raw.githubusercontent.com/YogliB/crewmate/main/docs/CODE_OF_CONDUCT.md): Community expectations and behavior standards.
-- [package.json](https://raw.githubusercontent.com/YogliB/crewmate/main/package.json): Scripts, dependencies, engines, and package metadata.
+- [assets/help.md](https://raw.githubusercontent.com/YogliB/happenin/main/assets/help.md): Help text shown by `--help`.
+- [package.json](https://raw.githubusercontent.com/YogliB/happenin/main/package.json): Scripts, dependencies, engines, and package metadata.
+- [LICENSE.md](https://raw.githubusercontent.com/YogliB/happenin/main/LICENSE.md): MIT license.
