@@ -149,7 +149,7 @@ const parseTargets = (argv: string[]): { cursor: boolean; claude: boolean } => {
 	return { cursor, claude };
 };
 
-export async function install(opts: { cursor?: boolean; claude?: boolean } = {}): Promise<void> {
+async function install(opts: { cursor?: boolean; claude?: boolean } = {}): Promise<void> {
 	const { cursor = true, claude = true } = opts;
 	const bin = resolveBin();
 	const results: InstallResult[] = [];

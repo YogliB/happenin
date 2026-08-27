@@ -26,9 +26,3 @@ export type FilterOptions = {
 	q?: string;
 	limit?: number;
 };
-
-export type ImportRecord = {
-	path: string;
-	mtime: number;
-	importedAt: number;
-};

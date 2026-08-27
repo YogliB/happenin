@@ -27,6 +27,8 @@ nub run build
 - `nub run typecheck` — run `tsc --noEmit`.
 - `nub run lint` / `nub run lint:ci` — run oxlint; use `lint` for auto-fix.
 - `nub run format` / `nub run format:ci` — run oxfmt; use `format` to apply.
+- `nub run duplicates:ci` — run jscpd to detect duplicated code.
+- `nub run knip:ci` — find unused dependencies and exports with knip.
 - `nub run test` / `nub run test:ci` — run vitest with or without coverage.
 
 ## Project layout
@@ -54,4 +56,4 @@ Keep docs short, clear, and concise. `AGENTS.md` is a condensed version of the h
 
 ## Pull requests
 
-Keep changes focused. Run `nub run build`, `nub run typecheck`, `nub run format:ci`, `nub run lint:ci`, and `nub run test:ci` before opening a PR. Squash to a single commit and write a Conventional Commit message.
+Keep changes focused. Run `nub run build`, `nub run typecheck`, `nub run format:ci`, `nub run lint:ci`, `nub run duplicates:ci`, `nub run knip:ci`, and `nub run test:ci` before opening a PR. Squash to a single commit and write a Conventional Commit message.

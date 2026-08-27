@@ -22,5 +22,7 @@ jobs:
       - run: nub ci
       - run: nub run lint:ci
       - run: nub run format:ci
+      - run: nub run duplicates:ci
+      - run: nub run knip:ci
       - run: nub run typecheck
       - run: nub run test:ci

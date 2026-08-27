@@ -19,8 +19,11 @@
 		"lint:ci": "oxlint src",
 		"format": "oxfmt --write .",
 		"format:ci": "oxfmt --check .",
+		"duplicates:ci": "jscpd --threshold 5 src",
+		"knip:ci": "knip",
 		"test": "vitest run",
-		"test:ci": "vitest run --coverage"
+		"test:ci": "vitest run --coverage",
+		"prepare": "husky"
 	},
 	"devDependencies": {
 		"@types/node": "24",

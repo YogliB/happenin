@@ -269,7 +269,7 @@ button:hover { background: #252830; }
 </html>`;
 }
 
-export async function startServer(port: number, open: boolean): Promise<void> {
+async function startServer(port: number, open: boolean): Promise<void> {
 	const server = http.createServer((req, res) => {
 		void handleRequest(req, res);
 	});
