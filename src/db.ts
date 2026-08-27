@@ -108,7 +108,10 @@ export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
 	);
 };
 
-export const getEvents = (db: DatabaseSync, options: FilterOptions): EventRow[] => {
+function buildWhereClause(options: FilterOptions): {
+	clause: string;
+	params: (string | number | null)[];
+} {
 	const conditions: string[] = [];
 	const params: (string | number | null)[] = [];
 
@@ -133,13 +136,30 @@ export const getEvents = (db: DatabaseSync, options: FilterOptions): EventRow[] 
 		params.push(`%${options.q}%`);
 	}
 
-	const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+	const clause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+	return { clause, params };
+}
+
+export const getEvents = (db: DatabaseSync, options: FilterOptions): EventRow[] => {
+	const { clause, params } = buildWhereClause(options);
 	const limit = options.limit ?? 100;
-	const sql = `${selectEventSql} ${whereClause} ORDER BY id DESC LIMIT ?`;
+	const offset = options.offset ?? 0;
+	const sql = `${selectEventSql} ${clause} ORDER BY id DESC LIMIT ?${offset > 0 ? " OFFSET ?" : ""}`;
 	params.push(limit);
+	if (offset > 0) {
+		params.push(offset);
+	}
 
 	const stmt = db.prepare(sql);
 	return stmt.all(...params) as unknown as EventRow[];
+};
+
+export const countEvents = (db: DatabaseSync, options: FilterOptions): number => {
+	const { clause, params } = buildWhereClause(options);
+	const sql = `SELECT COUNT(*) AS count FROM events ${clause}`;
+	const stmt = db.prepare(sql);
+	const row = stmt.get(...params) as { count: number | bigint } | undefined;
+	return row ? Number(row.count) : 0;
 };
 
 export const getLastEventId = (db: DatabaseSync): number => {

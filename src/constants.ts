@@ -2,6 +2,7 @@ import type { Source } from "./types.js";
 
 export const DEFAULT_DB_DIR = ".happenin";
 export const DEFAULT_DB_NAME = "happenin.db";
+export const DASHBOARD_PAGE_SIZE = 50;
 
 export const CURSOR_HOOK_EVENTS = [
 	"sessionStart",

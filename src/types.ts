@@ -25,4 +25,5 @@ export type FilterOptions = {
 	sessionId?: string;
 	q?: string;
 	limit?: number;
+	offset?: number;
 };

@@ -1,9 +1,10 @@
 import http from "node:http";
 import { execFile } from "node:child_process";
 import process from "node:process";
-import { getDbPath, initDb, getEvents, getLastEventId } from "./db.js";
+import { getDbPath, initDb, getEvents, getLastEventId, countEvents } from "./db.js";
 import type { EventRow, FilterOptions } from "./types.js";
 import { runImport } from "./import.js";
+import { DASHBOARD_PAGE_SIZE } from "./constants.js";
 
 type Db = ReturnType<typeof initDb>;
 
@@ -59,28 +60,52 @@ function eventView(row: EventRow): Record<string, unknown> {
 	};
 }
 
-export function renderEventRow(row: EventRow): string {
+type RenderEventRowOptions = { includeSession?: boolean };
+
+export function renderEventRow(row: EventRow, options?: RenderEventRowOptions): string {
+	const includeSession = options?.includeSession ?? true;
 	const view = eventView(row);
 	const xData = escapeAttr(JSON.stringify({ event: view }));
 	const when = row.happenedAt
 		? String(row.happenedAt)
 		: new Date(Number(row.receivedAt ?? 0)).toISOString();
 	const meta: string[] = [];
-	if (row.sessionId) meta.push(`session:${escapeHtml(String(row.sessionId))}`);
+	if (includeSession && row.sessionId) meta.push(`session:${escapeHtml(String(row.sessionId))}`);
 	if (row.toolName) meta.push(`tool:${escapeHtml(String(row.toolName))}`);
 	if (row.filePath) meta.push(`file:${escapeHtml(String(row.filePath))}`);
 	return `<div class="event-row" x-data="${xData}" @click="detail = event"><span class="id">#${escapeHtml(String(row.id))}</span> <span class="source">${escapeHtml(String(row.source ?? ""))}</span> <span class="event">${escapeHtml(String(row.event ?? ""))}</span> <span class="meta">${meta.join(" ")}</span> <span class="when">${escapeHtml(when)}</span></div>`;
 }
 
-type QueryOptions = FilterOptions & { limit: number };
+function groupEventsBySession(
+	rows: EventRow[],
+): { sessionId: string | undefined; rows: EventRow[] }[] {
+	const groups: { sessionId: string | undefined; rows: EventRow[] }[] = [];
+	for (const row of rows) {
+		const last = groups[groups.length - 1];
+		if (last && last.sessionId === row.sessionId) {
+			last.rows.push(row);
+		} else {
+			groups.push({ sessionId: row.sessionId, rows: [row] });
+		}
+	}
+	return groups;
+}
 
-function parseQuery(url: URL): QueryOptions {
+export function renderSessionGroup(sessionId: string | undefined, rows: EventRow[]): string {
+	const title = sessionId ? escapeHtml(String(sessionId)) : "no session";
+	const count = rows.length;
+	return `<div class="session-group" data-session="${escapeAttr(String(sessionId ?? ""))}"><div class="session-header"><span class="session-title">${title}</span><span class="session-count">${count}</span></div><div class="session-events">${rows.map((row) => renderEventRow(row, { includeSession: false })).join("")}</div></div>`;
+}
+
+type QueryOptions = FilterOptions & { limit: number; offset: number; page: number };
+
+export function parseQuery(url: URL): QueryOptions {
 	const sinceRaw = url.searchParams.get("since");
-	const source = url.searchParams.get("source") ?? undefined;
-	const event = url.searchParams.get("event") ?? undefined;
-	const session = url.searchParams.get("session") ?? undefined;
-	const q = url.searchParams.get("q") ?? undefined;
-	const limitRaw = url.searchParams.get("limit");
+	const source = url.searchParams.get("source") || undefined;
+	const event = url.searchParams.get("event") || undefined;
+	const session = url.searchParams.get("session") || undefined;
+	const q = url.searchParams.get("q") || undefined;
+	const pageRaw = url.searchParams.get("page");
 
 	let since: number | undefined;
 	if (sinceRaw) {
@@ -88,13 +113,42 @@ function parseQuery(url: URL): QueryOptions {
 		if (!Number.isNaN(n)) since = n;
 	}
 
-	let limit = 50;
-	if (limitRaw) {
-		const n = parseInt(limitRaw, 10);
-		if (!Number.isNaN(n) && n > 0) limit = n;
+	let page = 1;
+	if (pageRaw) {
+		const n = parseInt(pageRaw, 10);
+		if (!Number.isNaN(n) && n > 0) page = n;
 	}
 
-	return { since, source, event, sessionId: session, q, limit };
+	const offset = (page - 1) * DASHBOARD_PAGE_SIZE;
+
+	return { since, source, event, sessionId: session, q, limit: DASHBOARD_PAGE_SIZE, offset, page };
+}
+
+function queryParams(options: FilterOptions, page?: number): URLSearchParams {
+	const params = new URLSearchParams();
+	if (options.since) params.set("since", String(options.since));
+	if (options.source) params.set("source", options.source);
+	if (options.event) params.set("event", options.event);
+	if (options.sessionId) params.set("session", options.sessionId);
+	if (options.q) params.set("q", options.q);
+	if (page !== undefined && page > 1) params.set("page", String(page));
+	return params;
+}
+
+function pageUrl(options: FilterOptions, page: number): string {
+	const params = queryParams(options, page);
+	return params.size > 0 ? `/fragments/events?${params.toString()}` : "/fragments/events";
+}
+
+function renderPager(options: QueryOptions, total: number, rows: EventRow[]): string {
+	const { page, offset } = options;
+	const hasPrev = page > 1;
+	const hasNext = total > offset + rows.length;
+	const prev = hasPrev ? pageUrl(options, page - 1) : "";
+	const next = hasNext ? pageUrl(options, page + 1) : "";
+	const prevAttr = hasPrev ? `hx-get="${escapeAttr(prev)}" ` : "";
+	const nextAttr = hasNext ? `hx-get="${escapeAttr(next)}" ` : "";
+	return `<div id="feed-pager" hx-swap-oob="true" hx-target="#feed-items" hx-swap="innerHTML"><div class="pager"><button type="button" ${prevAttr}${hasPrev ? "" : "disabled "}>Prev</button><span class="page-number">${page}</span><button type="button" ${nextAttr}${hasNext ? "" : "disabled "}>Next</button></div></div>`;
 }
 
 function sendDashboard(res: http.ServerResponse): void {
@@ -105,11 +159,14 @@ function sendDashboard(res: http.ServerResponse): void {
 function sendEventsFragment(req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
 	const options = parseQuery(url);
 	const rows = getEvents(db, options);
-	const html = rows.length
-		? rows.map(renderEventRow).join("")
+	const total = countEvents(db, options);
+	const groups = groupEventsBySession(rows);
+	const itemsHtml = groups.length
+		? groups.map((group) => renderSessionGroup(group.sessionId, group.rows)).join("")
 		: `<p class="empty">No events found.</p>`;
+	const pagerHtml = renderPager(options, total, rows);
 	res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-	res.end(html);
+	res.end(`${itemsHtml}${pagerHtml}`);
 }
 
 function sendEventsJson(req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
@@ -141,7 +198,7 @@ function sendEventsStream(req: http.IncomingMessage, res: http.ServerResponse): 
 
 	client.timer = setInterval(() => {
 		try {
-			const rows = getEvents(db, { since: client.lastId, limit: 50 });
+			const rows = getEvents(db, { since: client.lastId, limit: DASHBOARD_PAGE_SIZE });
 			for (const row of rows) {
 				res.write(`event: message\ndata: ${renderEventRow(row)}\n\n`);
 				client.lastId = row.id;
@@ -220,10 +277,22 @@ button:hover { background: #252830; }
 .event-row .event { color: #c084fc; }
 .event-row .meta { color: #9ca3af; font-size: 0.75rem; }
 .event-row .when { color: #6b7280; font-size: 0.7rem; margin-left: auto; }
+.session-group { margin-bottom: 0.75rem; border: 1px solid #23262d; border-radius: 0.5rem; overflow: hidden; }
+.session-group:last-child { margin-bottom: 0; }
+.session-header { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.4rem 0.6rem; background: #1c1f26; border-bottom: 1px solid #23262d; font-size: 0.85rem; }
+.session-header .session-title { font-weight: 600; color: #60a5fa; word-break: break-all; }
+.session-header .session-count { color: #6b7280; font-size: 0.75rem; }
+.session-events { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.5rem; background: #111216; }
+.session-events .event-row { background: #16181d; border: 1px solid #24282f; }
 .detail { background: #111216; border: 1px solid #23262d; border-radius: 0.5rem; padding: 0.75rem; position: sticky; top: 1rem; height: fit-content; }
 .detail pre { white-space: pre-wrap; overflow-x: auto; background: #0d0d0f; padding: 0.75rem; border-radius: 0.35rem; border: 1px solid #23262d; font-size: 0.8rem; line-height: 1.3; }
 .detail .actions { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
 .empty { color: #6b7280; padding: 1rem; text-align: center; }
+#feed-pager { padding: 0.5rem; border-top: 1px solid #23262d; }
+.pager { display: flex; justify-content: center; align-items: center; gap: 0.75rem; }
+.pager button { min-width: 4rem; }
+.pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pager .page-number { color: #9ca3af; font-size: 0.85rem; }
 @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } .detail { position: static; } }
 </style>
 <script src="https://unpkg.com/htmx.org@2.0.10/dist/htmx.min.js"></script>
@@ -237,17 +306,17 @@ button:hover { background: #252830; }
 	<label>event <input type="text" name="event" placeholder="all"></label>
 	<label>session <input type="text" name="session" placeholder="all"></label>
 	<label>q <input type="text" name="q" placeholder="search"></label>
-	<label>limit <input type="number" name="limit" value="50" min="1"></label>
 	<button type="submit">Filter</button>
 </form>
 <div class="layout" x-data="{ detail: null }">
 	<div id="feed">
 		<div id="feed-items"
-			 hx-get="/fragments/events?limit=50"
+			 hx-get="/fragments/events?page=1"
 			 hx-trigger="load"
 			 hx-swap="beforeend"
 			 sse-connect="/events/stream"
 			 sse-swap="message"></div>
+		<div id="feed-pager" hx-target="#feed-items" hx-swap="innerHTML"></div>
 	</div>
 	<aside class="detail" x-show="detail">
 		<div class="actions">

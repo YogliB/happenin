@@ -11,11 +11,12 @@ import {
 	getEventById,
 	trackImport,
 	getImportMtime,
+	countEvents,
 } from "../src/db.js";
 import { recordFromRaw } from "../src/record.js";
 import { runInstall } from "../src/install.js";
 import { importTranscripts } from "../src/import.js";
-import { dashboardHtml, renderEventRow } from "../src/dashboard.js";
+import { dashboardHtml, parseQuery, renderEventRow, renderSessionGroup } from "../src/dashboard.js";
 import type { EventInsert, EventRow } from "../src/types.js";
 
 function tempDir(): string {
@@ -28,6 +29,24 @@ function cleanup(dir: string): void {
 
 describe("happenin", () => {
 	describe("db", () => {
+		it("paginates and counts events", () => {
+			const db = initDb(":memory:");
+			for (let i = 0; i < 3; i++) {
+				insertEvent(db, {
+					source: "cursor",
+					client: "cursor",
+					event: "preToolUse",
+					sessionId: "s-1",
+					payload: JSON.stringify({ i }),
+				});
+			}
+			expect(getEvents(db, { limit: 2 }).length).toBe(2);
+			expect(getEvents(db, { limit: 2, offset: 2 }).length).toBe(1);
+			expect(countEvents(db, {})).toBe(3);
+			expect(countEvents(db, { source: "cursor" })).toBe(3);
+			expect(countEvents(db, { source: "claude" })).toBe(0);
+		});
+
 		it("creates an in-memory database and returns an inserted event", () => {
 			const db = initDb(":memory:");
 			const insert: EventInsert = {
@@ -254,6 +273,8 @@ describe("happenin", () => {
 			expect(html).toContain("htmx-ext-sse@2.2.4");
 			expect(html).toContain("alpinejs@3.14.8");
 			expect(html).toContain('sse-connect="/events/stream"');
+			expect(html).toContain("/fragments/events?page=1");
+			expect(html).toContain('id="feed-pager"');
 		});
 
 		it("renders an event row with escaped fields", () => {
@@ -274,6 +295,50 @@ describe("happenin", () => {
 			expect(html).toContain("preToolUse");
 			expect(html).toContain("Shell&lt;&gt;&amp;");
 			expect(html).toContain("foo/bar.ts");
+			expect(html).toContain("session:s-1");
+		});
+
+		it("ignores empty filter query params sent by the form", () => {
+			const url = new URL("http://localhost/fragments/events?source=&event=&session=&q=&page=2");
+			const options = parseQuery(url);
+			expect(options.source).toBeUndefined();
+			expect(options.event).toBeUndefined();
+			expect(options.sessionId).toBeUndefined();
+			expect(options.q).toBeUndefined();
+			expect(options.page).toBe(2);
+			expect(options.offset).toBe(50);
+		});
+
+		it("renders a session group and omits session from inner rows", () => {
+			const rows: EventRow[] = [
+				{
+					id: 2,
+					source: "cursor",
+					client: "cursor",
+					event: "preToolUse",
+					sessionId: "s-1",
+					happenedAt: "2024-01-01T00:00:01Z",
+					receivedAt: 1700000001000,
+					toolName: "Shell",
+					payload: JSON.stringify({ tool: "Shell" }),
+				},
+				{
+					id: 1,
+					source: "cursor",
+					client: "cursor",
+					event: "sessionStart",
+					sessionId: "s-1",
+					happenedAt: "2024-01-01T00:00:00Z",
+					receivedAt: 1700000000000,
+					payload: JSON.stringify({}),
+				},
+			];
+			const html = renderSessionGroup("s-1", rows);
+			expect(html).toContain("s-1");
+			expect(html).toContain("preToolUse");
+			expect(html).toContain("sessionStart");
+			expect(html).not.toContain("session:s-1");
+			expect(html).toContain('data-session="s-1"');
 		});
 	});
 });
