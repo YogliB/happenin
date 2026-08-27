@@ -14,6 +14,8 @@
 	"type": "module",
 	"scripts": {
 		"build": "tsdown --config tsdown.config.ts",
+		"dev": "tsdown --config tsdown.config.ts --watch",
+		"start": "node dist/bin.js dashboard",
 		"typecheck": "tsc --noEmit",
 		"lint": "oxlint --fix src",
 		"lint:ci": "oxlint src",
