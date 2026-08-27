@@ -316,6 +316,9 @@ describe("happenin", () => {
 			expect(html).toContain("htmx-ext-sse@2.2.4");
 			expect(html).toContain("alpinejs@3.14.8");
 			expect(html).toContain('sse-connect="/events/stream"');
+			expect(html).not.toContain('sse-swap="message"');
+			expect(html).toContain('hx-trigger="load, sse:message"');
+			expect(html).toContain('hx-swap="innerHTML"');
 			expect(html).toContain("data-theme-toggle");
 			expect(html).toContain("data-filter-form");
 			expect(html).toContain("happenin-theme");

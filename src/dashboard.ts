@@ -207,10 +207,10 @@ function sendEventsStream(req: http.IncomingMessage, res: http.ServerResponse): 
 
 	client.timer = setInterval(() => {
 		try {
-			const rows = getEvents(db, { since: client.lastId, limit: DASHBOARD_PAGE_SIZE });
-			for (const row of rows) {
-				res.write(`event: message\ndata: ${renderEventRow(row)}\n\n`);
-				client.lastId = row.id;
+			const lastId = getLastEventId(db);
+			if (lastId > client.lastId) {
+				res.write("event: message\ndata: ping\n\n");
+				client.lastId = lastId;
 			}
 		} catch (error) {
 			console.error("SSE poll error:", error);
@@ -353,6 +353,25 @@ export function dashboardHtml(options: FilterOptionLists = { sources: [], events
 		} catch {}
 	}
 
+	function getCurrentPage() {
+		const el = document.querySelector('#feed-pager .page-number');
+		const n = el ? Number(el.textContent) : 1;
+		return Number.isNaN(n) || n < 1 ? 1 : n;
+	}
+
+	function updateFeedUrl() {
+		const form = document.querySelector('[data-filter-form]');
+		const feed = document.getElementById('feed-items');
+		if (!form || !feed) return;
+		const data = new FormData(form);
+		const params = new URLSearchParams();
+		for (const [key, value] of data.entries()) {
+			if (value) params.set(key, String(value));
+		}
+		params.set('page', String(getCurrentPage()));
+		feed.setAttribute('hx-get', '/fragments/events' + (params.size > 0 ? '?' + params.toString() : ''));
+	}
+
 	function saveFilters(form) {
 		const data = new FormData(form);
 		const filters = {};
@@ -370,16 +389,28 @@ export function dashboardHtml(options: FilterOptionLists = { sources: [], events
 		form.addEventListener('input', (event) => {
 			if (event.target.classList.contains('search')) saveFilters(form);
 		});
+		updateFeedUrl();
+	}
 
+	const openSessions = new Map();
+
+	function saveSessionState() {
 		const feed = document.getElementById('feed-items');
 		if (!feed) return;
-		const data = new FormData(form);
-		const params = new URLSearchParams();
-		params.set('page', '1');
-		for (const [key, value] of data.entries()) {
-			if (value) params.set(key, String(value));
+		for (const details of feed.querySelectorAll('.session-group')) {
+			openSessions.set(details.getAttribute('data-session') ?? '', details.hasAttribute('open'));
 		}
-		feed.setAttribute('hx-get', params.size > 1 ? '/fragments/events?' + params.toString() : '/fragments/events?page=1');
+	}
+
+	function restoreSessionState() {
+		const feed = document.getElementById('feed-items');
+		if (!feed) return;
+		for (const details of feed.querySelectorAll('.session-group')) {
+			const session = details.getAttribute('data-session') ?? '';
+			if (openSessions.has(session) && !openSessions.get(session)) {
+				details.removeAttribute('open');
+			}
+		}
 	}
 
 	function initFeedItems() {
@@ -387,7 +418,16 @@ export function dashboardHtml(options: FilterOptionLists = { sources: [], events
 		if (el && window.Alpine) Alpine.initTree(el);
 	}
 
-	document.addEventListener('htmx:afterSwap', initFeedItems);
+	document.addEventListener('htmx:beforeSwap', (event) => {
+		if (event.detail.target.id === 'feed-items') saveSessionState();
+	});
+
+	document.addEventListener('htmx:afterSettle', (event) => {
+		if (event.detail.target.id === 'feed-items') restoreSessionState();
+		updateFeedUrl();
+		initFeedItems();
+	});
+
 	document.addEventListener('alpine:initialized', initFeedItems);
 
 	applyTheme(getTheme());
@@ -494,8 +534,8 @@ details[open].session-group > summary::before { content: "−"; }
 	<label>q <input type="text" name="q" class="search" placeholder="search"></label>
 </form>
 <div class="layout" x-data="{ detail: null }">
-	<div id="feed">
-		<div id="feed-items" hx-get="/fragments/events?page=1" hx-trigger="load" hx-swap="beforeend" sse-connect="/events/stream" sse-swap="message"></div>
+	<div id="feed" sse-connect="/events/stream">
+		<div id="feed-items" hx-get="/fragments/events?page=1" hx-trigger="load, sse:message" hx-target="#feed-items" hx-swap="innerHTML"></div>
 		<div id="feed-pager" hx-target="#feed-items" hx-swap="innerHTML"></div>
 	</div>
 	<aside class="detail" x-show="detail">
