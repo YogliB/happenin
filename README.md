@@ -83,6 +83,10 @@ nub run lint
 nub run test
 ```
 
+## Agent skills
+
+A Devin skill that teaches agents how to use happenin is available at [skills/happenin/SKILL.md](skills/happenin/SKILL.md).
+
 ## License
 
 [MIT](LICENSE.md)

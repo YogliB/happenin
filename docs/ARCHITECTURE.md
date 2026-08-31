@@ -26,18 +26,19 @@
 
 ## Components
 
-| File               | Responsibility                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------- |
-| `src/bin.ts`       | Executable entry point.                                                               |
-| `src/index.ts`     | CLI dispatch: `install`, `record`, `import`, `dashboard`, `--help`, `--version`.      |
-| `src/db.ts`        | SQLite data layer using `node:sqlite`.                                                |
-| `src/constants.ts` | Default DB path, hook event lists, default hook responses.                            |
-| `src/types.ts`     | Shared TypeScript types.                                                              |
-| `src/record.ts`    | Reads hook JSON from stdin, inserts an event, prints the non-blocking agent response. |
-| `src/install.ts`   | Backs up and appends hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`.   |
-| `src/import.ts`    | Imports Claude and Cursor transcript files into SQLite.                               |
-| `src/dashboard.ts` | HTTP server with `/`, `/fragments/events`, `/events`, and `/events/stream` SSE.       |
-| `assets/help.md`   | Help text shown by `--help`.                                                          |
+| File                       | Responsibility                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `src/bin.ts`               | Executable entry point.                                                               |
+| `src/index.ts`             | CLI dispatch: `install`, `record`, `import`, `dashboard`, `--help`, `--version`.      |
+| `src/db.ts`                | SQLite data layer using `node:sqlite`.                                                |
+| `src/constants.ts`         | Default DB path, hook event lists, default hook responses.                            |
+| `src/types.ts`             | Shared TypeScript types.                                                              |
+| `src/record.ts`            | Reads hook JSON from stdin, inserts an event, prints the non-blocking agent response. |
+| `src/install.ts`           | Backs up and appends hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`.   |
+| `src/import.ts`            | Imports Claude and Cursor transcript files into SQLite.                               |
+| `src/dashboard.ts`         | HTTP server with `/`, `/fragments/events`, `/events`, and `/events/stream` SSE.       |
+| `assets/help.md`           | Help text shown by `--help`.                                                          |
+| `skills/happenin/SKILL.md` | Devin skill that teaches agents how to use happenin.                                  |
 
 ## Design choices
 
