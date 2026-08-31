@@ -83,9 +83,21 @@ nub run lint
 nub run test
 ```
 
-## Agent skills
+## Agent skill
 
-A Devin skill that teaches agents how to use happenin is available at [skills/happenin/SKILL.md](skills/happenin/SKILL.md).
+Install the reusable, cross-agent `happenin` skill for agents that support `SKILL.md` files:
+
+```bash
+# project-level install
+npx skills add YogliB/happenin --skill happenin
+
+# global install
+npx skills add YogliB/happenin --skill happenin -g
+```
+
+Then ask the agent to record or inspect agent events. The skill covers `happenin install`, `record`, `import`, `query`, and `dashboard`, plus the field extraction and required hook responses.
+
+See [skills/happenin/SKILL.md](skills/happenin/SKILL.md) for the full skill instructions.
 
 ## License
 

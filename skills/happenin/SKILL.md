@@ -11,6 +11,31 @@ allowed-tools:
 
 `happenin` is a local macOS CLI that captures Cursor and Claude Code hook events into a SQLite database and serves a real-time dashboard. All data stays on the user's machine.
 
+This is a cross-agent skill. Any agent that supports `SKILL.md` files can load it.
+
+## Install
+
+If `happenin` is not installed, install the CLI first:
+
+```bash
+npm install -g happenin
+```
+
+Or run from source:
+
+```bash
+nub install
+nub run build
+```
+
+If this skill is not installed, add it from the repository:
+
+```bash
+npx skills add YogliB/happenin --skill happenin
+```
+
+For a global install, add the `-g` flag. You can also copy `skills/happenin/SKILL.md` from this repository into your agent's skills directory.
+
 ## `happenin install [--cursor] [--claude]`
 
 Backs up and appends `happenin record` hooks to the agent's configuration files:

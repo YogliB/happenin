@@ -38,7 +38,7 @@
 | `src/import.ts`            | Imports Claude and Cursor transcript files into SQLite.                               |
 | `src/dashboard.ts`         | HTTP server with `/`, `/fragments/events`, `/events`, and `/events/stream` SSE.       |
 | `assets/help.md`           | Help text shown by `--help`.                                                          |
-| `skills/happenin/SKILL.md` | Devin skill that teaches agents how to use happenin.                                  |
+| `skills/happenin/SKILL.md` | Cross-agent skill that teaches agents how to use happenin.                            |
 
 ## Design choices
 

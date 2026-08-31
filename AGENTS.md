@@ -7,7 +7,7 @@ Agent-facing entry point for this repo. For the open format, see [agents.md](htt
 | Topic                | Where to look                                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Agent rules          | [@caveman.md](.agents/rules/caveman.md), [@ponytail.md](.agents/rules/ponytail.md), [@rtk.md](.agents/rules/rtk.md) |
-| Agent skills         | [skills/happenin/SKILL.md](skills/happenin/SKILL.md)                                                                |
+| Agent skill          | [skills/happenin/SKILL.md](skills/happenin/SKILL.md)                                                                |
 | User-facing CLI docs | [README.md](../README.md)                                                                                           |
 | Architecture         | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                        |
 | CLI help text        | [assets/help.md](assets/help.md)                                                                                    |
