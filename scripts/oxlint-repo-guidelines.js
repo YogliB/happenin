@@ -1,7 +1,15 @@
 import { readdirSync } from "node:fs";
 import path from "node:path";
 
-const ignoredDocDirs = new Set(["node_modules", ".git", "dist", "coverage", ".devin", ".agents"]);
+const ignoredDocDirs = new Set([
+	"node_modules",
+	".git",
+	"dist",
+	"coverage",
+	".devin",
+	".agents",
+	"skills",
+]);
 const allowedDocs = new Set([
 	"AGENTS.md",
 	"assets/help.md",
