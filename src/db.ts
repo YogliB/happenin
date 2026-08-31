@@ -162,6 +162,48 @@ export const countEvents = (db: DatabaseSync, options: FilterOptions): number =>
 	return row ? Number(row.count) : 0;
 };
 
+type Summary = {
+	total: number;
+	bySource: { source: string; count: number }[];
+	byEvent: { event: string; count: number }[];
+	bySession: {
+		sessionId: string | null;
+		count: number;
+		firstAt: string | null;
+		lastAt: string | null;
+	}[];
+};
+
+export const getSummary = (db: DatabaseSync, options: FilterOptions): Summary => {
+	const { clause, params } = buildWhereClause(options);
+	const total = countEvents(db, options);
+
+	const bySource = db
+		.prepare(
+			`SELECT source, COUNT(*) AS count FROM events ${clause} GROUP BY source ORDER BY count DESC`,
+		)
+		.all(...params) as { source: string; count: number }[];
+
+	const byEvent = db
+		.prepare(
+			`SELECT event, COUNT(*) AS count FROM events ${clause} GROUP BY event ORDER BY count DESC`,
+		)
+		.all(...params) as { event: string; count: number }[];
+
+	const bySession = db
+		.prepare(
+			`SELECT session_id AS sessionId, COUNT(*) AS count, MIN(happened_at) AS firstAt, MAX(happened_at) AS lastAt FROM events ${clause} GROUP BY session_id ORDER BY count DESC`,
+		)
+		.all(...params) as {
+		sessionId: string | null;
+		count: number;
+		firstAt: string | null;
+		lastAt: string | null;
+	}[];
+
+	return { total, bySource, byEvent, bySession };
+};
+
 export const getLastEventId = (db: DatabaseSync): number => {
 	const stmt = db.prepare("SELECT id FROM events ORDER BY id DESC LIMIT 1");
 	const row = stmt.get() as { id: number | bigint } | undefined;

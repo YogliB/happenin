@@ -12,6 +12,7 @@ import {
 import type { EventRow, FilterOptionLists, FilterOptions } from "./types.js";
 import { runImport } from "./import.js";
 import { DASHBOARD_PAGE_SIZE } from "./constants.js";
+import { eventView } from "./view.js";
 
 type Db = ReturnType<typeof initDb>;
 
@@ -39,32 +40,6 @@ function escapeAttr(raw: string): string {
 		.replace(/</g, "&lt;")
 		.replace(/>/g, "&gt;")
 		.replace(/"/g, "&quot;");
-}
-
-function tryJsonParse(text: string): unknown {
-	if (!text) return undefined;
-	try {
-		return JSON.parse(text);
-	} catch {
-		return undefined;
-	}
-}
-
-function eventView(row: EventRow): Record<string, unknown> {
-	return {
-		id: row.id,
-		source: row.source,
-		client: row.client,
-		event: row.event,
-		sessionId: row.sessionId,
-		happenedAt: row.happenedAt,
-		receivedAt: row.receivedAt,
-		projectPath: row.projectPath,
-		filePath: row.filePath,
-		toolName: row.toolName,
-		sourcePath: row.sourcePath,
-		payload: tryJsonParse(row.payload ?? "") ?? row.payload,
-	};
 }
 
 type RenderEventRowOptions = { includeSession?: boolean };

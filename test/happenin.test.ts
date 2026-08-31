@@ -13,7 +13,9 @@ import {
 	getImportMtime,
 	countEvents,
 	getFilterOptions,
+	getSummary,
 } from "../src/db.js";
+
 import { recordFromRaw } from "../src/record.js";
 import { runInstall } from "../src/install.js";
 import { importTranscripts } from "../src/import.js";
@@ -115,6 +117,57 @@ describe("happenin", () => {
 			const options = getFilterOptions(db);
 			expect(options.sources).toEqual(["claude", "cursor"]);
 			expect(options.events).toEqual(["PreToolUse", "preToolUse", "prompt"]);
+		});
+	});
+
+	it("summarizes events", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			happenedAt: "2024-01-01T00:00:02Z",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "sessionStart",
+			sessionId: "s-1",
+			happenedAt: "2024-01-01T00:00:01Z",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-2",
+			happenedAt: "2024-01-01T00:00:00Z",
+			payload: JSON.stringify({}),
+		});
+
+		const summary = getSummary(db, {});
+		expect(summary.total).toBe(3);
+		expect(summary.bySource).toEqual([
+			{ source: "cursor", count: 2 },
+			{ source: "claude", count: 1 },
+		]);
+		expect(summary.byEvent).toHaveLength(3);
+		expect(summary.byEvent).toContainEqual({ event: "preToolUse", count: 1 });
+		expect(summary.byEvent).toContainEqual({ event: "PreToolUse", count: 1 });
+		expect(summary.byEvent).toContainEqual({ event: "sessionStart", count: 1 });
+		expect(summary.bySession).toContainEqual({
+			sessionId: "s-1",
+			count: 2,
+			firstAt: "2024-01-01T00:00:01Z",
+			lastAt: "2024-01-01T00:00:02Z",
+		});
+		expect(summary.bySession).toContainEqual({
+			sessionId: "s-2",
+			count: 1,
+			firstAt: "2024-01-01T00:00:00Z",
+			lastAt: "2024-01-01T00:00:00Z",
 		});
 	});
 

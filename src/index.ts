@@ -4,6 +4,7 @@ import { runInstall } from "./install.js";
 import { runRecord } from "./record.js";
 import { runImport } from "./import.js";
 import { runDashboard } from "./dashboard.js";
+import { runQuery } from "./query.js";
 
 const HELP_PATH = new URL("../assets/help.md", import.meta.url);
 const PACKAGE_PATH = new URL("../package.json", import.meta.url);
@@ -79,6 +80,11 @@ export default async function run(): Promise<void> {
 
 	if (command === "dashboard") {
 		await runDashboard(args);
+		return;
+	}
+
+	if (command === "query") {
+		await runQuery(args);
 		return;
 	}
 

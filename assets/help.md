@@ -31,6 +31,20 @@ Imports existing transcripts:
 
 `store.db` is skipped because it is encrypted.
 
+### `happenin query [options]`
+
+Query events from the local database and print them as JSON, JSONL, or a summary.
+
+- `--source <source>` — filter by source.
+- `--event <event>` — filter by event name.
+- `--session <id>` — filter by session id (partial match).
+- `--q <text>` — search event payloads.
+- `--since <id>` — events with an id greater than `<id>`.
+- `--limit <n>` — maximum rows to return (default: `100`).
+- `--offset <n>` — skip the first `<n>` rows.
+- `--format <json|jsonl|summary>` — output format (default: `json`).
+- `--db <path>` — database path (default: `HAPPENIN_DB` or `~/.happenin/happenin.db`).
+
 ### `happenin dashboard [--port <port>] [--no-open] [--silent]`
 
 Starts a local HTTP server and opens the dashboard in your browser.
