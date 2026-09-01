@@ -90,6 +90,67 @@ describe("record", () => {
 		db.close();
 	});
 
+	it("falls back to later timestamp keys when earlier ones are empty or invalid", () => {
+		const payload = JSON.stringify({
+			hook_event_name: "preToolUse",
+			sessionId: "s-6",
+			happenedAt: { invalid: true },
+			timestamp: "",
+			time: "not-a-date",
+			ts: "1700000000000",
+		});
+		const response = recordFromRaw(["cursor"], payload);
+		expect(response).toBe(JSON.stringify({ permission: "allow" }));
+
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "s-6", limit: 10 });
+		expect(rows[0].happenedAt).toBe(new Date(1700000000000).toISOString());
+		db.close();
+	});
+
+	it("falls back to receivedAt when all timestamps are out of range", () => {
+		const payload = JSON.stringify({
+			hook_event_name: "preToolUse",
+			sessionId: "s-7",
+			ts: 1e100,
+			createdAt: "8640000000000001",
+		});
+		const response = recordFromRaw(["cursor"], payload);
+		expect(response).toBe(JSON.stringify({ permission: "allow" }));
+
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "s-7", limit: 10 });
+		expect(rows[0].happenedAt).toBe(new Date(rows[0].receivedAt).toISOString());
+		db.close();
+	});
+
+	it("falls back to receivedAt when a numeric timestamp is not finite", () => {
+		const payload = '{"hook_event_name":"preToolUse","sessionId":"s-8","ts":1e309}';
+		const response = recordFromRaw(["cursor"], payload);
+		expect(response).toBe(JSON.stringify({ permission: "allow" }));
+
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "s-8", limit: 10 });
+		expect(rows[0].happenedAt).toBe(new Date(rows[0].receivedAt).toISOString());
+		db.close();
+	});
+
+	it("falls back to receivedAt when a numeric string timestamp is not finite", () => {
+		const big = `1${"0".repeat(309)}`;
+		const payload = JSON.stringify({
+			hook_event_name: "preToolUse",
+			sessionId: "s-9",
+			ts: big,
+		});
+		const response = recordFromRaw(["cursor"], payload);
+		expect(response).toBe(JSON.stringify({ permission: "allow" }));
+
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "s-9", limit: 10 });
+		expect(rows[0].happenedAt).toBe(new Date(rows[0].receivedAt).toISOString());
+		db.close();
+	});
+
 	it("records a claude event with no default response", () => {
 		const response = recordFromRaw(
 			["claude", "SessionStart"],

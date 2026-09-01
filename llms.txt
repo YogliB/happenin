@@ -36,7 +36,8 @@ Important notes:
 - [src/dashboard.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/dashboard.ts): HTTP server and dashboard HTML.
 - [src/constants.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/constants.ts): Hook event lists and default responses.
 - [src/types.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/types.ts): Shared TypeScript types.
-- [src/query.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/query.ts): Filter and format events for the `query` command.
+- [src/query.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/query.ts): Filter and format events for the `query` and `sessions` commands.
+- [src/sessions.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/sessions.ts): Session summaries for the `sessions` command.
 - [src/view.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/view.ts): Shared event view used by `query` and `dashboard`.
 
 ## Optional

@@ -522,6 +522,49 @@ describe("db edge cases", () => {
 		}
 	});
 
+	it("backfills happened_at from payload timestamp keys", () => {
+		const db = new DatabaseSync(":memory:");
+		db.exec(`
+			CREATE TABLE events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				client TEXT,
+				event TEXT,
+				session_id TEXT,
+				happened_at TEXT,
+				received_at INTEGER NOT NULL,
+				project_path TEXT,
+				file_path TEXT,
+				tool_name TEXT,
+				payload TEXT NOT NULL,
+				source_path TEXT
+			);
+		`);
+		const receivedAt = 1700000000000;
+		db.exec(`
+			INSERT INTO events (source, client, event, received_at, payload)
+			VALUES (
+				'cursor',
+				'cursor',
+				'sessionStart',
+				${receivedAt},
+				'${JSON.stringify({ ts: "1700000001000" }).replace(/'/g, "''")}'
+			);
+		`);
+		db.exec("PRAGMA user_version = 0;");
+
+		try {
+			ensureSubagentColumns(db);
+			backfillDerivedFields(db);
+			const rows = db.prepare("SELECT happened_at FROM events").all() as {
+				happened_at: string;
+			}[];
+			expect(rows[0].happened_at).toBe(new Date(1700000001000).toISOString());
+		} finally {
+			db.close();
+		}
+	});
+
 	it("skips derived fields backfill when user_version is already 2", () => {
 		const db = initDb(":memory:");
 		db.exec("PRAGMA user_version = 2;");

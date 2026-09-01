@@ -121,6 +121,20 @@ export const backfillDerivedFields = (db: DatabaseSync): void => {
 	}
 
 	try {
+		const missing = db
+			.prepare(
+				"SELECT id, payload FROM events WHERE happened_at IS NULL AND json_valid(payload) = 1",
+			)
+			.all() as { id: number; payload: string }[];
+		const updateHappenedAt = db.prepare("UPDATE events SET happened_at = ? WHERE id = ?");
+		for (const row of missing) {
+			const payload = JSON.parse(row.payload) as Record<string, unknown>;
+			const happenedAt = firstHappenedAtPayload(payload);
+			if (happenedAt !== undefined) {
+				updateHappenedAt.run(happenedAt, row.id);
+			}
+		}
+
 		db.exec(`
 			UPDATE events
 			SET happened_at = strftime('%Y-%m-%dT%H:%M:%fZ', received_at / 1000.0, 'unixepoch')
@@ -239,18 +253,61 @@ export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 	}
 };
 
-function normalizeWhen(value: string | undefined): string | undefined {
-	if (!value) return undefined;
-	if (/^\d+$/.test(value)) {
-		return new Date(Number(value)).toISOString();
+const timestampKeys = [
+	"happenedAt",
+	"timestamp",
+	"happened_at",
+	"time",
+	"ts",
+	"createdAt",
+	"created_at",
+];
+
+export function parseWhen(value: unknown): string | undefined {
+	if (value === null || value === undefined) return undefined;
+
+	if (typeof value === "number") {
+		if (!Number.isFinite(value)) return undefined;
+		try {
+			return new Date(value).toISOString();
+		} catch {
+			return undefined;
+		}
 	}
-	return value;
+
+	if (typeof value === "string") {
+		const s = value.trim();
+		if (s.length === 0) return undefined;
+
+		if (/^\d+$/.test(s)) {
+			const n = Number(s);
+			if (!Number.isFinite(n)) return undefined;
+			try {
+				return new Date(n).toISOString();
+			} catch {
+				return undefined;
+			}
+		}
+
+		if (Number.isNaN(Date.parse(s))) return undefined;
+		return s;
+	}
+
+	return undefined;
+}
+
+export function firstHappenedAtPayload(payload: Record<string, unknown>): string | undefined {
+	for (const key of timestampKeys) {
+		const value = parseWhen(Reflect.get(payload, key));
+		if (value !== undefined) return value;
+	}
+	return undefined;
 }
 
 export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
 	const stmt = db.prepare(insertEventSql);
 	const receivedAt = Date.now();
-	const happenedAt = normalizeWhen(event.happenedAt) ?? new Date(receivedAt).toISOString();
+	const happenedAt = parseWhen(event.happenedAt) ?? new Date(receivedAt).toISOString();
 	stmt.run(
 		event.source,
 		event.client ?? null,

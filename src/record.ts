@@ -1,5 +1,5 @@
 import process from "node:process";
-import { initDb, insertEvent } from "./db.js";
+import { initDb, insertEvent, firstHappenedAtPayload } from "./db.js";
 import { DEFAULT_RESPONSES } from "./constants.js";
 import type { EventInsert, Source } from "./types.js";
 
@@ -12,19 +12,6 @@ function asString(value: unknown): string | undefined {
 	}
 	const s = String(value).trim();
 	return s.length > 0 ? s : undefined;
-}
-
-function asWhen(value: unknown): string | undefined {
-	if (typeof value === "number") {
-		return new Date(value).toISOString();
-	}
-	if (typeof value === "string" && value.length > 0) {
-		if (/^\d+$/.test(value)) {
-			return new Date(Number(value)).toISOString();
-		}
-		return value;
-	}
-	return undefined;
 }
 
 function firstString(value: unknown): string | undefined {
@@ -78,15 +65,7 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 			asString(payload.sessionId) ??
 			asString(payload.session_id))
 		: (asString(payload.sessionId) ?? asString(payload.session_id));
-	const happenedAt = asWhen(
-		payload.happenedAt ??
-			payload.timestamp ??
-			payload.happened_at ??
-			payload.time ??
-			payload.ts ??
-			payload.createdAt ??
-			payload.created_at,
-	);
+	const happenedAt = firstHappenedAtPayload(payload);
 	const projectPath =
 		asString(payload.projectPath) ??
 		asString(payload.cwd) ??
