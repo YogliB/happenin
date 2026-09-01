@@ -18,7 +18,10 @@ const eventsColumns = `
 	file_path TEXT,
 	tool_name TEXT,
 	payload TEXT NOT NULL,
-	source_path TEXT
+	source_path TEXT,
+	subagent_id TEXT,
+	subagent_type TEXT,
+	transcript_path TEXT
 `;
 
 const indexes = [
@@ -42,8 +45,11 @@ const insertEventSql = `
 		file_path,
 		tool_name,
 		payload,
-		source_path
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		source_path,
+		subagent_id,
+		subagent_type,
+		transcript_path
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const selectEventSql = `
@@ -59,9 +65,94 @@ const selectEventSql = `
 		file_path AS filePath,
 		tool_name AS toolName,
 		payload,
-		source_path AS sourcePath
+		source_path AS sourcePath,
+		subagent_id AS subagentId,
+		subagent_type AS subagentType,
+		transcript_path AS transcriptPath
 	FROM events
 `;
+
+function getUserVersion(db: DatabaseSync): number {
+	const row = db.prepare("PRAGMA user_version").get() as { user_version: number } | undefined;
+	return Number(row?.user_version ?? 0);
+}
+
+function ensureSubagentColumns(db: DatabaseSync): void {
+	let version = getUserVersion(db);
+	if (version >= 1) return;
+
+	db.exec("BEGIN IMMEDIATE;");
+	version = getUserVersion(db);
+	if (version >= 1) {
+		db.exec("ROLLBACK;");
+		return;
+	}
+
+	try {
+		const columns = db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
+		const names = new Set(columns.map((col) => col.name));
+		const addColumn = (col: string): void => {
+			if (!names.has(col)) {
+				db.exec(`ALTER TABLE events ADD COLUMN ${col} TEXT;`);
+			}
+		};
+		addColumn("subagent_id");
+		addColumn("subagent_type");
+		addColumn("transcript_path");
+		db.exec("PRAGMA user_version = 1;");
+		db.exec("COMMIT;");
+	} catch (err) {
+		try {
+			db.exec("ROLLBACK;");
+		} catch {}
+		throw err;
+	}
+}
+
+export const backfillSubagentMetadata = (db: DatabaseSync): void => {
+	db.exec("PRAGMA busy_timeout = 30000;");
+	let version = getUserVersion(db);
+	if (version < 1) {
+		throw new Error("Database schema must be migrated before backfilling subagent metadata");
+	}
+
+	db.exec("BEGIN IMMEDIATE;");
+	version = getUserVersion(db);
+	if (version < 1) {
+		db.exec("ROLLBACK;");
+		return;
+	}
+
+	try {
+		db.exec(`
+			UPDATE events
+			SET
+				subagent_id = NULLIF(trim(json_extract(payload, '$.subagent_id')), ''),
+				subagent_type = NULLIF(trim(json_extract(payload, '$.subagent_type')), ''),
+				transcript_path = NULLIF(trim(json_extract(payload, '$.transcript_path')), ''),
+				session_id = COALESCE(
+					NULLIF(trim(json_extract(payload, '$.parent_conversation_id')), ''),
+					NULLIF(trim(json_extract(payload, '$.conversation_id')), ''),
+					NULLIF(trim(session_id), '')
+				)
+			WHERE
+				source = 'cursor'
+				AND event = 'subagentStart'
+				AND json_valid(payload) = 1
+				AND (
+					subagent_id IS NULL
+					OR subagent_type IS NULL
+					OR transcript_path IS NULL
+				);
+		`);
+		db.exec("COMMIT;");
+	} catch (err) {
+		try {
+			db.exec("ROLLBACK;");
+		} catch {}
+		throw err;
+	}
+};
 
 export const getDbPath = (): string => {
 	if (process.env.HAPPENIN_DB) {
@@ -70,25 +161,34 @@ export const getDbPath = (): string => {
 	return path.join(homedir(), DEFAULT_DB_DIR, DEFAULT_DB_NAME);
 };
 
-export const initDb = (dbPath?: string): DatabaseSync => {
+export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 	const resolvedPath = dbPath ?? getDbPath();
 	// oxlint-disable-next-line security/detect-non-literal-fs-filename -- database path is from home or HAPPENIN_DB
 	mkdirSync(path.dirname(resolvedPath), { recursive: true });
 
 	const db = new DatabaseSync(resolvedPath);
-	db.exec("PRAGMA journal_mode = WAL;");
-	db.exec(`CREATE TABLE IF NOT EXISTS events (${eventsColumns});`);
-	db.exec(`
-		CREATE TABLE IF NOT EXISTS imports (
-			path TEXT PRIMARY KEY,
-			mtime INTEGER NOT NULL,
-			imported_at INTEGER NOT NULL
-		);
-	`);
-	for (const indexSql of indexes) {
-		db.exec(indexSql);
+	try {
+		db.exec(`PRAGMA busy_timeout = ${busyTimeout};`);
+		db.exec("PRAGMA journal_mode = WAL;");
+		db.exec(`CREATE TABLE IF NOT EXISTS events (${eventsColumns});`);
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS imports (
+				path TEXT PRIMARY KEY,
+				mtime INTEGER NOT NULL,
+				imported_at INTEGER NOT NULL
+			);
+		`);
+		ensureSubagentColumns(db);
+		for (const indexSql of indexes) {
+			db.exec(indexSql);
+		}
+		return db;
+	} catch (err) {
+		try {
+			db.close();
+		} catch {}
+		throw err;
 	}
-	return db;
 };
 
 export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
@@ -105,6 +205,9 @@ export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
 		event.toolName ?? null,
 		event.payload,
 		event.sourcePath ?? null,
+		event.subagentId ?? null,
+		event.subagentType ?? null,
+		event.transcriptPath ?? null,
 	);
 };
 

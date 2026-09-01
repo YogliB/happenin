@@ -2,7 +2,14 @@ import type { DatabaseSync } from "node:sqlite";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { homedir } from "node:os";
-import { getDbPath, initDb, trackImport, getImportMtime, insertEvent } from "./db.js";
+import {
+	getDbPath,
+	initDb,
+	trackImport,
+	getImportMtime,
+	insertEvent,
+	backfillSubagentMetadata,
+} from "./db.js";
 import type { Source } from "./types.js";
 
 const CLAUDE_SOURCE: Source = "claude-transcript";
@@ -213,6 +220,7 @@ export async function runImport(_argv?: string[]): Promise<void> {
 	const dbPath = getDbPath();
 	const db = initDb(dbPath);
 	try {
+		backfillSubagentMetadata(db);
 		await importTranscripts(db);
 	} finally {
 		db.close();

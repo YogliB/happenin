@@ -22,6 +22,9 @@ export function eventView(row: EventRow): Record<string, unknown> {
 		filePath: row.filePath,
 		toolName: row.toolName,
 		sourcePath: row.sourcePath,
+		subagentId: row.subagentId,
+		subagentType: row.subagentType,
+		transcriptPath: row.transcriptPath,
 		payload: tryJsonParse(row.payload ?? "") ?? row.payload,
 	};
 }
