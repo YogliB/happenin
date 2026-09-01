@@ -11,11 +11,18 @@ Important notes:
 ## User docs
 
 - [README.md](https://raw.githubusercontent.com/YogliB/happenin/main/README.md): Overview, quick start, commands, and usage.
+- [docs/USAGE.md](https://raw.githubusercontent.com/YogliB/happenin/main/docs/USAGE.md): Full usage guide.
 - [docs/ARCHITECTURE.md](https://raw.githubusercontent.com/YogliB/happenin/main/docs/ARCHITECTURE.md): Data flow and design choices.
+- [docs/TROUBLESHOOTING.md](https://raw.githubusercontent.com/YogliB/happenin/main/docs/TROUBLESHOOTING.md): Common problems and solutions.
+- [docs/CHANGELOG.md](https://raw.githubusercontent.com/YogliB/happenin/main/docs/CHANGELOG.md): Release notes.
 
 ## Contributor docs
 
-- [AGENTS.md](https://raw.githubusercontent.com/YogliB/happenin/main/AGENTS.md): Entry point for coding agents; setup, scripts, and key files.
+- [AGENTS.md](https://raw.githubusercontent.com/YogliB/happenin/main/AGENTS.md): Entry point for coding agents; setup, scripts, rules, and key files.
+- [CLAUDE.md](https://raw.githubusercontent.com/YogliB/happenin/main/CLAUDE.md): Symlink to AGENTS.md.
+- [docs/CONTRIBUTING.md](https://raw.githubusercontent.com/YogliB/happenin/main/docs/CONTRIBUTING.md): Setup, conventions, and PR flow.
+- [docs/SECURITY.md](https://raw.githubusercontent.com/YogliB/happenin/main/docs/SECURITY.md): Security policy and vulnerability reporting.
+- [docs/CODE_OF_CONDUCT.md](https://raw.githubusercontent.com/YogliB/happenin/main/docs/CODE_OF_CONDUCT.md): Community expectations.
 
 ## Implementation
 

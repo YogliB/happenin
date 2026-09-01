@@ -1,20 +1,43 @@
 # AGENTS.md
 
-Agent-facing entry point for this repo. For the open format, see [agents.md](https://agents.md/).
+Agent-facing entry point. **Read the rules before doing any work in this repo.** For the open format, see [agents.md](https://agents.md/).
 
-## Quick links
+## Rules
 
-| Topic                | Where to look                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Agent rules          | [@caveman.md](.agents/rules/caveman.md), [@ponytail.md](.agents/rules/ponytail.md), [@rtk.md](.agents/rules/rtk.md) |
-| Agent skill          | [skills/happenin/SKILL.md](skills/happenin/SKILL.md)                                                                |
-| User-facing CLI docs | [README.md](../README.md)                                                                                           |
-| Architecture         | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                        |
-| Changelog            | [docs/CHANGELOG.md](docs/CHANGELOG.md)                                                                              |
-| CLI help text        | [assets/help.md](assets/help.md)                                                                                    |
-| License              | [LICENSE.md](../LICENSE.md)                                                                                         |
+These rules are always-on. Read them before every task:
 
-## Setup
+| Rule     | File                                      | What it covers                                     |
+| -------- | ----------------------------------------- | -------------------------------------------------- |
+| Caveman  | [@caveman.md](.agents/rules/caveman.md)   | Terse, token-efficient responses.                  |
+| Ponytail | [@ponytail.md](.agents/rules/ponytail.md) | Lazy senior dev mode: stdlib first, minimal diffs. |
+| RTK      | [@rtk.md](.agents/rules/rtk.md)           | Token-optimized CLI proxy commands.                |
+
+@.agents/rules/caveman.md
+@.agents/rules/ponytail.md
+@.agents/rules/rtk.md
+
+## Docs index
+
+| Doc                                                  | Purpose                                |
+| ---------------------------------------------------- | -------------------------------------- |
+| [README.md](README.md)                               | Human-facing overview, install, usage. |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)         | Data flow and design choices.          |
+| [docs/USAGE.md](docs/USAGE.md)                       | Full usage guide.                      |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)         | Setup, conventions, and PRs.           |
+| [docs/SECURITY.md](docs/SECURITY.md)                 | Reporting vulnerabilities.             |
+| [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md)   | Community expectations.                |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md)               | Release notes.                         |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)   | Common problems.                       |
+| [assets/help.md](assets/help.md)                     | CLI help text shown by `--help`.       |
+| [skills/happenin/SKILL.md](skills/happenin/SKILL.md) | Cross-agent skill instructions.        |
+
+## Condensed docs
+
+### What happenin is
+
+A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime AlpineJS + htmx dashboard.
+
+### How to work on it
 
 Install dependencies and build:
 
@@ -23,7 +46,7 @@ nub install
 nub run build
 ```
 
-## Common commands
+Common commands:
 
 - `nub run build` — bundle `src/` into `dist/` with tsdown.
 - `nub run typecheck` — run `tsc --noEmit`.
@@ -33,7 +56,16 @@ nub run build
 - `nub run knip:ci` — find unused dependencies and exports with knip.
 - `nub run test` / `nub run test:ci` — run vitest with or without coverage.
 
-## Project layout
+### Conventions
+
+- Zero runtime dependencies. Everything uses Node built-in modules and the dashboard loads small JS libraries from a CDN.
+- SQLite via `node:sqlite` with WAL mode.
+- Append-only hooks. Back up and merge existing configs; never overwrite.
+- Fail-open responses. `record` returns the minimum required non-blocking response and no output for observer hooks.
+- Keep docs short, clear, and concise. `AGENTS.md` is a condensed version of the human docs; link to the full doc when detail is needed.
+- PRs must be focused, pass `build`, `typecheck`, `format:ci`, `lint:ci`, `duplicates:ci`, `knip:ci`, and `test:ci`, and use a Conventional Commit message.
+
+### Project layout
 
 - `src/index.ts` — CLI dispatch.
 - `src/bin.ts` — executable entry point.
@@ -48,14 +80,6 @@ nub run build
 - `dist/` — build output.
 - `test/` — vitest test files.
 
-## Lint and format
+## Documentation sync
 
-CI and the pre-commit hook run `oxlint` and `oxfmt`. `nub run format` fixes most issues. A custom `oxlint-repo-guidelines/no-more-docs` rule blocks new Markdown or `docs/` files that are not in the allow-list. Add to [scripts/oxlint-repo-guidelines.js](../scripts/oxlint-repo-guidelines.js) and update this file if a new doc is needed.
-
-## Documentation
-
-Keep docs short, clear, and concise. `AGENTS.md` is a condensed version of the human docs in `docs/` and `README.md`; link to the full doc when detail is needed.
-
-## Pull requests
-
-Keep changes focused. Run `nub run build`, `nub run typecheck`, `nub run format:ci`, `nub run lint:ci`, `nub run duplicates:ci`, `nub run knip:ci`, and `nub run test:ci` before opening a PR. Squash to a single commit and write a Conventional Commit message.
+Keep `README.md`, `AGENTS.md`, `CLAUDE.md`, `llms.txt`, rules, and `docs/` aligned when changing workflows or conventions.

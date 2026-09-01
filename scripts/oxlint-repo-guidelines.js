@@ -12,11 +12,17 @@ const ignoredDocDirs = new Set([
 ]);
 const allowedDocs = new Set([
 	"AGENTS.md",
+	"CLAUDE.md",
 	"assets/help.md",
 	"LICENSE.md",
 	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/CHANGELOG.md",
+	"docs/CODE_OF_CONDUCT.md",
+	"docs/CONTRIBUTING.md",
+	"docs/SECURITY.md",
+	"docs/TROUBLESHOOTING.md",
+	"docs/USAGE.md",
 	".github/pull_request_template.md",
 ]);
 const docsAnchorFile = path.resolve("src/index.ts");
