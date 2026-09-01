@@ -64,15 +64,20 @@ echo '{"sessionId":"abc123","projectPath":"/path/to/project"}' | happenin record
 
 `record` extracts common fields from the raw payload before storing it:
 
-| Stored field  | Payload keys searched (first match wins)                                |
-| ------------- | ----------------------------------------------------------------------- |
-| `event`       | `hook_event_name` (Cursor only); otherwise the second CLI argument      |
-| `sessionId`   | `sessionId`, `session_id`                                               |
-| `happenedAt`  | `happenedAt`, `timestamp`, `happened_at`, `time`                        |
-| `projectPath` | `projectPath`, `cwd`, `project_path`, `workspaceRoot`, `workspace_path` |
-| `filePath`    | `filePath`, `file_path`, `path`                                         |
-| `toolName`    | `toolName`, `tool_name`, `tool`                                         |
-| `client`      | `client`; defaults to `cursor` or `claude_code`                         |
+| Stored field     | Payload keys searched (first match wins)                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| `event`          | `hook_event_name` (Cursor only); otherwise the second CLI argument                              |
+| `sessionId`      | `sessionId`, `session_id`; for `subagentStart` also `parent_conversation_id`, `conversation_id` |
+| `happenedAt`     | `happenedAt`, `timestamp`, `happened_at`, `time`                                                |
+| `projectPath`    | `projectPath`, `cwd`, `project_path`, `workspaceRoot`, `workspace_path`                         |
+| `filePath`       | `filePath`, `file_path`, `path`                                                                 |
+| `toolName`       | `toolName`, `tool_name`, `tool`                                                                 |
+| `client`         | `client`; defaults to `cursor` or `claude_code`                                                 |
+| `subagentId`     | `subagent_id` (Cursor `subagentStart` only)                                                     |
+| `subagentType`   | `subagent_type` (Cursor `subagentStart` only)                                                   |
+| `transcriptPath` | `transcript_path` (Cursor `subagentStart` only)                                                 |
+
+For Cursor `subagentStart` payloads, `parent_conversation_id` and `conversation_id` are used as `sessionId` fallbacks so the subagent event groups with the main Cursor session. `conversation_id` and `parent_conversation_id` are not used as `sessionId` fallbacks for any other event.
 
 The entire raw JSON is always stored in the `payload` column, so any field not extracted is still available.
 
@@ -89,6 +94,8 @@ If the event is a blocking hook, `record` prints a JSON response to stdout so th
 
 Observer hooks produce no stdout output.
 
+`record` is fail-open: if the database is locked by a concurrent operation (for example, the one-time backfill after an upgrade), it still prints the expected response for a blocking hook, but the event is not written to the database.
+
 ## `happenin import`
 
 Imports existing transcripts:
@@ -97,6 +104,8 @@ Imports existing transcripts:
 - Cursor `prompt_history.json` and `meta.json` from `~/.cursor/chats/<hash>/<session>/`
 
 `store.db` is skipped because it is encrypted.
+
+After upgrading, run `happenin import` or `happenin dashboard` once to migrate the database schema and backfill existing Cursor `subagentStart` rows with `subagentId`, `subagentType`, `transcriptPath`, and the correct `sessionId`.
 
 ## `happenin query [options]`
 

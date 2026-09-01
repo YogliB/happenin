@@ -27,6 +27,13 @@ function asWhen(value: unknown): string | undefined {
 	return undefined;
 }
 
+function isBusyError(err: unknown): boolean {
+	if (typeof err !== "object" || err === null) return false;
+	const e = err as { code?: string; errcode?: number };
+	const code = e.errcode ?? 0;
+	return e.code === "ERR_SQLITE_ERROR" && ((code & 0xff) === 5 || (code & 0xff) === 6);
+}
+
 export function recordFromRaw(argv: string[], raw: string, dbPath?: string): string | undefined {
 	if (raw.length === 0) {
 		return undefined;
@@ -51,7 +58,14 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 		event = argv[1];
 	}
 
-	const sessionId = asString(payload.sessionId ?? payload.session_id);
+	const shouldExtractSubagent = source === "cursor" && event === "subagentStart";
+
+	const sessionId = shouldExtractSubagent
+		? (asString(payload.parent_conversation_id) ??
+			asString(payload.conversation_id) ??
+			asString(payload.sessionId) ??
+			asString(payload.session_id))
+		: (asString(payload.sessionId) ?? asString(payload.session_id));
 	const happenedAt = asWhen(
 		payload.happenedAt ?? payload.timestamp ?? payload.happened_at ?? payload.time,
 	);
@@ -66,6 +80,10 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 	const toolName = asString(payload.toolName ?? payload.tool_name ?? payload.tool);
 	const client = asString(payload.client) ?? (source === "cursor" ? "cursor" : "claude_code");
 
+	const subagentId = shouldExtractSubagent ? asString(payload.subagent_id) : undefined;
+	const subagentType = shouldExtractSubagent ? asString(payload.subagent_type) : undefined;
+	const transcriptPath = shouldExtractSubagent ? asString(payload.transcript_path) : undefined;
+
 	const insert: EventInsert = {
 		source: source as Source,
 		client,
@@ -76,12 +94,29 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 		filePath,
 		toolName,
 		payload: raw,
+		subagentId,
+		subagentType,
+		transcriptPath,
 	};
 
-	const db = initDb(dbPath);
-	insertEvent(db, insert);
+	const response = DEFAULT_RESPONSES(source as Source, event ?? "");
+	let db: ReturnType<typeof initDb> | undefined;
+	try {
+		db = initDb(dbPath, 500);
+		insertEvent(db, insert);
+	} catch (err) {
+		if (isBusyError(err)) {
+			console.warn("happenin: dropping event due to database lock", err);
+		} else {
+			throw err;
+		}
+	} finally {
+		try {
+			db?.close();
+		} catch {}
+	}
 
-	return DEFAULT_RESPONSES(source as Source, event ?? "");
+	return response;
 }
 
 export async function runRecord(argv: string[]): Promise<void> {

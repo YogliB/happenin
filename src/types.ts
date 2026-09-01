@@ -11,6 +11,9 @@ export type EventInsert = {
 	toolName?: string;
 	payload: string;
 	sourcePath?: string;
+	subagentId?: string | null;
+	subagentType?: string | null;
+	transcriptPath?: string | null;
 };
 
 export type EventRow = EventInsert & {

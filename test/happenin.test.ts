@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
@@ -14,6 +15,7 @@ import {
 	countEvents,
 	getFilterOptions,
 	getSummary,
+	backfillSubagentMetadata,
 } from "../src/db.js";
 
 import { recordFromRaw } from "../src/record.js";
@@ -26,6 +28,7 @@ import {
 	renderEventRow,
 	renderSessionGroup,
 } from "../src/dashboard.js";
+import { eventView } from "../src/view.js";
 import type { EventInsert, EventRow } from "../src/types.js";
 
 function tempDir(): string {
@@ -117,6 +120,95 @@ describe("happenin", () => {
 			const options = getFilterOptions(db);
 			expect(options.sources).toEqual(["claude", "cursor"]);
 			expect(options.events).toEqual(["PreToolUse", "preToolUse", "prompt"]);
+		});
+
+		it("migrates an old schema and backfills subagent metadata", () => {
+			const dir = tempDir();
+			const dbPath = path.join(dir, "happenin.db");
+			const legacyDb = new DatabaseSync(dbPath);
+			try {
+				legacyDb.exec(`
+					CREATE TABLE events (
+						id INTEGER PRIMARY KEY AUTOINCREMENT,
+						source TEXT NOT NULL,
+						client TEXT,
+						event TEXT,
+						session_id TEXT,
+						happened_at TEXT,
+						received_at INTEGER NOT NULL,
+						project_path TEXT,
+						file_path TEXT,
+						tool_name TEXT,
+						payload TEXT NOT NULL,
+						source_path TEXT
+					);
+				`);
+				legacyDb.exec(`
+					INSERT INTO events (source, client, event, received_at, payload)
+					VALUES (
+						'cursor',
+						'cursor',
+						'subagentStart',
+						1700000000000,
+						'${JSON.stringify({
+							parent_conversation_id: "parent-1",
+							conversation_id: "conv-1",
+							subagent_id: "sub-1",
+							subagent_type: "shell",
+							transcript_path: "/foo/bar/transcript.jsonl",
+						}).replace(/'/g, "''")}'
+					);
+				`);
+			} finally {
+				legacyDb.close();
+			}
+
+			const db = initDb(dbPath);
+			try {
+				const version = db.prepare("PRAGMA user_version").get() as
+					| { user_version: number }
+					| undefined;
+				expect(version?.user_version).toBe(1);
+
+				const columns = db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
+				const names = columns.map((col) => col.name);
+				expect(names).toContain("subagent_id");
+				expect(names).toContain("subagent_type");
+				expect(names).toContain("transcript_path");
+
+				backfillSubagentMetadata(db);
+				const rows = getEvents(db, { event: "subagentStart", limit: 10 });
+				expect(rows.length).toBe(1);
+				expect(rows[0].sessionId).toBe("parent-1");
+				expect(rows[0].subagentId).toBe("sub-1");
+				expect(rows[0].subagentType).toBe("shell");
+				expect(rows[0].transcriptPath).toBe("/foo/bar/transcript.jsonl");
+
+				backfillSubagentMetadata(db);
+				const rows2 = getEvents(db, { event: "subagentStart", limit: 10 });
+				expect(rows2[0].subagentId).toBe("sub-1");
+			} finally {
+				db.close();
+				cleanup(dir);
+			}
+		});
+
+		it("is idempotent when migrating an up-to-date schema", () => {
+			const dir = tempDir();
+			const dbPath = path.join(dir, "happenin.db");
+			const db1 = initDb(dbPath);
+			db1.close();
+
+			const db2 = initDb(dbPath);
+			try {
+				const version = db2.prepare("PRAGMA user_version").get() as
+					| { user_version: number }
+					| undefined;
+				expect(version?.user_version).toBe(1);
+			} finally {
+				db2.close();
+				cleanup(dir);
+			}
 		});
 	});
 
@@ -229,6 +321,46 @@ describe("happenin", () => {
 			const payload = JSON.stringify({ prompt: "what is 2+2?" });
 			const response = recordFromRaw(["claude", "UserPromptSubmit"], payload);
 			expect(response).toBe(JSON.stringify({ continue: true }));
+		});
+
+		it("extracts subagent metadata from a Cursor subagentStart event", () => {
+			const payload = JSON.stringify({
+				hook_event_name: "subagentStart",
+				parent_conversation_id: "parent-1",
+				conversation_id: "conv-1",
+				subagent_id: "sub-1",
+				subagent_type: "shell",
+				transcript_path: "/foo/bar/sub-1.jsonl",
+			});
+			const response = recordFromRaw(["cursor"], payload);
+			expect(response).toBe(JSON.stringify({ permission: "allow" }));
+
+			const db = initDb();
+			const rows = getEvents(db, { event: "subagentStart", limit: 10 });
+			expect(rows.length).toBe(1);
+			expect(rows[0].sessionId).toBe("parent-1");
+			expect(rows[0].subagentId).toBe("sub-1");
+			expect(rows[0].subagentType).toBe("shell");
+			expect(rows[0].transcriptPath).toBe("/foo/bar/sub-1.jsonl");
+		});
+
+		it("does not use conversation fields for non-subagentStart Cursor events", () => {
+			const payload = JSON.stringify({
+				hook_event_name: "preToolUse",
+				toolName: "Shell",
+				conversation_id: "conv-1",
+				subagent_id: "sub-1",
+			});
+			const response = recordFromRaw(["cursor"], payload);
+			expect(response).toBe(JSON.stringify({ permission: "allow" }));
+
+			const db = initDb();
+			const rows = getEvents(db, { event: "preToolUse", limit: 10 });
+			expect(rows.length).toBe(1);
+			expect(rows[0].sessionId).toBeNull();
+			expect(rows[0].subagentId).toBeNull();
+			expect(rows[0].subagentType).toBeNull();
+			expect(rows[0].transcriptPath).toBeNull();
 		});
 
 		it("is fail-open for unknown or invalid input", () => {
@@ -524,6 +656,45 @@ describe("happenin", () => {
 			expect(groups[0].rows.map((r) => r.id)).toEqual([5, 3]);
 			expect(groups[1].sessionId).toBe("s-1");
 			expect(groups[1].rows.map((r) => r.id)).toEqual([4, 2, 1]);
+		});
+
+		it("renders subagent metadata in an event row", () => {
+			const row: EventRow = {
+				id: 1,
+				source: "cursor",
+				client: "cursor",
+				event: "subagentStart",
+				sessionId: "s-1",
+				happenedAt: "2024-01-01T00:00:00Z",
+				receivedAt: 1700000000000,
+				subagentType: "shell",
+				transcriptPath: "/very/long/path/to/agent-transcripts/sub-1/sub-1.jsonl",
+				payload: JSON.stringify({}),
+			};
+			const html = renderEventRow(row);
+			expect(html).toContain("subagent:shell");
+			expect(html).toContain("transcript:sub-1.jsonl");
+		});
+	});
+
+	describe("view", () => {
+		it("exposes subagent fields in eventView", () => {
+			const row: EventRow = {
+				id: 1,
+				source: "cursor",
+				client: "cursor",
+				event: "subagentStart",
+				sessionId: "s-1",
+				receivedAt: 1700000000000,
+				subagentId: "sub-1",
+				subagentType: "shell",
+				transcriptPath: "/foo/bar.jsonl",
+				payload: JSON.stringify({ subagentId: "sub-1" }),
+			};
+			const view = eventView(row);
+			expect(view.subagentId).toBe("sub-1");
+			expect(view.subagentType).toBe("shell");
+			expect(view.transcriptPath).toBe("/foo/bar.jsonl");
 		});
 	});
 });

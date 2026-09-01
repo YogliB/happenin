@@ -1,5 +1,6 @@
 import http from "node:http";
 import { execFile } from "node:child_process";
+import path from "node:path";
 import process from "node:process";
 import {
 	getDbPath,
@@ -42,6 +43,10 @@ function escapeAttr(raw: string): string {
 		.replace(/"/g, "&quot;");
 }
 
+function truncate(value: string, limit = 30): string {
+	return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
+}
+
 type RenderEventRowOptions = { includeSession?: boolean };
 
 export function renderEventRow(row: EventRow, options?: RenderEventRowOptions): string {
@@ -55,6 +60,10 @@ export function renderEventRow(row: EventRow, options?: RenderEventRowOptions): 
 	if (includeSession && row.sessionId) meta.push(`session:${escapeHtml(String(row.sessionId))}`);
 	if (row.toolName) meta.push(`tool:${escapeHtml(String(row.toolName))}`);
 	if (row.filePath) meta.push(`file:${escapeHtml(String(row.filePath))}`);
+	if (row.subagentType) meta.push(`subagent:${escapeHtml(truncate(row.subagentType))}`);
+	if (row.transcriptPath) {
+		meta.push(`transcript:${escapeHtml(truncate(path.basename(row.transcriptPath)))}`);
+	}
 	return `<div class="event-row" x-data="${xData}" @click="detail = event"><span class="id">#${escapeHtml(String(row.id))}</span> <span class="source">${escapeHtml(String(row.source ?? ""))}</span> <span class="event">${escapeHtml(String(row.event ?? ""))}</span> <span class="meta">${meta.join(" ")}</span> <span class="when">${escapeHtml(when)}</span></div>`;
 }
 
@@ -64,12 +73,13 @@ export function groupEventsBySession(
 	const order: (string | undefined)[] = [];
 	const bySession = new Map<string | undefined, EventRow[]>();
 	for (const row of rows) {
-		const existing = bySession.get(row.sessionId);
+		const key = row.sessionId ?? undefined;
+		const existing = bySession.get(key);
 		if (existing) {
 			existing.push(row);
 		} else {
-			order.push(row.sessionId);
-			bySession.set(row.sessionId, [row]);
+			order.push(key);
+			bySession.set(key, [row]);
 		}
 	}
 	return order.map((sessionId) => ({ sessionId, rows: bySession.get(sessionId)! }));
