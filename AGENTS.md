@@ -10,6 +10,7 @@ Agent-facing entry point for this repo. For the open format, see [agents.md](htt
 | Agent skill          | [skills/happenin/SKILL.md](skills/happenin/SKILL.md)                                                                |
 | User-facing CLI docs | [README.md](../README.md)                                                                                           |
 | Architecture         | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                        |
+| Changelog            | [docs/CHANGELOG.md](docs/CHANGELOG.md)                                                                              |
 | CLI help text        | [assets/help.md](assets/help.md)                                                                                    |
 | License              | [LICENSE.md](../LICENSE.md)                                                                                         |
 

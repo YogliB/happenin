@@ -69,6 +69,10 @@ Starts the local HTTP server and opens the dashboard. Use `--no-open` to start w
 
 `happenin` stores full hook payloads and transcripts locally. No data is sent over the network except for the CDN-loaded dashboard libraries (htmx, AlpineJS, htmx-ext-sse) when the dashboard is open.
 
+## Changelog
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md).
+
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

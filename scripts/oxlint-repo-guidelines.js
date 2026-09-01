@@ -16,6 +16,7 @@ const allowedDocs = new Set([
 	"LICENSE.md",
 	"README.md",
 	"docs/ARCHITECTURE.md",
+	"docs/CHANGELOG.md",
 	".github/pull_request_template.md",
 ]);
 const docsAnchorFile = path.resolve("src/index.ts");
