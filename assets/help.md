@@ -1,6 +1,6 @@
 # happenin
 
-A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime dashboard.
+A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
 ## Commands
 

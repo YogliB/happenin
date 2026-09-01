@@ -13,9 +13,11 @@ Or run from source:
 ```bash
 git clone git@github.com:YogliB/happenin.git
 cd happenin
-nub install
-nub run build
+npm install
+npm run build
 ```
+
+If you use `nub`, run `nub install` and `nub run build` instead.
 
 ## Stability
 
@@ -73,6 +75,12 @@ Query events from the local database and print them as JSON, JSONL, or a summary
 - `--offset <n>` — skip the first `<n>` rows.
 - `--format <json|jsonl|summary>` — output format (default: `json`).
 - `--db <path>` — database path (default: `HAPPENIN_DB` or `~/.happenin/happenin.db`).
+
+```bash
+happenin query --limit 10
+happenin query --source cursor --event subagentStart --format jsonl
+happenin query --session abc123 --format summary
+```
 
 ### `happenin dashboard [--port <port>] [--no-open] [--silent]`
 

@@ -1,11 +1,11 @@
 # happenin
 
-> A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime dashboard.
+> A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
 Important notes:
 
 - Development of this repository requires [Nub](https://nubjs.com); end users will be able to install the published package with npm once it ships.
-- The CLI exposes `install`, `record`, `import`, and `dashboard` commands.
+- The CLI exposes `install`, `record`, `import`, `query`, and `dashboard` commands.
 - There are zero runtime dependencies; the dashboard loads small client libraries (htmx, AlpineJS, htmx-ext-sse) from a CDN.
 - `happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways until v1.0.0; breaking changes are noted in the [changelog](https://raw.githubusercontent.com/YogliB/happenin/main/docs/CHANGELOG.md).
 
@@ -36,6 +36,8 @@ Important notes:
 - [src/dashboard.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/dashboard.ts): HTTP server and dashboard HTML.
 - [src/constants.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/constants.ts): Hook event lists and default responses.
 - [src/types.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/types.ts): Shared TypeScript types.
+- [src/query.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/query.ts): Filter and format events for the `query` command.
+- [src/view.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/view.ts): Shared event view used by `query` and `dashboard`.
 
 ## Optional
 

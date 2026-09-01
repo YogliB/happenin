@@ -1,14 +1,21 @@
 # happenin
 
-A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime AlpineJS + htmx dashboard.
+A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
 ## Why
 
-Cursor and Claude Code can fire local hooks for every session, tool use, prompt, file edit, and lifecycle event. `happenin` installs those hooks, stores the full payloads locally, and gives you a browser dashboard that updates in real time. All data stays on your machine.
+Cursor and Claude Code can emit local hooks for each session, tool use, prompt, file edit, and lifecycle event. `happenin` adds `record` hooks to those agents, writes the payloads to a local SQLite database, and serves a live browser dashboard. Data never leaves your machine.
 
 ## Stability
 
 `happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways between releases until `v1.0.0`. Any breaking changes will be minor and listed in the [changelog](docs/CHANGELOG.md).
+
+## Requirements
+
+- macOS
+- Node.js `>= 24.0.0` (uses the built-in `node:sqlite` module)
+- Zero runtime dependencies
+- The dashboard loads htmx, AlpineJS, and htmx-ext-sse from a CDN
 
 ## Install
 
@@ -19,8 +26,10 @@ npm install -g happenin
 Or run from source:
 
 ```bash
-nub install
-nub run build
+git clone git@github.com:YogliB/happenin.git
+cd happenin
+npm install
+npm run build
 ```
 
 ## Quick start
@@ -29,14 +38,14 @@ nub run build
 # Install hooks into Cursor and Claude Code (backs up existing configs)
 happenin install
 
-# Import existing transcripts (Claude JSONL, Cursor prompt history)
+# Import existing transcripts
 happenin import
 
-# Start the realtime dashboard
+# Start the live dashboard
 happenin dashboard
 ```
 
-The dashboard opens at `http://localhost:8765`. New events stream in automatically.
+The dashboard opens at `http://localhost:8765`. New events appear automatically.
 
 ## Commands
 
@@ -44,12 +53,24 @@ The dashboard opens at `http://localhost:8765`. New events stream in automatical
 
 Backs up and appends `happenin record` hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`. Backups are written to `~/.happenin/backups/`.
 
+```bash
+happenin install --cursor
+happenin install --claude
+```
+
 ### `happenin record <source> [event]`
 
 The hook target. Reads a JSON payload from stdin, writes it to `~/.happenin/happenin.db`, and prints the required non-blocking response for the agent.
 
 - `source` — `cursor` or `claude`.
 - `event` — only required for Claude; Cursor payloads include `hook_event_name`.
+
+This command is normally called by the agent hooks, not directly:
+
+```bash
+echo '{"hook_event_name":"sessionStart","sessionId":"abc123"}' | happenin record cursor
+echo '{"sessionId":"abc123"}' | happenin record claude SessionStart
+```
 
 ### `happenin import`
 
@@ -60,9 +81,29 @@ Imports existing transcripts:
 
 `store.db` is skipped because it is encrypted.
 
-### `happenin dashboard [--port <port>] [--no-open]`
+### `happenin query [options]`
 
-Starts the local HTTP server and opens the dashboard. Use `--no-open` to start without launching the browser.
+Query events from the local database and print them as JSON, JSONL, or a summary.
+
+```bash
+happenin query --limit 10
+happenin query --source cursor --event subagentStart --format jsonl
+happenin query --session abc123 --format summary
+```
+
+See [docs/USAGE.md](docs/USAGE.md) for all filters.
+
+### `happenin dashboard [--port <port>] [--no-open] [--silent]`
+
+Starts a local HTTP server and opens the dashboard.
+
+- `--port` — port to listen on (default: `8765`).
+- `--no-open` — do not open the browser.
+- `--silent` — alias for `--no-open`; used automatically by `npm start`.
+
+```bash
+happenin dashboard --port 9000 --silent
+```
 
 ## Configuration
 
@@ -73,55 +114,66 @@ Starts the local HTTP server and opens the dashboard. Use `--no-open` to start w
 
 `happenin` stores full hook payloads and transcripts locally. No data is sent over the network except for the CDN-loaded dashboard libraries (htmx, AlpineJS, htmx-ext-sse) when the dashboard is open.
 
-## Documentation
-
-| Doc                                                | Purpose                      |
-| -------------------------------------------------- | ---------------------------- |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)       | How the pieces fit together. |
-| [docs/USAGE.md](docs/USAGE.md)                     | Full usage guide.            |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)       | Setup, conventions, and PRs. |
-| [docs/SECURITY.md](docs/SECURITY.md)               | Reporting vulnerabilities.   |
-| [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md) | Community expectations.      |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common problems.             |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)             | Release notes.               |
-
-## Changelog
-
-See [docs/CHANGELOG.md](docs/CHANGELOG.md).
-
-## Architecture
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Contributing
-
-See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
-
 ## Development
 
 ```bash
 nub install
 nub run build
-nub run typecheck
-nub run lint
-nub run test
 ```
+
+The same scripts also work with npm:
+
+```bash
+npm install
+npm run build
+```
+
+Before opening a pull request, run the full check suite:
+
+```bash
+npm run build
+npm run typecheck
+npm run format
+npm run lint
+npm run duplicates:ci
+npm run knip:ci
+npm run test:ci
+```
+
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
+
+## Documentation
+
+### User docs
+
+| Doc                                                | Purpose                          |
+| -------------------------------------------------- | -------------------------------- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)       | How the pieces fit together.     |
+| [docs/USAGE.md](docs/USAGE.md)                     | Full usage guide.                |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common problems.                 |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md)             | Release notes.                   |
+| [assets/help.md](assets/help.md)                   | CLI help text shown by `--help`. |
+
+### Agent and LLM docs
+
+| Doc                                                  | Purpose                           |
+| ---------------------------------------------------- | --------------------------------- |
+| [AGENTS.md](AGENTS.md)                               | Agent-facing entry point.         |
+| [CLAUDE.md](CLAUDE.md)                               | Symlink to `AGENTS.md`.           |
+| [llms.txt](llms.txt)                                 | LLM/AI index of docs and sources. |
+| [skills/happenin/SKILL.md](skills/happenin/SKILL.md) | Cross-agent skill instructions.   |
 
 ## Agent skill
 
-Install the reusable, cross-agent `happenin` skill for agents that support `SKILL.md` files:
+Install the reusable `happenin` skill for agents that support `SKILL.md` files:
 
 ```bash
-# project-level install
 npx skills add YogliB/happenin --skill happenin
-
-# global install
-npx skills add YogliB/happenin --skill happenin -g
 ```
 
-Then ask the agent to record or inspect agent events. The skill covers `happenin install`, `record`, `import`, `query`, and `dashboard`, plus the field extraction and required hook responses.
+Then ask the agent to record or inspect agent events. The skill covers `install`, `record`, `import`, `query`, and `dashboard`, plus field extraction and required hook responses.
 
-See [skills/happenin/SKILL.md](skills/happenin/SKILL.md) for the full skill instructions.
+See [skills/happenin/SKILL.md](skills/happenin/SKILL.md) for the full instructions.
 
 ## License
 

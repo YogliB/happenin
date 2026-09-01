@@ -29,15 +29,17 @@ These rules are always-on. Read them before every task:
 | [docs/CHANGELOG.md](docs/CHANGELOG.md)               | Release notes.                         |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)   | Common problems.                       |
 | [assets/help.md](assets/help.md)                     | CLI help text shown by `--help`.       |
+| [llms.txt](llms.txt)                                 | LLM/AI index of docs and sources.      |
+| [CLAUDE.md](CLAUDE.md)                               | Symlink to `AGENTS.md`.                |
 | [skills/happenin/SKILL.md](skills/happenin/SKILL.md) | Cross-agent skill instructions.        |
 
 ## Condensed docs
 
 ### What happenin is
 
-A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime AlpineJS + htmx dashboard.
+A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
-`happenin` is pre-1.0. The CLI, database schema, and dashboard may change in small ways until v1.0.0; breaking changes are noted in the changelog.
+`happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways until v1.0.0; breaking changes are noted in the changelog.
 
 ### How to work on it
 
@@ -77,6 +79,8 @@ Common commands:
 - `src/record.ts` — hook target: parse stdin, insert event, respond.
 - `src/install.ts` — install Cursor / Claude Code hooks.
 - `src/import.ts` — import Claude and Cursor transcripts.
+- `src/query.ts` — filter and format events for the `query` command.
+- `src/view.ts` — shared event view used by `query` and `dashboard`.
 - `src/dashboard.ts` — HTTP server and dashboard HTML.
 - `assets/help.md` — help text shown by `--help`.
 - `dist/` — build output.

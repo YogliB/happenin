@@ -1,7 +1,29 @@
 {
 	"name": "happenin",
 	"version": "0.0.1",
-	"description": "A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime dashboard.",
+	"description": "A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.",
+	"keywords": [
+		"agents",
+		"ai-agents",
+		"claude",
+		"claude-code",
+		"cli",
+		"cursor",
+		"dashboard",
+		"logging",
+		"macos",
+		"sqlite"
+	],
+	"homepage": "https://github.com/YogliB/happenin#readme",
+	"bugs": {
+		"url": "https://github.com/YogliB/happenin/issues"
+	},
+	"license": "MIT",
+	"author": "YogliB",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/YogliB/happenin.git"
+	},
 	"bin": {
 		"happenin": "dist/bin.js"
 	},
