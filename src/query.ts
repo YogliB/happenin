@@ -9,7 +9,9 @@ type Format = "json" | "jsonl" | "summary";
 const FORMATS: Format[] = ["json", "jsonl", "summary"];
 
 function parseInteger(value: string): number | undefined {
-	const n = Number(value);
+	const trimmed = value.trim();
+	if (trimmed === "") return undefined;
+	const n = Number(trimmed);
 	if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return undefined;
 	return n;
 }

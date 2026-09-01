@@ -286,6 +286,24 @@ describe("query", () => {
 		expect(parsed.total).toBe(2);
 	});
 
+	it("treats empty --limit= as default", async () => {
+		const db = initDb();
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			payload: JSON.stringify({}),
+		});
+		db.close();
+
+		const dbPath = process.env.HAPPENIN_DB as string;
+		const { output } = await captureOutput(() => runQuery(["--db", dbPath, "--limit="]));
+		const parsed = JSON.parse(output) as { total: number; rows: EventRow[] };
+		expect(parsed.total).toBe(1);
+		expect(parsed.rows.length).toBe(1);
+	});
+
 	it("respects --limit=0 returning no rows", async () => {
 		const db = initDb();
 		insertEvent(db, {
