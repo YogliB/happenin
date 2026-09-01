@@ -10,6 +10,7 @@ import {
 	countEvents,
 	getSummary,
 	backfillSubagentMetadata,
+	backfillDerivedFields,
 	getDbPath,
 	getUserVersion,
 	ensureSubagentColumns,
@@ -17,6 +18,7 @@ import {
 	getImportMtime,
 	trackImport,
 	getLastEventId,
+	getSessions,
 } from "../src/db.js";
 
 function tempDir(): string {
@@ -353,7 +355,7 @@ describe("db edge cases", () => {
 		try {
 			const rows = getEvents(db, {});
 			expect(rows[0].client).toBeNull();
-			expect(rows[0].happenedAt).toBeNull();
+			expect(rows[0].happenedAt).toBe(new Date(rows[0].receivedAt).toISOString());
 		} finally {
 			db.close();
 		}
@@ -462,6 +464,167 @@ describe("db edge cases", () => {
 		} finally {
 			execSpy.mockRestore();
 			closeSpy.mockRestore();
+		}
+	});
+
+	it("backfills happenedAt and project_path from workspace_roots", () => {
+		const db = new DatabaseSync(":memory:");
+		db.exec(`
+			CREATE TABLE events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				client TEXT,
+				event TEXT,
+				session_id TEXT,
+				happened_at TEXT,
+				received_at INTEGER NOT NULL,
+				project_path TEXT,
+				file_path TEXT,
+				tool_name TEXT,
+				payload TEXT NOT NULL,
+				source_path TEXT
+			);
+		`);
+		const receivedAt = 1700000000000;
+		db.exec(`
+			INSERT INTO events (source, client, event, received_at, payload)
+			VALUES (
+				'cursor',
+				'cursor',
+				'sessionStart',
+				${receivedAt},
+				'${JSON.stringify({ workspace_roots: ["/foo", "/bar"] }).replace(/'/g, "''")}'
+			);
+		`);
+		db.exec("PRAGMA user_version = 0;");
+
+		try {
+			ensureSubagentColumns(db);
+			backfillDerivedFields(db);
+			const rows = db.prepare("SELECT happened_at, project_path FROM events").all() as {
+				happened_at: string;
+				project_path: string;
+			}[];
+			expect(rows[0].happened_at).toBe(new Date(receivedAt).toISOString());
+			expect(rows[0].project_path).toBe("/foo");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("skips derived fields backfill when user_version is already 2", () => {
+		const db = initDb(":memory:");
+		db.exec("PRAGMA user_version = 2;");
+		try {
+			expect(() => backfillDerivedFields(db)).not.toThrow();
+		} finally {
+			db.close();
+		}
+	});
+
+	it("rolls back a race during derived fields backfill", () => {
+		const db = initDb(":memory:");
+
+		let calls = 0;
+		const spy = vi.spyOn(DatabaseSync.prototype, "prepare").mockImplementation(function (
+			this: DatabaseSync,
+			sql: string,
+		) {
+			if (String(sql).trim() === "PRAGMA user_version") {
+				calls += 1;
+				return {
+					get: () => ({ user_version: calls === 1 ? 0 : 2 }),
+				} as ReturnType<DatabaseSync["prepare"]>;
+			}
+			const original = DatabaseSync.prototype.prepare.call(this, sql);
+			return original;
+		});
+
+		try {
+			expect(() => backfillDerivedFields(db)).not.toThrow();
+		} finally {
+			spy.mockRestore();
+			db.close();
+		}
+	});
+
+	it("rethrows and rolls back when derived fields update fails", () => {
+		const db = initDb(":memory:");
+		db.exec("PRAGMA user_version = 0;");
+		const originalExec = DatabaseSync.prototype.exec;
+		const spy = vi.spyOn(DatabaseSync.prototype, "exec").mockImplementation(function (
+			this: DatabaseSync,
+			sql: string,
+		) {
+			if (String(sql).includes("UPDATE events") && String(sql).includes("happened_at")) {
+				throw new Error("update failed");
+			}
+			return originalExec.call(this, sql);
+		});
+
+		try {
+			expect(() => backfillDerivedFields(db)).toThrow("update failed");
+		} finally {
+			spy.mockRestore();
+			db.close();
+		}
+	});
+
+	it("returns session summaries with filters and pagination", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Shell",
+			projectPath: "/project",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Read",
+			projectPath: "/project",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-2",
+			toolName: "Edit",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "postToolUseFailure",
+			sessionId: "s-1",
+			toolName: "Shell",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const all = getSessions(db, {});
+			expect(all.length).toBe(2);
+			const s1 = all.find((s) => s.sessionId === "s-1");
+			expect(s1?.eventCount).toBe(3);
+			expect(s1?.tools).toContain("Shell");
+			expect(s1?.tools).toContain("Read");
+			expect(s1?.failureCount).toBe(1);
+			expect(s1?.projectPath).toBe("/project");
+
+			const filtered = getSessions(db, { source: "cursor" });
+			expect(filtered.length).toBe(1);
+			expect(filtered[0].sessionId).toBe("s-1");
+
+			const paged = getSessions(db, { limit: 1, offset: 1 });
+			expect(paged.length).toBe(1);
+		} finally {
+			db.close();
 		}
 	});
 });

@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
 import { DEFAULT_DB_DIR, DEFAULT_DB_NAME } from "./constants.js";
-import type { EventInsert, EventRow, FilterOptionLists, FilterOptions } from "./types.js";
+import type { EventInsert, EventRow, FilterOptionLists, FilterOptions, Session } from "./types.js";
 
 const eventsColumns = `
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,6 +109,42 @@ export function ensureSubagentColumns(db: DatabaseSync): void {
 	}
 }
 
+export const backfillDerivedFields = (db: DatabaseSync): void => {
+	db.exec("PRAGMA busy_timeout = 30000;");
+	let version = getUserVersion(db);
+	if (version >= 2) return;
+
+	db.exec("BEGIN IMMEDIATE;");
+	version = getUserVersion(db);
+	if (version >= 2) {
+		db.exec("ROLLBACK;");
+		return;
+	}
+
+	try {
+		db.exec(`
+			UPDATE events
+			SET happened_at = strftime('%Y-%m-%dT%H:%M:%fZ', received_at / 1000.0, 'unixepoch')
+			WHERE happened_at IS NULL;
+		`);
+		db.exec(`
+			UPDATE events
+			SET project_path = NULLIF(trim(json_extract(payload, '$.workspace_roots[0]')), '')
+			WHERE
+				project_path IS NULL
+				AND json_valid(payload) = 1
+				AND json_extract(payload, '$.workspace_roots[0]') IS NOT NULL;
+		`);
+		db.exec("PRAGMA user_version = 2;");
+		db.exec("COMMIT;");
+	} catch (err) {
+		try {
+			db.exec("ROLLBACK;");
+		} catch {}
+		throw err;
+	}
+};
+
 export const backfillSubagentMetadata = (db: DatabaseSync): void => {
 	db.exec("PRAGMA busy_timeout = 30000;");
 	let version = getUserVersion(db);
@@ -179,6 +215,7 @@ export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 			);
 		`);
 		ensureSubagentColumns(db);
+		backfillDerivedFields(db);
 		for (const indexSql of indexes) {
 			db.exec(indexSql);
 		}
@@ -193,13 +230,15 @@ export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 
 export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
 	const stmt = db.prepare(insertEventSql);
+	const receivedAt = Date.now();
+	const happenedAt = event.happenedAt ?? new Date(receivedAt).toISOString();
 	stmt.run(
 		event.source,
 		event.client ?? null,
 		event.event ?? null,
 		event.sessionId ?? null,
-		event.happenedAt ?? null,
-		Date.now(),
+		happenedAt,
+		receivedAt,
 		event.projectPath ?? null,
 		event.filePath ?? null,
 		event.toolName ?? null,
@@ -305,6 +344,67 @@ export const getSummary = (db: DatabaseSync, options: FilterOptions): Summary =>
 	}[];
 
 	return { total, bySource, byEvent, bySession };
+};
+
+export const getSessions = (db: DatabaseSync, options: FilterOptions): Session[] => {
+	const { clause, params } = buildWhereClause(options);
+	const limit = options.limit ?? 100;
+	const offset = options.offset ?? 0;
+	const sql = `
+		SELECT
+			session_id AS sessionId,
+			COUNT(*) AS eventCount,
+			MIN(received_at) AS firstReceivedAt,
+			MAX(received_at) AS lastReceivedAt,
+			MIN(happened_at) AS firstAt,
+			MAX(happened_at) AS lastAt,
+			GROUP_CONCAT(project_path, '|') AS projectPaths,
+			GROUP_CONCAT(tool_name, '|') AS toolNames,
+			SUM(CASE WHEN event LIKE '%Failure%' THEN 1 ELSE 0 END) AS failureCount
+		FROM events
+		${clause}
+		GROUP BY session_id
+		ORDER BY lastReceivedAt DESC
+		LIMIT ?${offset > 0 ? " OFFSET ?" : ""}
+	`;
+	params.push(limit);
+	if (offset > 0) {
+		params.push(offset);
+	}
+
+	const stmt = db.prepare(sql);
+	const rows = stmt.all(...params) as {
+		sessionId: string | null;
+		eventCount: number;
+		firstReceivedAt: number | bigint;
+		lastReceivedAt: number | bigint;
+		firstAt: string | null;
+		lastAt: string | null;
+		projectPaths: string | null;
+		toolNames: string | null;
+		failureCount: number | bigint;
+	}[];
+	return rows.map((row) => {
+		const firstReceivedAt = Number(row.firstReceivedAt);
+		const lastReceivedAt = Number(row.lastReceivedAt);
+		const projectPaths = row.projectPaths
+			? [...new Set(row.projectPaths.split("|").filter(Boolean))]
+			: [];
+		const tools = row.toolNames ? [...new Set(row.toolNames.split("|").filter(Boolean))] : [];
+		return {
+			sessionId: row.sessionId,
+			firstAt: row.firstAt,
+			lastAt: row.lastAt,
+			firstReceivedAt,
+			lastReceivedAt,
+			durationMs: lastReceivedAt - firstReceivedAt,
+			eventCount: Number(row.eventCount),
+			projectPath: projectPaths[0] ?? null,
+			projectPaths,
+			tools,
+			failureCount: Number(row.failureCount),
+		};
+	});
 };
 
 export const getLastEventId = (db: DatabaseSync): number => {

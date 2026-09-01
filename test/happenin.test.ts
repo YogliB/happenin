@@ -168,7 +168,7 @@ describe("happenin", () => {
 				const version = db.prepare("PRAGMA user_version").get() as
 					| { user_version: number }
 					| undefined;
-				expect(version?.user_version).toBe(1);
+				expect(version?.user_version).toBe(2);
 
 				const columns = db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
 				const names = columns.map((col) => col.name);
@@ -204,7 +204,7 @@ describe("happenin", () => {
 				const version = db2.prepare("PRAGMA user_version").get() as
 					| { user_version: number }
 					| undefined;
-				expect(version?.user_version).toBe(1);
+				expect(version?.user_version).toBe(2);
 			} finally {
 				db2.close();
 				cleanup(dir);

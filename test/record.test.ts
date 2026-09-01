@@ -174,6 +174,36 @@ describe("record", () => {
 		db.close();
 	});
 
+	it("extracts project path from workspace_roots and falls back timestamps", () => {
+		const payload = JSON.stringify({
+			hook_event_name: "preToolUse",
+			sessionId: "s-5",
+			workspace_roots: ["", "/project"],
+		});
+		recordFromRaw(["cursor"], payload);
+
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "s-5", limit: 10 });
+		expect(rows.length).toBe(1);
+		expect(rows[0].projectPath).toBe("/project");
+		expect(rows[0].happenedAt).toBe(new Date(rows[0].receivedAt).toISOString());
+		db.close();
+	});
+
+	it("extracts project path from a string workspaceRoot", () => {
+		const payload = JSON.stringify({
+			hook_event_name: "preToolUse",
+			sessionId: "s-5b",
+			workspaceRoot: "/single",
+		});
+		recordFromRaw(["cursor"], payload);
+
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "s-5b", limit: 10 });
+		expect(rows[0].projectPath).toBe("/single");
+		db.close();
+	});
+
 	it("records from stdin via runRecord", async () => {
 		const payload = JSON.stringify({
 			hook_event_name: "beforeSubmitPrompt",

@@ -57,18 +57,20 @@ describe("index", () => {
 		}
 	});
 
-	it("dispatches install, record, import, dashboard, and query", async () => {
+	it("dispatches install, record, import, dashboard, query, and sessions", async () => {
 		const runInstall = vi.fn();
 		const runRecord = vi.fn();
 		const runImport = vi.fn();
 		const runDashboard = vi.fn();
 		const runQuery = vi.fn();
+		const runSessions = vi.fn();
 
 		vi.doMock("../src/install.js", () => ({ runInstall }));
 		vi.doMock("../src/record.js", () => ({ runRecord }));
 		vi.doMock("../src/import.js", () => ({ runImport }));
 		vi.doMock("../src/dashboard.js", () => ({ runDashboard }));
 		vi.doMock("../src/query.js", () => ({ runQuery }));
+		vi.doMock("../src/sessions.js", () => ({ runSessions }));
 
 		for (const [command, fn] of [
 			["install", runInstall],
@@ -76,6 +78,7 @@ describe("index", () => {
 			["import", runImport],
 			["dashboard", runDashboard],
 			["query", runQuery],
+			["sessions", runSessions],
 		] as const) {
 			process.argv = ["node", "happenin", command];
 			vi.resetModules();
@@ -89,6 +92,7 @@ describe("index", () => {
 		vi.doUnmock("../src/import.js");
 		vi.doUnmock("../src/dashboard.js");
 		vi.doUnmock("../src/query.js");
+		vi.doUnmock("../src/sessions.js");
 	});
 
 	it("reports unknown commands and exits with code 1", async () => {

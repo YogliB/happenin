@@ -64,18 +64,18 @@ echo '{"sessionId":"abc123","projectPath":"/path/to/project"}' | happenin record
 
 `record` extracts common fields from the raw payload before storing it:
 
-| Stored field     | Payload keys searched (first match wins)                                                        |
-| ---------------- | ----------------------------------------------------------------------------------------------- |
-| `event`          | `hook_event_name` (Cursor only); otherwise the second CLI argument                              |
-| `sessionId`      | `sessionId`, `session_id`; for `subagentStart` also `parent_conversation_id`, `conversation_id` |
-| `happenedAt`     | `happenedAt`, `timestamp`, `happened_at`, `time`                                                |
-| `projectPath`    | `projectPath`, `cwd`, `project_path`, `workspaceRoot`, `workspace_path`                         |
-| `filePath`       | `filePath`, `file_path`, `path`                                                                 |
-| `toolName`       | `toolName`, `tool_name`, `tool`                                                                 |
-| `client`         | `client`; defaults to `cursor` or `claude_code`                                                 |
-| `subagentId`     | `subagent_id` (Cursor `subagentStart` only)                                                     |
-| `subagentType`   | `subagent_type` (Cursor `subagentStart` only)                                                   |
-| `transcriptPath` | `transcript_path` (Cursor `subagentStart` only)                                                 |
+| Stored field     | Payload keys searched (first match wins)                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `event`          | `hook_event_name` (Cursor only); otherwise the second CLI argument                                                             |
+| `sessionId`      | `sessionId`, `session_id`; for `subagentStart` also `parent_conversation_id`, `conversation_id`                                |
+| `happenedAt`     | `happenedAt`, `timestamp`, `happened_at`, `time`, `ts`, `createdAt`, `created_at`                                              |
+| `projectPath`    | `projectPath`, `cwd`, `project_path`, `workspaceRoot`, `workspaceRoots`, `workspace_roots`, `workspace_root`, `workspace_path` |
+| `filePath`       | `filePath`, `file_path`, `path`                                                                                                |
+| `toolName`       | `toolName`, `tool_name`, `tool`                                                                                                |
+| `client`         | `client`; defaults to `cursor` or `claude_code`                                                                                |
+| `subagentId`     | `subagent_id` (Cursor `subagentStart` only)                                                                                    |
+| `subagentType`   | `subagent_type` (Cursor `subagentStart` only)                                                                                  |
+| `transcriptPath` | `transcript_path` (Cursor `subagentStart` only)                                                                                |
 
 For Cursor `subagentStart` payloads, `parent_conversation_id` and `conversation_id` are used as `sessionId` fallbacks so the subagent event groups with the main Cursor session. `conversation_id` and `parent_conversation_id` are not used as `sessionId` fallbacks for any other event.
 
@@ -127,6 +127,26 @@ happenin query --session abc123 --format summary
 - `--format <json|jsonl|summary>` — output format (default `json`).
 - `--db <path>` — database path.
 
+## `happenin sessions [options]`
+
+Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes.
+
+```bash
+happenin sessions --limit 10
+happenin sessions --source cursor --format jsonl
+happenin sessions --session abc123 --format summary
+```
+
+- `--source <source>` — filter by `cursor` or `claude`.
+- `--event <event>` — filter by event name.
+- `--session <id>` — filter by session id (partial match).
+- `--q <text>` — search event payloads.
+- `--since <id>` — events with an id greater than `<id>`.
+- `--limit <n>` — maximum sessions (default `100`).
+- `--offset <n>` — skip the first `<n>` sessions.
+- `--format <json|jsonl|summary>` — output format (default `json`).
+- `--db <path>` — database path.
+
 ## `happenin dashboard [--port <port>] [--no-open] [--silent]`
 
 Starts the local HTTP dashboard. Default port is `8765`.
@@ -148,4 +168,4 @@ Use `--no-open` or `--silent` to start without launching the browser.
 - To start recording events from an existing agent setup, run `happenin install` and restart the agent.
 - To record a one-off event manually, pipe JSON to `happenin record <source> [event]`.
 - To backfill existing agent transcripts, run `happenin import`.
-- To inspect events, run `happenin query` or start `happenin dashboard`.
+- To inspect events, run `happenin query`, `happenin sessions`, or start `happenin dashboard`.

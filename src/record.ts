@@ -27,6 +27,18 @@ function asWhen(value: unknown): string | undefined {
 	return undefined;
 }
 
+function firstString(value: unknown): string | undefined {
+	const s = asString(value);
+	if (s !== undefined) return s;
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const itemString = asString(item);
+			if (itemString !== undefined) return itemString;
+		}
+	}
+	return undefined;
+}
+
 export function isBusyError(err: unknown): boolean {
 	if (typeof err !== "object" || err === null) return false;
 	const e = err as { code?: string; errcode?: number };
@@ -67,15 +79,23 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 			asString(payload.session_id))
 		: (asString(payload.sessionId) ?? asString(payload.session_id));
 	const happenedAt = asWhen(
-		payload.happenedAt ?? payload.timestamp ?? payload.happened_at ?? payload.time,
+		payload.happenedAt ??
+			payload.timestamp ??
+			payload.happened_at ??
+			payload.time ??
+			payload.ts ??
+			payload.createdAt ??
+			payload.created_at,
 	);
-	const projectPath = asString(
-		payload.projectPath ??
-			payload.cwd ??
-			payload.project_path ??
-			payload.workspaceRoot ??
-			payload.workspace_path,
-	);
+	const projectPath =
+		asString(payload.projectPath) ??
+		asString(payload.cwd) ??
+		asString(payload.project_path) ??
+		firstString(payload.workspaceRoot) ??
+		firstString(payload.workspaceRoots) ??
+		firstString(payload.workspace_roots) ??
+		firstString(payload.workspace_root) ??
+		asString(payload.workspace_path);
 	const filePath = asString(payload.filePath ?? payload.file_path ?? payload.path);
 	const toolName = asString(payload.toolName ?? payload.tool_name ?? payload.tool);
 	const client = asString(payload.client) ?? (source === "cursor" ? "cursor" : "claude_code");

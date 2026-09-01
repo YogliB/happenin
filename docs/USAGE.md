@@ -82,6 +82,26 @@ happenin query --source cursor --event subagentStart --format jsonl
 happenin query --session abc123 --format summary
 ```
 
+### `happenin sessions [options]`
+
+Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes.
+
+- `--source <source>` — filter by source.
+- `--event <event>` — filter by event name.
+- `--session <id>` — filter by session id (partial match).
+- `--q <text>` — search event payloads.
+- `--since <id>` — sessions with an event id greater than `<id>`.
+- `--limit <n>` — maximum sessions to return (default: `100`).
+- `--offset <n>` — skip the first `<n>` sessions.
+- `--format <json|jsonl|summary>` — output format (default: `json`).
+- `--db <path>` — database path (default: `HAPPENIN_DB` or `~/.happenin/happenin.db`).
+
+```bash
+happenin sessions --limit 10
+happenin sessions --source cursor --format jsonl
+happenin sessions --session abc123 --format summary
+```
+
 ### `happenin dashboard [--port <port>] [--no-open] [--silent]`
 
 Starts a local HTTP server and opens the dashboard in your browser.
@@ -92,12 +112,13 @@ Starts a local HTTP server and opens the dashboard in your browser.
 
 ## Common commands
 
-| Command                     | Purpose                          |
-| --------------------------- | -------------------------------- |
-| `happenin install`          | Install hooks.                   |
-| `happenin import`           | Import existing transcripts.     |
-| `happenin dashboard`        | Start the realtime dashboard.    |
-| `happenin query --limit 10` | Print the 10 most recent events. |
+| Command                        | Purpose                                     |
+| ------------------------------ | ------------------------------------------- |
+| `happenin install`             | Install hooks.                              |
+| `happenin import`              | Import existing transcripts.                |
+| `happenin dashboard`           | Start the realtime dashboard.               |
+| `happenin query --limit 10`    | Print the 10 most recent events.            |
+| `happenin sessions --limit 10` | Print the 10 most recent session summaries. |
 
 ## Configuration
 
