@@ -47,7 +47,8 @@
 		"knip:ci": "knip",
 		"test": "vitest run",
 		"test:ci": "vitest run --coverage",
-		"prepare": "husky"
+		"prepare": "husky",
+		"prepublishOnly": "npm run build"
 	},
 	"devDependencies": {
 		"@types/node": "24",
