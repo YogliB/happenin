@@ -67,13 +67,6 @@
 		"**/*": "oxfmt --write --no-error-on-unmatched-pattern",
 		"**/*.ts": "oxlint --fix"
 	},
-	"devEngines": {
-		"packageManager": {
-			"name": "nub",
-			"version": "^0.6.0",
-			"onFail": "ignore"
-		}
-	},
 	"engines": {
 		"node": ">=24.0.0"
 	}
