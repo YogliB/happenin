@@ -14,12 +14,12 @@ type ClaudeHookFile = { hooks: Record<string, ClaudeMatcher[]> };
 const isObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const formatError = (error: unknown): string =>
+export const formatError = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
-const homeDir = (): string => process.env.HOME || homedir();
+export const homeDir = (): string => process.env.HOME || homedir();
 
-const resolveBin = (): string => {
+export const resolveBin = (): string => {
 	const script = process.argv[1];
 	if (script && path.isAbsolute(script)) return script;
 	return "happenin";
@@ -135,7 +135,7 @@ const installClaude = (bin: string): InstallResult => {
 	return { target, backup };
 };
 
-const parseTargets = (argv: string[]): { cursor: boolean; claude: boolean } => {
+export const parseTargets = (argv: string[]): { cursor: boolean; claude: boolean } => {
 	let cursor = false;
 	let claude = false;
 	for (const arg of argv) {

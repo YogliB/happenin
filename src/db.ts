@@ -72,12 +72,12 @@ const selectEventSql = `
 	FROM events
 `;
 
-function getUserVersion(db: DatabaseSync): number {
+export function getUserVersion(db: DatabaseSync): number {
 	const row = db.prepare("PRAGMA user_version").get() as { user_version: number } | undefined;
 	return Number(row?.user_version ?? 0);
 }
 
-function ensureSubagentColumns(db: DatabaseSync): void {
+export function ensureSubagentColumns(db: DatabaseSync): void {
 	let version = getUserVersion(db);
 	if (version >= 1) return;
 

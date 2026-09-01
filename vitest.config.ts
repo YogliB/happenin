@@ -6,8 +6,12 @@ export default defineConfig({
 			all: true,
 			provider: "v8",
 			include: ["src/**/*.ts"],
-			exclude: ["src/**/*.test.ts"],
+			exclude: ["src/**/*.test.ts", "src/types.ts"],
 			reporter: ["text", "lcov", "json"],
+			thresholds: {
+				perFile: true,
+				"100": true,
+			},
 		},
 	},
 });

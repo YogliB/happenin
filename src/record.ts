@@ -27,7 +27,7 @@ function asWhen(value: unknown): string | undefined {
 	return undefined;
 }
 
-function isBusyError(err: unknown): boolean {
+export function isBusyError(err: unknown): boolean {
 	if (typeof err !== "object" || err === null) return false;
 	const e = err as { code?: string; errcode?: number };
 	const code = e.errcode ?? 0;

@@ -23,7 +23,12 @@ interface SseClient {
 	timer: NodeJS.Timeout;
 }
 
-let db: Db;
+export let db: Db;
+export function setDb(database: Db): void {
+	db = database;
+}
+let dashboardServer: http.Server | undefined;
+export const getDashboardServer = (): http.Server | undefined => dashboardServer;
 const clients = new Set<SseClient>();
 
 function escapeHtml(raw: string): string {
@@ -170,7 +175,7 @@ function sendEventsJson(req: http.IncomingMessage, res: http.ServerResponse, url
 	res.end(JSON.stringify(rows));
 }
 
-function sendEventsStream(req: http.IncomingMessage, res: http.ServerResponse): void {
+export function sendEventsStream(req: http.IncomingMessage, res: http.ServerResponse): void {
 	res.writeHead(200, {
 		"Content-Type": "text/event-stream",
 		"Cache-Control": "no-cache",
@@ -212,7 +217,7 @@ function sendEventsStream(req: http.IncomingMessage, res: http.ServerResponse): 
 	});
 }
 
-function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+export function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
 	const url = new URL(req.url ?? "/", "http://localhost");
 	try {
 		if (req.method === "GET") {
@@ -535,10 +540,11 @@ details[open].session-group > summary::before { content: "−"; }
 </html>`;
 }
 
-async function startServer(port: number, open: boolean): Promise<void> {
+export async function startServer(port: number, open: boolean): Promise<void> {
 	const server = http.createServer((req, res) => {
 		void handleRequest(req, res);
 	});
+	dashboardServer = server;
 	await new Promise<void>((resolve, reject) => {
 		const tryPort = (p: number) => {
 			function onError(err: NodeJS.ErrnoException) {
