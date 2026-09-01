@@ -1,5 +1,10 @@
 # happenin
 
+[![Known Vulnerabilities](https://snyk.io/test/npm/happenin/badge.svg)](https://snyk.io/test/npm/happenin)
+[![npm package version](https://badgen.net/npm/v/happenin)](https://npm.im/happenin)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v3.0%20adopted-ff69b4.svg)](docs/CODE_OF_CONDUCT.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+
 A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
 ## Why
