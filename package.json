@@ -71,7 +71,7 @@
 		"packageManager": {
 			"name": "nub",
 			"version": "^0.6.0",
-			"onFail": "warn"
+			"onFail": "ignore"
 		}
 	},
 	"engines": {
