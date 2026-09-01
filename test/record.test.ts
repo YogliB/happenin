@@ -239,7 +239,7 @@ describe("record", () => {
 		const payload = JSON.stringify({
 			hook_event_name: "preToolUse",
 			sessionId: "s-5",
-			workspace_roots: ["", "/project"],
+			workspace_roots: ["", "   ", "/project"],
 		});
 		recordFromRaw(["cursor"], payload);
 

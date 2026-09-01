@@ -203,6 +203,32 @@ describe("sessions", () => {
 		expect(parsed[0].tools).toEqual(["Read|Write"]);
 	});
 
+	it("picks the alphabetically first project path as primary", async () => {
+		const db = initDb();
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			projectPath: "/zzz",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			projectPath: "/aaa",
+			payload: JSON.stringify({}),
+		});
+		db.close();
+
+		const { output } = await captureOutput(() => runSessions([]));
+		const parsed = JSON.parse(output) as { projectPath: string; projectPaths: string[] }[];
+		expect(parsed[0].projectPath).toBe("/aaa");
+		expect(parsed[0].projectPaths).toEqual(["/aaa", "/zzz"]);
+	});
+
 	it("shows help and exits for -h and --help", async () => {
 		const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 		for (const flag of ["-h", "--help"]) {

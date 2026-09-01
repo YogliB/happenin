@@ -128,7 +128,7 @@ export const backfillDerivedFields = (db: DatabaseSync): void => {
 			.all() as { id: number; payload: string }[];
 		const updateHappenedAt = db.prepare("UPDATE events SET happened_at = ? WHERE id = ?");
 		for (const row of missing) {
-			const payload = JSON.parse(row.payload) as Record<string, unknown>;
+			const payload = JSON.parse(row.payload);
 			const happenedAt = firstHappenedAtPayload(payload);
 			if (happenedAt !== undefined) {
 				updateHappenedAt.run(happenedAt, row.id);
@@ -151,10 +151,10 @@ export const backfillDerivedFields = (db: DatabaseSync): void => {
 				NULLIF(trim(json_extract(payload, '$.projectPath')), ''),
 				NULLIF(trim(json_extract(payload, '$.cwd')), ''),
 				NULLIF(trim(json_extract(payload, '$.project_path')), ''),
-				(SELECT value FROM json_each(payload, '$.workspaceRoot') WHERE typeof(value) = 'text' AND value <> '' LIMIT 1),
-				(SELECT value FROM json_each(payload, '$.workspaceRoots') WHERE typeof(value) = 'text' AND value <> '' LIMIT 1),
-				(SELECT value FROM json_each(payload, '$.workspace_roots') WHERE typeof(value) = 'text' AND value <> '' LIMIT 1),
-				(SELECT value FROM json_each(payload, '$.workspace_root') WHERE typeof(value) = 'text' AND value <> '' LIMIT 1),
+				(SELECT trim(value) FROM json_each(payload, '$.workspaceRoot') WHERE typeof(value) = 'text' AND trim(value) <> '' LIMIT 1),
+				(SELECT trim(value) FROM json_each(payload, '$.workspaceRoots') WHERE typeof(value) = 'text' AND trim(value) <> '' LIMIT 1),
+				(SELECT trim(value) FROM json_each(payload, '$.workspace_roots') WHERE typeof(value) = 'text' AND trim(value) <> '' LIMIT 1),
+				(SELECT trim(value) FROM json_each(payload, '$.workspace_root') WHERE typeof(value) = 'text' AND trim(value) <> '' LIMIT 1),
 				NULLIF(trim(json_extract(payload, '$.workspace_path')), '')
 			)
 			WHERE
@@ -296,9 +296,13 @@ export function parseWhen(value: unknown): string | undefined {
 	return undefined;
 }
 
-export function firstHappenedAtPayload(payload: Record<string, unknown>): string | undefined {
+export function firstHappenedAtPayload(payload: unknown): string | undefined {
+	if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+		return undefined;
+	}
+	const record = payload as Record<string, unknown>;
 	for (const key of timestampKeys) {
-		const value = parseWhen(Reflect.get(payload, key));
+		const value = parseWhen(Reflect.get(record, key));
 		if (value !== undefined) return value;
 	}
 	return undefined;
@@ -434,8 +438,8 @@ export const getSessions = (db: DatabaseSync, options: FilterOptions): Session[]
 			MAX(received_at) AS lastReceivedAt,
 			MIN(happened_at) AS firstAt,
 			MAX(happened_at) AS lastAt,
-			COALESCE(json_group_array(DISTINCT project_path) FILTER (WHERE project_path IS NOT NULL AND project_path <> ''), '[]') AS projectPaths,
-			COALESCE(json_group_array(DISTINCT tool_name) FILTER (WHERE tool_name IS NOT NULL AND tool_name <> ''), '[]') AS toolNames,
+			COALESCE(json_group_array(DISTINCT project_path ORDER BY project_path) FILTER (WHERE project_path IS NOT NULL AND project_path <> ''), '[]') AS projectPaths,
+			COALESCE(json_group_array(DISTINCT tool_name ORDER BY tool_name) FILTER (WHERE tool_name IS NOT NULL AND tool_name <> ''), '[]') AS toolNames,
 			SUM(CASE WHEN event LIKE '%Failure%' THEN 1 ELSE 0 END) AS failureCount
 		FROM events
 		${clause}

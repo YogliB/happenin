@@ -8,9 +8,15 @@ type Format = "json" | "jsonl" | "summary";
 
 const FORMATS: Format[] = ["json", "jsonl", "summary"];
 
-function parseNumber(value: string): number | undefined {
+function parseInteger(value: string): number | undefined {
 	const n = Number(value);
-	return Number.isNaN(n) ? undefined : n;
+	if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return undefined;
+	return n;
+}
+
+function parsePositiveInteger(value: string): number | undefined {
+	const n = parseInteger(value);
+	return n === undefined || n === 0 ? undefined : n;
 }
 
 function showHelp(): void {
@@ -58,17 +64,17 @@ function parseFilterArgs(argv: string[]): {
 					options.q = arg;
 					break;
 				case "since": {
-					const n = parseNumber(arg);
+					const n = parseInteger(arg);
 					if (n !== undefined) options.since = n;
 					break;
 				}
 				case "limit": {
-					const n = parseNumber(arg);
+					const n = parsePositiveInteger(arg);
 					if (n !== undefined) options.limit = n;
 					break;
 				}
 				case "offset": {
-					const n = parseNumber(arg);
+					const n = parseInteger(arg);
 					if (n !== undefined) options.offset = n;
 					break;
 				}
@@ -124,17 +130,17 @@ function parseFilterArgs(argv: string[]): {
 						options.q = value;
 						break;
 					case "since": {
-						const n = parseNumber(value);
+						const n = parseInteger(value);
 						if (n !== undefined) options.since = n;
 						break;
 					}
 					case "limit": {
-						const n = parseNumber(value);
+						const n = parsePositiveInteger(value);
 						if (n !== undefined) options.limit = n;
 						break;
 					}
 					case "offset": {
-						const n = parseNumber(value);
+						const n = parseInteger(value);
 						if (n !== undefined) options.offset = n;
 						break;
 					}

@@ -286,6 +286,27 @@ describe("query", () => {
 		expect(parsed.total).toBe(2);
 	});
 
+	it("ignores non-integer, negative, and infinite pagination values", async () => {
+		const db = initDb();
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			payload: JSON.stringify({}),
+		});
+		db.close();
+
+		const dbPath = process.env.HAPPENIN_DB as string;
+		const { output } = await captureOutput(() =>
+			runQuery(["--db", dbPath, "--since=-1", "--limit=-5", "--offset=1.5", "--since=Infinity"]),
+		);
+		const parsed = JSON.parse(output) as { total: number; rows: EventRow[] };
+		expect(parsed.total).toBe(1);
+		expect(parsed.rows.length).toBe(1);
+		expect(parsed.rows[0].sessionId).toBe("s-1");
+	});
+
 	it("shows help and exits for -h and --help", async () => {
 		const exit = vi.spyOn(process, "exit").mockImplementation((code) => {
 			throw new Error(`exit:${code}`);
