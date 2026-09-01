@@ -110,7 +110,6 @@ export function ensureSubagentColumns(db: DatabaseSync): void {
 }
 
 export const backfillDerivedFields = (db: DatabaseSync): void => {
-	db.exec("PRAGMA busy_timeout = 30000;");
 	let version = getUserVersion(db);
 	if (version >= 2) return;
 
@@ -129,11 +128,24 @@ export const backfillDerivedFields = (db: DatabaseSync): void => {
 		`);
 		db.exec(`
 			UPDATE events
-			SET project_path = NULLIF(trim(json_extract(payload, '$.workspace_roots[0]')), '')
+			SET happened_at = strftime('%Y-%m-%dT%H:%M:%fZ', happened_at / 1000.0, 'unixepoch')
+			WHERE happened_at NOT GLOB '*[^0-9]*' AND length(happened_at) > 0;
+		`);
+		db.exec(`
+			UPDATE events
+			SET project_path = COALESCE(
+				NULLIF(trim(json_extract(payload, '$.projectPath')), ''),
+				NULLIF(trim(json_extract(payload, '$.cwd')), ''),
+				NULLIF(trim(json_extract(payload, '$.project_path')), ''),
+				(SELECT value FROM json_each(payload, '$.workspaceRoot') WHERE typeof(value) = 'text' AND value <> '' LIMIT 1),
+				(SELECT value FROM json_each(payload, '$.workspaceRoots') WHERE typeof(value) = 'text' AND value <> '' LIMIT 1),
+				(SELECT value FROM json_each(payload, '$.workspace_roots') WHERE typeof(value) = 'text' AND value <> '' LIMIT 1),
+				(SELECT value FROM json_each(payload, '$.workspace_root') WHERE typeof(value) = 'text' AND value <> '' LIMIT 1),
+				NULLIF(trim(json_extract(payload, '$.workspace_path')), '')
+			)
 			WHERE
 				project_path IS NULL
-				AND json_valid(payload) = 1
-				AND json_extract(payload, '$.workspace_roots[0]') IS NOT NULL;
+				AND json_valid(payload) = 1;
 		`);
 		db.exec("PRAGMA user_version = 2;");
 		db.exec("COMMIT;");
@@ -146,7 +158,6 @@ export const backfillDerivedFields = (db: DatabaseSync): void => {
 };
 
 export const backfillSubagentMetadata = (db: DatabaseSync): void => {
-	db.exec("PRAGMA busy_timeout = 30000;");
 	let version = getUserVersion(db);
 	if (version < 1) {
 		throw new Error("Database schema must be migrated before backfilling subagent metadata");
@@ -228,10 +239,18 @@ export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 	}
 };
 
+function normalizeWhen(value: string | undefined): string | undefined {
+	if (!value) return undefined;
+	if (/^\d+$/.test(value)) {
+		return new Date(Number(value)).toISOString();
+	}
+	return value;
+}
+
 export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
 	const stmt = db.prepare(insertEventSql);
 	const receivedAt = Date.now();
-	const happenedAt = event.happenedAt ?? new Date(receivedAt).toISOString();
+	const happenedAt = normalizeWhen(event.happenedAt) ?? new Date(receivedAt).toISOString();
 	stmt.run(
 		event.source,
 		event.client ?? null,
@@ -358,8 +377,8 @@ export const getSessions = (db: DatabaseSync, options: FilterOptions): Session[]
 			MAX(received_at) AS lastReceivedAt,
 			MIN(happened_at) AS firstAt,
 			MAX(happened_at) AS lastAt,
-			GROUP_CONCAT(project_path, '|') AS projectPaths,
-			GROUP_CONCAT(tool_name, '|') AS toolNames,
+			COALESCE(json_group_array(DISTINCT project_path) FILTER (WHERE project_path IS NOT NULL AND project_path <> ''), '[]') AS projectPaths,
+			COALESCE(json_group_array(DISTINCT tool_name) FILTER (WHERE tool_name IS NOT NULL AND tool_name <> ''), '[]') AS toolNames,
 			SUM(CASE WHEN event LIKE '%Failure%' THEN 1 ELSE 0 END) AS failureCount
 		FROM events
 		${clause}
@@ -387,17 +406,21 @@ export const getSessions = (db: DatabaseSync, options: FilterOptions): Session[]
 	return rows.map((row) => {
 		const firstReceivedAt = Number(row.firstReceivedAt);
 		const lastReceivedAt = Number(row.lastReceivedAt);
-		const projectPaths = row.projectPaths
-			? [...new Set(row.projectPaths.split("|").filter(Boolean))]
-			: [];
-		const tools = row.toolNames ? [...new Set(row.toolNames.split("|").filter(Boolean))] : [];
+		const projectPaths = JSON.parse(row.projectPaths as string) as string[];
+		const tools = JSON.parse(row.toolNames as string) as string[];
+		const firstAtMs = row.firstAt ? Date.parse(row.firstAt) : NaN;
+		const lastAtMs = row.lastAt ? Date.parse(row.lastAt) : NaN;
+		const durationMs =
+			!Number.isNaN(firstAtMs) && !Number.isNaN(lastAtMs) && lastAtMs >= firstAtMs
+				? lastAtMs - firstAtMs
+				: lastReceivedAt - firstReceivedAt;
 		return {
 			sessionId: row.sessionId,
 			firstAt: row.firstAt,
 			lastAt: row.lastAt,
 			firstReceivedAt,
 			lastReceivedAt,
-			durationMs: lastReceivedAt - firstReceivedAt,
+			durationMs,
 			eventCount: Number(row.eventCount),
 			projectPath: projectPaths[0] ?? null,
 			projectPaths,

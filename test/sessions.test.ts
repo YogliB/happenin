@@ -157,6 +157,52 @@ describe("sessions", () => {
 		expect(output).toContain("tools:-");
 	});
 
+	it("calculates duration from happenedAt when available", async () => {
+		const db = initDb();
+		const t1 = 1700000000000;
+		const t2 = t1 + 60 * 60 * 1000;
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			happenedAt: new Date(t1).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			happenedAt: new Date(t2).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		db.close();
+
+		const { output } = await captureOutput(() => runSessions([]));
+		const parsed = JSON.parse(output) as { durationMs: number }[];
+		expect(parsed[0].durationMs).toBe(60 * 60 * 1000);
+	});
+
+	it("handles project paths and tool names containing pipe characters", async () => {
+		const db = initDb();
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Read|Write",
+			projectPath: "/a|b",
+			payload: JSON.stringify({}),
+		});
+		db.close();
+
+		const { output } = await captureOutput(() => runSessions([]));
+		const parsed = JSON.parse(output) as { projectPaths: string[]; tools: string[] }[];
+		expect(parsed[0].projectPaths).toEqual(["/a|b"]);
+		expect(parsed[0].tools).toEqual(["Read|Write"]);
+	});
+
 	it("shows help and exits for -h and --help", async () => {
 		const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 		for (const flag of ["-h", "--help"]) {

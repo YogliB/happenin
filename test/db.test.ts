@@ -467,6 +467,16 @@ describe("db edge cases", () => {
 		}
 	});
 
+	it("preserves the busy timeout selected by initDb", () => {
+		const db = initDb(":memory:", 500);
+		try {
+			const row = db.prepare("PRAGMA busy_timeout").get() as { timeout: number } | undefined;
+			expect(row?.timeout).toBe(500);
+		} finally {
+			db.close();
+		}
+	});
+
 	it("backfills happenedAt and project_path from workspace_roots", () => {
 		const db = new DatabaseSync(":memory:");
 		db.exec(`
@@ -566,6 +576,129 @@ describe("db edge cases", () => {
 			expect(() => backfillDerivedFields(db)).toThrow("update failed");
 		} finally {
 			spy.mockRestore();
+			db.close();
+		}
+	});
+
+	it("backfills project_path from all supported payload keys", () => {
+		const db = new DatabaseSync(":memory:");
+		db.exec(`
+			CREATE TABLE events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				client TEXT,
+				event TEXT,
+				session_id TEXT,
+				happened_at TEXT,
+				received_at INTEGER NOT NULL,
+				project_path TEXT,
+				file_path TEXT,
+				tool_name TEXT,
+				payload TEXT NOT NULL,
+				source_path TEXT
+			);
+		`);
+
+		const cases: { payload: string; expected: string }[] = [
+			{ payload: JSON.stringify({ projectPath: "/projectPath" }), expected: "/projectPath" },
+			{ payload: JSON.stringify({ cwd: "/cwd" }), expected: "/cwd" },
+			{ payload: JSON.stringify({ project_path: "/project_path" }), expected: "/project_path" },
+			{ payload: JSON.stringify({ workspaceRoot: "/workspaceRoot" }), expected: "/workspaceRoot" },
+			{
+				payload: JSON.stringify({ workspaceRoots: ["", "/workspaceRoots"] }),
+				expected: "/workspaceRoots",
+			},
+			{
+				payload: JSON.stringify({ workspace_roots: ["", "/workspace_roots"] }),
+				expected: "/workspace_roots",
+			},
+			{
+				payload: JSON.stringify({ workspace_root: "/workspace_root" }),
+				expected: "/workspace_root",
+			},
+			{
+				payload: JSON.stringify({ workspace_path: "/workspace_path" }),
+				expected: "/workspace_path",
+			},
+		];
+
+		const stmt = db.prepare(
+			"INSERT INTO events (source, client, event, received_at, payload) VALUES (?, ?, ?, ?, ?)",
+		);
+		for (const c of cases) {
+			stmt.run("cursor", "cursor", "sessionStart", 1700000000000, c.payload);
+		}
+		db.exec("PRAGMA user_version = 0;");
+
+		try {
+			ensureSubagentColumns(db);
+			backfillDerivedFields(db);
+			const rows = db.prepare("SELECT project_path FROM events ORDER BY id").all() as {
+				project_path: string;
+			}[];
+			for (let i = 0; i < cases.length; i++) {
+				expect(rows[i].project_path).toBe(cases[i].expected);
+			}
+		} finally {
+			db.close();
+		}
+	});
+
+	it("normalizes numeric happened_at strings in backfill", () => {
+		const db = new DatabaseSync(":memory:");
+		db.exec(`
+			CREATE TABLE events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				client TEXT,
+				event TEXT,
+				session_id TEXT,
+				happened_at TEXT,
+				received_at INTEGER NOT NULL,
+				project_path TEXT,
+				file_path TEXT,
+				tool_name TEXT,
+				payload TEXT NOT NULL,
+				source_path TEXT
+			);
+		`);
+		db.exec(`
+			INSERT INTO events (source, client, event, received_at, happened_at, payload)
+			VALUES (
+				'cursor',
+				'cursor',
+				'sessionStart',
+				1700000000000,
+				'1700000000000',
+				'{}'
+			);
+		`);
+		db.exec("PRAGMA user_version = 0;");
+
+		try {
+			ensureSubagentColumns(db);
+			backfillDerivedFields(db);
+			const rows = db.prepare("SELECT happened_at FROM events").all() as { happened_at: string }[];
+			expect(rows[0].happened_at).toBe(new Date(1700000000000).toISOString());
+		} finally {
+			db.close();
+		}
+	});
+
+	it("normalizes numeric happenedAt on insert", () => {
+		const db = initDb(":memory:");
+		try {
+			insertEvent(db, {
+				source: "cursor",
+				client: "cursor",
+				event: "sessionStart",
+				sessionId: "s-1",
+				happenedAt: "1700000000000",
+				payload: JSON.stringify({}),
+			});
+			const rows = getEvents(db, {});
+			expect(rows[0].happenedAt).toBe(new Date(1700000000000).toISOString());
+		} finally {
 			db.close();
 		}
 	});
