@@ -286,6 +286,24 @@ describe("query", () => {
 		expect(parsed.total).toBe(2);
 	});
 
+	it("respects --limit=0 returning no rows", async () => {
+		const db = initDb();
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			payload: JSON.stringify({}),
+		});
+		db.close();
+
+		const dbPath = process.env.HAPPENIN_DB as string;
+		const { output } = await captureOutput(() => runQuery(["--db", dbPath, "--limit=0"]));
+		const parsed = JSON.parse(output) as { total: number; rows: EventRow[] };
+		expect(parsed.total).toBe(1);
+		expect(parsed.rows.length).toBe(0);
+	});
+
 	it("ignores non-integer, negative, and infinite pagination values", async () => {
 		const db = initDb();
 		insertEvent(db, {

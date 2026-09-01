@@ -14,11 +14,6 @@ function parseInteger(value: string): number | undefined {
 	return n;
 }
 
-function parsePositiveInteger(value: string): number | undefined {
-	const n = parseInteger(value);
-	return n === undefined || n === 0 ? undefined : n;
-}
-
 function showHelp(): void {
 	process.stdout.write(`Usage: happenin query [options]
 
@@ -69,7 +64,7 @@ function parseFilterArgs(argv: string[]): {
 					break;
 				}
 				case "limit": {
-					const n = parsePositiveInteger(arg);
+					const n = parseInteger(arg);
 					if (n !== undefined) options.limit = n;
 					break;
 				}
@@ -135,7 +130,7 @@ function parseFilterArgs(argv: string[]): {
 						break;
 					}
 					case "limit": {
-						const n = parsePositiveInteger(value);
+						const n = parseInteger(value);
 						if (n !== undefined) options.limit = n;
 						break;
 					}
