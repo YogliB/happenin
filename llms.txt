@@ -7,6 +7,7 @@ Important notes:
 - Development of this repository requires [Nub](https://nubjs.com); end users will be able to install the published package with npm once it ships.
 - The CLI exposes `install`, `record`, `import`, and `dashboard` commands.
 - There are zero runtime dependencies; the dashboard loads small client libraries (htmx, AlpineJS, htmx-ext-sse) from a CDN.
+- `happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways until v1.0.0; breaking changes are noted in the [changelog](https://raw.githubusercontent.com/YogliB/happenin/main/docs/CHANGELOG.md).
 
 ## User docs
 

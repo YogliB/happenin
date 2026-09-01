@@ -6,6 +6,10 @@ A minimal macOS CLI that captures Cursor and Claude Code agent events into a loc
 
 Cursor and Claude Code can fire local hooks for every session, tool use, prompt, file edit, and lifecycle event. `happenin` installs those hooks, stores the full payloads locally, and gives you a browser dashboard that updates in real time. All data stays on your machine.
 
+## Stability
+
+`happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways between releases until `v1.0.0`. Any breaking changes will be minor and listed in the [changelog](docs/CHANGELOG.md).
+
 ## Install
 
 ```bash

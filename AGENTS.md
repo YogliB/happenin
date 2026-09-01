@@ -37,6 +37,8 @@ These rules are always-on. Read them before every task:
 
 A minimal macOS CLI that captures Cursor and Claude Code agent events into a local SQLite database and serves a realtime AlpineJS + htmx dashboard.
 
+`happenin` is pre-1.0. The CLI, database schema, and dashboard may change in small ways until v1.0.0; breaking changes are noted in the changelog.
+
 ### How to work on it
 
 Install dependencies and build:

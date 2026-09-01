@@ -17,6 +17,10 @@ nub install
 nub run build
 ```
 
+## Stability
+
+`happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways between releases until `v1.0.0`. Any breaking changes will be minor and listed in the [changelog](CHANGELOG.md).
+
 ## Quick start
 
 ```bash
