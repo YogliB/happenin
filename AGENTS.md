@@ -79,7 +79,8 @@ Common commands:
 - `src/record.ts` — hook target: parse stdin, insert event, respond.
 - `src/install.ts` — install Cursor / Claude Code hooks.
 - `src/import.ts` — import Claude and Cursor transcripts.
-- `src/query.ts` — filter and format events for the `query` command.
+- `src/query.ts` — filter and format events for the `query` and `sessions` commands.
+- `src/sessions.ts` — session summaries for the `sessions` command.
 - `src/view.ts` — shared event view used by `query` and `dashboard`.
 - `src/dashboard.ts` — HTTP server and dashboard HTML.
 - `assets/help.md` — help text shown by `--help`.

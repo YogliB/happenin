@@ -45,6 +45,20 @@ Query events from the local database and print them as JSON, JSONL, or a summary
 - `--format <json|jsonl|summary>` — output format (default: `json`).
 - `--db <path>` — database path (default: `HAPPENIN_DB` or `~/.happenin/happenin.db`).
 
+### `happenin sessions [options]`
+
+List sessions with id, start/end time, duration, event count, project path, tools used, and failure count.
+
+- `--source <source>` — filter sessions by source.
+- `--event <event>` — filter sessions by event name.
+- `--session <id>` — filter by session id (partial match).
+- `--q <text>` — search event payloads.
+- `--since <id>` — events with an id greater than `<id>`.
+- `--limit <n>` — maximum sessions to return (default: `100`).
+- `--offset <n>` — skip the first `<n>` sessions.
+- `--format <json|jsonl|summary>` — output format (default: `json`).
+- `--db <path>` — database path (default: `HAPPENIN_DB` or `~/.happenin/happenin.db`).
+
 ### `happenin dashboard [--port <port>] [--no-open] [--silent]`
 
 Starts a local HTTP server and opens the dashboard in your browser.

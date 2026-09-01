@@ -1,5 +1,5 @@
 import process from "node:process";
-import { initDb, insertEvent } from "./db.js";
+import { initDb, insertEvent, firstHappenedAtPayload } from "./db.js";
 import { DEFAULT_RESPONSES } from "./constants.js";
 import type { EventInsert, Source } from "./types.js";
 
@@ -14,15 +14,14 @@ function asString(value: unknown): string | undefined {
 	return s.length > 0 ? s : undefined;
 }
 
-function asWhen(value: unknown): string | undefined {
-	if (typeof value === "number") {
-		return new Date(value).toISOString();
-	}
-	if (typeof value === "string" && value.length > 0) {
-		if (/^\d+$/.test(value)) {
-			return new Date(Number(value)).toISOString();
+function firstString(value: unknown): string | undefined {
+	const s = asString(value);
+	if (s !== undefined) return s;
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const itemString = asString(item);
+			if (itemString !== undefined) return itemString;
 		}
-		return value;
 	}
 	return undefined;
 }
@@ -66,16 +65,16 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 			asString(payload.sessionId) ??
 			asString(payload.session_id))
 		: (asString(payload.sessionId) ?? asString(payload.session_id));
-	const happenedAt = asWhen(
-		payload.happenedAt ?? payload.timestamp ?? payload.happened_at ?? payload.time,
-	);
-	const projectPath = asString(
-		payload.projectPath ??
-			payload.cwd ??
-			payload.project_path ??
-			payload.workspaceRoot ??
-			payload.workspace_path,
-	);
+	const happenedAt = firstHappenedAtPayload(payload);
+	const projectPath =
+		asString(payload.projectPath) ??
+		asString(payload.cwd) ??
+		asString(payload.project_path) ??
+		firstString(payload.workspaceRoot) ??
+		firstString(payload.workspaceRoots) ??
+		firstString(payload.workspace_roots) ??
+		firstString(payload.workspace_root) ??
+		asString(payload.workspace_path);
 	const filePath = asString(payload.filePath ?? payload.file_path ?? payload.path);
 	const toolName = asString(payload.toolName ?? payload.tool_name ?? payload.tool);
 	const client = asString(payload.client) ?? (source === "cursor" ? "cursor" : "claude_code");

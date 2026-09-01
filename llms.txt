@@ -5,7 +5,7 @@
 Important notes:
 
 - Development of this repository requires [Nub](https://nubjs.com); end users will be able to install the published package with npm once it ships.
-- The CLI exposes `install`, `record`, `import`, `query`, and `dashboard` commands.
+- The CLI exposes `install`, `record`, `import`, `query`, `sessions`, and `dashboard` commands.
 - There are zero runtime dependencies; the dashboard loads small client libraries (htmx, AlpineJS, htmx-ext-sse) from a CDN.
 - `happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways until v1.0.0; breaking changes are noted in the [changelog](https://raw.githubusercontent.com/YogliB/happenin/main/docs/CHANGELOG.md).
 
@@ -28,7 +28,7 @@ Important notes:
 ## Implementation
 
 - [src/bin.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/bin.ts): CLI executable entry point.
-- [src/index.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/index.ts): CLI dispatch for `install`, `record`, `import`, `dashboard`, `--help`, and `--version`.
+- [src/index.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/index.ts): CLI dispatch for `install`, `record`, `import`, `query`, `sessions`, `dashboard`, `--help`, and `--version`.
 - [src/db.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/db.ts): SQLite data layer.
 - [src/record.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/record.ts): Hook target; reads JSON from stdin and stores an event.
 - [src/install.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/install.ts): Backs up and appends hooks to Cursor and Claude Code configs.
@@ -36,7 +36,8 @@ Important notes:
 - [src/dashboard.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/dashboard.ts): HTTP server and dashboard HTML.
 - [src/constants.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/constants.ts): Hook event lists and default responses.
 - [src/types.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/types.ts): Shared TypeScript types.
-- [src/query.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/query.ts): Filter and format events for the `query` command.
+- [src/query.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/query.ts): Filter and format events for the `query` and `sessions` commands.
+- [src/sessions.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/sessions.ts): Session summaries for the `sessions` command.
 - [src/view.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/view.ts): Shared event view used by `query` and `dashboard`.
 
 ## Optional

@@ -35,3 +35,17 @@ export type FilterOptionLists = {
 	sources: string[];
 	events: string[];
 };
+
+export type Session = {
+	sessionId: string | null;
+	firstAt: string | null;
+	lastAt: string | null;
+	firstReceivedAt: number;
+	lastReceivedAt: number;
+	durationMs: number;
+	eventCount: number;
+	projectPath: string | null;
+	projectPaths: string[];
+	tools: string[];
+	failureCount: number;
+};

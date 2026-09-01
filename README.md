@@ -98,6 +98,18 @@ happenin query --session abc123 --format summary
 
 See [docs/USAGE.md](docs/USAGE.md) for all filters.
 
+### `happenin sessions [options]`
+
+Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes.
+
+```bash
+happenin sessions --limit 10
+happenin sessions --source cursor --format jsonl
+happenin sessions --session abc123 --format summary
+```
+
+See [docs/USAGE.md](docs/USAGE.md) for all filters.
+
 ### `happenin dashboard [--port <port>] [--no-open] [--silent]`
 
 Starts a local HTTP server and opens the dashboard.

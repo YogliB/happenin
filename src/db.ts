@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
 import { DEFAULT_DB_DIR, DEFAULT_DB_NAME } from "./constants.js";
-import type { EventInsert, EventRow, FilterOptionLists, FilterOptions } from "./types.js";
+import type { EventInsert, EventRow, FilterOptionLists, FilterOptions, Session } from "./types.js";
 
 const eventsColumns = `
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,8 +109,69 @@ export function ensureSubagentColumns(db: DatabaseSync): void {
 	}
 }
 
+export const backfillDerivedFields = (db: DatabaseSync): void => {
+	let version = getUserVersion(db);
+	if (version >= 2) return;
+
+	db.exec("BEGIN IMMEDIATE;");
+	version = getUserVersion(db);
+	if (version >= 2) {
+		db.exec("ROLLBACK;");
+		return;
+	}
+
+	try {
+		const missing = db
+			.prepare(
+				"SELECT id, payload FROM events WHERE happened_at IS NULL AND json_valid(payload) = 1",
+			)
+			.all() as { id: number; payload: string }[];
+		const updateHappenedAt = db.prepare("UPDATE events SET happened_at = ? WHERE id = ?");
+		for (const row of missing) {
+			const payload = JSON.parse(row.payload);
+			const happenedAt = firstHappenedAtPayload(payload);
+			if (happenedAt !== undefined) {
+				updateHappenedAt.run(happenedAt, row.id);
+			}
+		}
+
+		db.exec(`
+			UPDATE events
+			SET happened_at = strftime('%Y-%m-%dT%H:%M:%fZ', received_at / 1000.0, 'unixepoch')
+			WHERE happened_at IS NULL;
+		`);
+		db.exec(`
+			UPDATE events
+			SET happened_at = strftime('%Y-%m-%dT%H:%M:%fZ', happened_at / 1000.0, 'unixepoch')
+			WHERE happened_at NOT GLOB '*[^0-9]*' AND length(happened_at) > 0;
+		`);
+		db.exec(`
+			UPDATE events
+			SET project_path = COALESCE(
+				NULLIF(trim(json_extract(payload, '$.projectPath')), ''),
+				NULLIF(trim(json_extract(payload, '$.cwd')), ''),
+				NULLIF(trim(json_extract(payload, '$.project_path')), ''),
+				(SELECT trim(value) FROM json_each(payload, '$.workspaceRoot') WHERE typeof(value) = 'text' AND trim(value) <> '' LIMIT 1),
+				(SELECT trim(value) FROM json_each(payload, '$.workspaceRoots') WHERE typeof(value) = 'text' AND trim(value) <> '' LIMIT 1),
+				(SELECT trim(value) FROM json_each(payload, '$.workspace_roots') WHERE typeof(value) = 'text' AND trim(value) <> '' LIMIT 1),
+				(SELECT trim(value) FROM json_each(payload, '$.workspace_root') WHERE typeof(value) = 'text' AND trim(value) <> '' LIMIT 1),
+				NULLIF(trim(json_extract(payload, '$.workspace_path')), '')
+			)
+			WHERE
+				project_path IS NULL
+				AND json_valid(payload) = 1;
+		`);
+		db.exec("PRAGMA user_version = 2;");
+		db.exec("COMMIT;");
+	} catch (err) {
+		try {
+			db.exec("ROLLBACK;");
+		} catch {}
+		throw err;
+	}
+};
+
 export const backfillSubagentMetadata = (db: DatabaseSync): void => {
-	db.exec("PRAGMA busy_timeout = 30000;");
 	let version = getUserVersion(db);
 	if (version < 1) {
 		throw new Error("Database schema must be migrated before backfilling subagent metadata");
@@ -179,6 +240,7 @@ export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 			);
 		`);
 		ensureSubagentColumns(db);
+		backfillDerivedFields(db);
 		for (const indexSql of indexes) {
 			db.exec(indexSql);
 		}
@@ -191,15 +253,72 @@ export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 	}
 };
 
+const timestampKeys = [
+	"happenedAt",
+	"timestamp",
+	"happened_at",
+	"time",
+	"ts",
+	"createdAt",
+	"created_at",
+];
+
+export function parseWhen(value: unknown): string | undefined {
+	if (value === null || value === undefined) return undefined;
+
+	if (typeof value === "number") {
+		if (!Number.isFinite(value)) return undefined;
+		try {
+			return new Date(value).toISOString();
+		} catch {
+			return undefined;
+		}
+	}
+
+	if (typeof value === "string") {
+		const s = value.trim();
+		if (s.length === 0) return undefined;
+
+		if (/^\d+$/.test(s)) {
+			const n = Number(s);
+			if (!Number.isFinite(n)) return undefined;
+			try {
+				return new Date(n).toISOString();
+			} catch {
+				return undefined;
+			}
+		}
+
+		if (Number.isNaN(Date.parse(s))) return undefined;
+		return s;
+	}
+
+	return undefined;
+}
+
+export function firstHappenedAtPayload(payload: unknown): string | undefined {
+	if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+		return undefined;
+	}
+	const record = payload as Record<string, unknown>;
+	for (const key of timestampKeys) {
+		const value = parseWhen(Reflect.get(record, key));
+		if (value !== undefined) return value;
+	}
+	return undefined;
+}
+
 export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
 	const stmt = db.prepare(insertEventSql);
+	const receivedAt = Date.now();
+	const happenedAt = parseWhen(event.happenedAt) ?? new Date(receivedAt).toISOString();
 	stmt.run(
 		event.source,
 		event.client ?? null,
 		event.event ?? null,
 		event.sessionId ?? null,
-		event.happenedAt ?? null,
-		Date.now(),
+		happenedAt,
+		receivedAt,
 		event.projectPath ?? null,
 		event.filePath ?? null,
 		event.toolName ?? null,
@@ -305,6 +424,71 @@ export const getSummary = (db: DatabaseSync, options: FilterOptions): Summary =>
 	}[];
 
 	return { total, bySource, byEvent, bySession };
+};
+
+export const getSessions = (db: DatabaseSync, options: FilterOptions): Session[] => {
+	const { clause, params } = buildWhereClause(options);
+	const limit = options.limit ?? 100;
+	const offset = options.offset ?? 0;
+	const sql = `
+		SELECT
+			session_id AS sessionId,
+			COUNT(*) AS eventCount,
+			MIN(received_at) AS firstReceivedAt,
+			MAX(received_at) AS lastReceivedAt,
+			MIN(happened_at) AS firstAt,
+			MAX(happened_at) AS lastAt,
+			COALESCE(json_group_array(DISTINCT project_path ORDER BY project_path) FILTER (WHERE project_path IS NOT NULL AND project_path <> ''), '[]') AS projectPaths,
+			COALESCE(json_group_array(DISTINCT tool_name ORDER BY tool_name) FILTER (WHERE tool_name IS NOT NULL AND tool_name <> ''), '[]') AS toolNames,
+			SUM(CASE WHEN event LIKE '%Failure%' THEN 1 ELSE 0 END) AS failureCount
+		FROM events
+		${clause}
+		GROUP BY session_id
+		ORDER BY lastReceivedAt DESC
+		LIMIT ?${offset > 0 ? " OFFSET ?" : ""}
+	`;
+	params.push(limit);
+	if (offset > 0) {
+		params.push(offset);
+	}
+
+	const stmt = db.prepare(sql);
+	const rows = stmt.all(...params) as {
+		sessionId: string | null;
+		eventCount: number;
+		firstReceivedAt: number | bigint;
+		lastReceivedAt: number | bigint;
+		firstAt: string | null;
+		lastAt: string | null;
+		projectPaths: string | null;
+		toolNames: string | null;
+		failureCount: number | bigint;
+	}[];
+	return rows.map((row) => {
+		const firstReceivedAt = Number(row.firstReceivedAt);
+		const lastReceivedAt = Number(row.lastReceivedAt);
+		const projectPaths = JSON.parse(row.projectPaths as string) as string[];
+		const tools = JSON.parse(row.toolNames as string) as string[];
+		const firstAtMs = row.firstAt ? Date.parse(row.firstAt) : NaN;
+		const lastAtMs = row.lastAt ? Date.parse(row.lastAt) : NaN;
+		const durationMs =
+			!Number.isNaN(firstAtMs) && !Number.isNaN(lastAtMs) && lastAtMs >= firstAtMs
+				? lastAtMs - firstAtMs
+				: lastReceivedAt - firstReceivedAt;
+		return {
+			sessionId: row.sessionId,
+			firstAt: row.firstAt,
+			lastAt: row.lastAt,
+			firstReceivedAt,
+			lastReceivedAt,
+			durationMs,
+			eventCount: Number(row.eventCount),
+			projectPath: projectPaths[0] ?? null,
+			projectPaths,
+			tools,
+			failureCount: Number(row.failureCount),
+		};
+	});
 };
 
 export const getLastEventId = (db: DatabaseSync): number => {

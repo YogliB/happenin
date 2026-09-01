@@ -1,4 +1,5 @@
 import process from "node:process";
+import { DatabaseSync } from "node:sqlite";
 import { initDb, getEvents, getSummary, countEvents } from "./db.js";
 import { eventView } from "./view.js";
 import type { FilterOptions } from "./types.js";
@@ -7,9 +8,12 @@ type Format = "json" | "jsonl" | "summary";
 
 const FORMATS: Format[] = ["json", "jsonl", "summary"];
 
-function parseNumber(value: string): number | undefined {
-	const n = Number(value);
-	return Number.isNaN(n) ? undefined : n;
+function parseInteger(value: string): number | undefined {
+	const trimmed = value.trim();
+	if (trimmed === "") return undefined;
+	const n = Number(trimmed);
+	if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return undefined;
+	return n;
 }
 
 function showHelp(): void {
@@ -29,10 +33,16 @@ Options:
 `);
 }
 
-function parseArgs(argv: string[]): { options: FilterOptions; format: Format; dbPath?: string } {
+function parseFilterArgs(argv: string[]): {
+	options: FilterOptions;
+	format: Format;
+	dbPath?: string;
+	help: boolean;
+} {
 	const options: FilterOptions = {};
 	let format: Format = "json";
 	let dbPath: string | undefined;
+	let help = false;
 	let nextIs: string | undefined;
 
 	for (const arg of argv) {
@@ -51,17 +61,17 @@ function parseArgs(argv: string[]): { options: FilterOptions; format: Format; db
 					options.q = arg;
 					break;
 				case "since": {
-					const n = parseNumber(arg);
+					const n = parseInteger(arg);
 					if (n !== undefined) options.since = n;
 					break;
 				}
 				case "limit": {
-					const n = parseNumber(arg);
+					const n = parseInteger(arg);
 					if (n !== undefined) options.limit = n;
 					break;
 				}
 				case "offset": {
-					const n = parseNumber(arg);
+					const n = parseInteger(arg);
 					if (n !== undefined) options.offset = n;
 					break;
 				}
@@ -79,8 +89,8 @@ function parseArgs(argv: string[]): { options: FilterOptions; format: Format; db
 		}
 
 		if (arg === "-h" || arg === "--help") {
-			showHelp();
-			process.exit(0);
+			help = true;
+			continue;
 		}
 
 		if (
@@ -117,17 +127,17 @@ function parseArgs(argv: string[]): { options: FilterOptions; format: Format; db
 						options.q = value;
 						break;
 					case "since": {
-						const n = parseNumber(value);
+						const n = parseInteger(value);
 						if (n !== undefined) options.since = n;
 						break;
 					}
 					case "limit": {
-						const n = parseNumber(value);
+						const n = parseInteger(value);
 						if (n !== undefined) options.limit = n;
 						break;
 					}
 					case "offset": {
-						const n = parseNumber(value);
+						const n = parseInteger(value);
 						if (n !== undefined) options.offset = n;
 						break;
 					}
@@ -144,14 +154,29 @@ function parseArgs(argv: string[]): { options: FilterOptions; format: Format; db
 		}
 	}
 
-	return { options, format, dbPath };
+	return { options, format, dbPath, help };
+}
+
+export async function runWithDb(
+	argv: string[],
+	printHelp: () => void,
+	run: (db: DatabaseSync, options: FilterOptions, format: Format) => void | Promise<void>,
+): Promise<void> {
+	const { options, format, dbPath, help } = parseFilterArgs(argv);
+	if (help) {
+		printHelp();
+		return;
+	}
+	const db = initDb(dbPath);
+	try {
+		await run(db, options, format);
+	} finally {
+		db.close();
+	}
 }
 
 export async function runQuery(argv: string[]): Promise<void> {
-	const { options, format, dbPath } = parseArgs(argv);
-	const db = initDb(dbPath);
-
-	try {
+	await runWithDb(argv, showHelp, (db, options, format) => {
 		if (format === "summary") {
 			const summary = getSummary(db, options);
 			process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
@@ -169,7 +194,5 @@ export async function runQuery(argv: string[]): Promise<void> {
 		} else {
 			process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
 		}
-	} finally {
-		db.close();
-	}
+	});
 }
