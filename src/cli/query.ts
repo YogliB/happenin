@@ -1,8 +1,8 @@
 import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
-import { initDb, getEvents, getSummary, countEvents } from "./db.js";
-import { eventView } from "./view.js";
-import type { FilterOptions } from "./types.js";
+import { initDb, getEvents, getSummary, countEvents } from "../shared/db.js";
+import { eventView } from "../shared/view.js";
+import type { FilterOptions } from "../shared/types.js";
 
 type Format = "json" | "jsonl" | "summary";
 
@@ -16,6 +16,16 @@ function parseInteger(value: string): number | undefined {
 	return n;
 }
 
+function parseMinutes(value: string): number | undefined {
+	const trimmed = value.trim();
+	if (trimmed === "") return undefined;
+	const n = Number(trimmed);
+	if (!Number.isFinite(n) || n < 0) return undefined;
+	return n;
+}
+
+const RANGES = ["24h", "7d", "30d", "all"] as const;
+
 function showHelp(): void {
 	process.stdout.write(`Usage: happenin query [options]
 
@@ -23,8 +33,10 @@ Options:
   --source <source>    filter by source (cursor, claude, ...)
   --event <event>      filter by event name
   --session <id>       filter by session id (partial match)
-  --q <text>           search event payloads
+  --q <text>           search event payloads and session ids
   --since <id>         events with id greater than <id>
+  --range <range>      time range: 24h, 7d, 30d, all (default: 24h)
+  --tool <tool>        filter by tool name
   --limit <n>          maximum rows to return (default: 100)
   --offset <n>         skip first <n> rows
   --format <format>    output format: json (default), jsonl, summary
@@ -65,6 +77,29 @@ function parseFilterArgs(argv: string[]): {
 					if (n !== undefined) options.since = n;
 					break;
 				}
+				case "range":
+					if (RANGES.includes(arg as (typeof RANGES)[number])) {
+						options.range = arg as (typeof RANGES)[number];
+					}
+					break;
+				case "status":
+					if (arg === "active" || arg === "completed" || arg === "failed") {
+						options.status = arg;
+					}
+					break;
+				case "tool":
+					options.tool = arg;
+					break;
+				case "minDuration": {
+					const n = parseMinutes(arg);
+					if (n !== undefined) options.minDuration = n;
+					break;
+				}
+				case "maxDuration": {
+					const n = parseMinutes(arg);
+					if (n !== undefined) options.maxDuration = n;
+					break;
+				}
 				case "limit": {
 					const n = parseInteger(arg);
 					if (n !== undefined) options.limit = n;
@@ -99,6 +134,11 @@ function parseFilterArgs(argv: string[]): {
 			arg === "--session" ||
 			arg === "--q" ||
 			arg === "--since" ||
+			arg === "--range" ||
+			arg === "--status" ||
+			arg === "--tool" ||
+			arg === "--minDuration" ||
+			arg === "--maxDuration" ||
 			arg === "--limit" ||
 			arg === "--offset" ||
 			arg === "--format" ||
@@ -131,6 +171,29 @@ function parseFilterArgs(argv: string[]): {
 						if (n !== undefined) options.since = n;
 						break;
 					}
+					case "range":
+						if (RANGES.includes(value as (typeof RANGES)[number])) {
+							options.range = value as (typeof RANGES)[number];
+						}
+						break;
+					case "status":
+						if (value === "active" || value === "completed" || value === "failed") {
+							options.status = value;
+						}
+						break;
+					case "tool":
+						options.tool = value;
+						break;
+					case "minDuration": {
+						const n = parseMinutes(value);
+						if (n !== undefined) options.minDuration = n;
+						break;
+					}
+					case "maxDuration": {
+						const n = parseMinutes(value);
+						if (n !== undefined) options.maxDuration = n;
+						break;
+					}
 					case "limit": {
 						const n = parseInteger(value);
 						if (n !== undefined) options.limit = n;
@@ -154,18 +217,24 @@ function parseFilterArgs(argv: string[]): {
 		}
 	}
 
-	return { options, format, dbPath, help };
+	return { options: { range: "24h", ...options }, format, dbPath, help };
 }
 
 export async function runWithDb(
 	argv: string[],
 	printHelp: () => void,
 	run: (db: DatabaseSync, options: FilterOptions, format: Format) => void | Promise<void>,
+	sessionFilters = false,
 ): Promise<void> {
 	const { options, format, dbPath, help } = parseFilterArgs(argv);
 	if (help) {
 		printHelp();
 		return;
+	}
+	if (!sessionFilters) {
+		delete options.status;
+		delete options.minDuration;
+		delete options.maxDuration;
 	}
 	const db = initDb(dbPath);
 	try {

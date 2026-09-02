@@ -7,6 +7,8 @@
 
 A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
+![happenin dashboard](docs/dashboard.gif)
+
 ## Why
 
 Cursor and Claude Code can emit local hooks for each session, tool use, prompt, file edit, and lifecycle event. `happenin` adds `record` hooks to those agents, writes the payloads to a local SQLite database, and serves a live browser dashboard. Data never leaves your machine.
@@ -20,7 +22,7 @@ Cursor and Claude Code can emit local hooks for each session, tool use, prompt, 
 - macOS
 - Node.js `>= 24.0.0` (uses the built-in `node:sqlite` module)
 - Zero runtime dependencies
-- The dashboard loads htmx, AlpineJS, and htmx-ext-sse from a CDN
+- The dashboard loads htmx and htmx-ext-sse from a CDN
 
 ## Install
 
@@ -129,7 +131,7 @@ happenin dashboard --port 9000 --silent
 
 ## Privacy
 
-`happenin` stores full hook payloads and transcripts locally. No data is sent over the network except for the CDN-loaded dashboard libraries (htmx, AlpineJS, htmx-ext-sse) when the dashboard is open.
+`happenin` stores full hook payloads and transcripts locally. No data is sent over the network except for the CDN-loaded dashboard libraries (htmx and htmx-ext-sse) when the dashboard is open.
 
 ## Development
 

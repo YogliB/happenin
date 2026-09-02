@@ -4,8 +4,8 @@ import { Readable } from "node:stream";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
-import { recordFromRaw, runRecord, isBusyError } from "../src/record.js";
-import { initDb, getEvents } from "../src/db.js";
+import { recordFromRaw, runRecord, isBusyError } from "../src/cli/record.js";
+import { initDb, getEvents } from "../src/shared/db.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));
@@ -232,6 +232,43 @@ describe("record", () => {
 		const db = initDb();
 		const rows = getEvents(db, { event: "subagentStart", limit: 10 });
 		expect(rows[0].sessionId).toBe("sess-1");
+		db.close();
+	});
+
+	it("tags child events with the subagent id via tool_use_id", () => {
+		recordFromRaw(
+			["cursor"],
+			JSON.stringify({
+				hook_event_name: "subagentStart",
+				conversation_id: "conv-1",
+				subagent_id: "toolu-1",
+				subagent_type: "shell",
+			}),
+		);
+		const matched = recordFromRaw(
+			["cursor"],
+			JSON.stringify({
+				hook_event_name: "preToolUse",
+				session_id: "conv-1",
+				tool_use_id: "toolu-1",
+			}),
+		);
+		const unmatched = recordFromRaw(
+			["cursor"],
+			JSON.stringify({
+				hook_event_name: "preToolUse",
+				session_id: "conv-1",
+				tool_use_id: "toolu-other",
+			}),
+		);
+		expect(matched).toBe(JSON.stringify({ permission: "allow" }));
+		expect(unmatched).toBe(JSON.stringify({ permission: "allow" }));
+
+		const db = initDb();
+		const rows = getEvents(db, { event: "preToolUse", limit: 10 });
+		expect(rows.length).toBe(2);
+		expect(rows.find((row) => row.toolName === null && row.subagentId === "toolu-1")).toBeTruthy();
+		expect(rows.find((row) => row.subagentId === null)).toBeTruthy();
 		db.close();
 	});
 

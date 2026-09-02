@@ -19,7 +19,12 @@ import {
 	trackImport,
 	getLastEventId,
 	getSessions,
-} from "../src/db.js";
+	getToolUsage,
+	getEventFrequency,
+	getFilterOptions,
+	getFilteredSessions,
+	sessionStatus,
+} from "../src/shared/db.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));
@@ -55,6 +60,7 @@ describe("db edge cases", () => {
 			client: "cursor",
 			event: "preToolUse",
 			sessionId: "s-1",
+			toolName: "Shell",
 			payload: JSON.stringify({ tool: "Shell" }),
 		});
 		insertEvent(db, {
@@ -62,6 +68,7 @@ describe("db edge cases", () => {
 			client: "claude_code",
 			event: "PreToolUse",
 			sessionId: "s-2",
+			toolName: "Read",
 			payload: JSON.stringify({ tool: "Read" }),
 		});
 		insertEvent(db, {
@@ -77,6 +84,9 @@ describe("db edge cases", () => {
 		expect(getSummary(db, { source: "cursor", q: "Shell" }).total).toBe(1);
 		expect(getSummary(db, { sessionId: "s-1" }).bySession.length).toBe(1);
 		expect(getEvents(db, { since: 0, q: "no-match" }).length).toBe(0);
+		expect(getEvents(db, { tool: "Shell" }).length).toBe(1);
+		expect(countEvents(db, { tool: "Read" })).toBe(1);
+		expect(countEvents(db, { tool: "Missing" })).toBe(0);
 
 		db.close();
 	});
@@ -840,6 +850,435 @@ describe("db edge cases", () => {
 
 			const paged = getSessions(db, { limit: 1, offset: 1 });
 			expect(paged.length).toBe(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("returns tool usage ordered by count", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Shell",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Shell",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-2",
+			toolName: "Edit",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const usage = getToolUsage(db, {});
+			expect(usage.length).toBe(2);
+			expect(usage[0].tool).toBe("Shell");
+			expect(usage[0].count).toBe(2);
+			expect(usage[1].tool).toBe("Edit");
+
+			const limited = getToolUsage(db, {}, 1);
+			expect(limited.length).toBe(1);
+
+			const filtered = getToolUsage(db, { source: "claude" });
+			expect(filtered.length).toBe(1);
+			expect(filtered[0].tool).toBe("Edit");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("returns hourly event frequency with backfilled buckets", () => {
+		const db = initDb(":memory:");
+		const now = new Date();
+		now.setUTCMinutes(0, 0, 0);
+		now.setUTCMilliseconds(0);
+		const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			happenedAt: twoHoursAgo.toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			happenedAt: twoHoursAgo.toISOString(),
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const data = getEventFrequency(db, {});
+			expect(data.length).toBe(25);
+			const bucket = data.find((d) => d.bucket === twoHoursAgo.toISOString());
+			expect(bucket?.count).toBe(2);
+			const nowBucket = data.find((d) => d.bucket === now.toISOString());
+			expect(nowBucket?.count).toBe(0);
+
+			const filtered = getEventFrequency(db, { source: "claude" });
+			expect(filtered.every((d) => d.count === 0)).toBe(true);
+
+			const limited = getEventFrequency(db, {}, 6);
+			expect(limited.length).toBe(7);
+			expect(limited.some((d) => d.count > 0)).toBe(true);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("returns daily event frequency with backfilled buckets", () => {
+		const db = initDb(":memory:");
+		const today = new Date();
+		today.setUTCHours(0, 0, 0, 0);
+		const threeDaysAgo = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			happenedAt: threeDaysAgo.toISOString(),
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const data = getEventFrequency(db, {}, 168, "day");
+			expect(data.length).toBe(8);
+			const bucket = `${threeDaysAgo.toISOString().slice(0, 10)}T00:00:00.000Z`;
+			expect(data.find((d) => d.bucket === bucket)?.count).toBe(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("falls back to received_at when happened_at is missing", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const data = getEventFrequency(db, {});
+			const now = new Date();
+			now.setUTCMinutes(0, 0, 0);
+			now.setUTCMilliseconds(0);
+			const bucket = data.find((d) => d.bucket === now.toISOString());
+			expect(bucket?.count).toBe(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("includes distinct tools in filter options", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Shell",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-2",
+			toolName: "Edit",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const options = getFilterOptions(db);
+			expect(options.tools).toEqual(["Edit", "Shell"]);
+			expect(options.sources).toEqual(["claude", "cursor"]);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("filters sessions by status", () => {
+		const db = initDb(":memory:");
+		const now = Date.now();
+
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "sessionStart",
+			sessionId: "s-active",
+			happenedAt: new Date(now).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-completed",
+			happenedAt: new Date(now - 10 * 60 * 1000).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "postToolUseFailure",
+			sessionId: "s-failed",
+			happenedAt: new Date(now - 10 * 60 * 1000).toISOString(),
+			payload: JSON.stringify({}),
+		});
+
+		db.prepare("UPDATE events SET received_at = ? WHERE session_id = ?").run(now, "s-active");
+		db.prepare("UPDATE events SET received_at = ? WHERE session_id = ?").run(
+			now - 10 * 60 * 1000,
+			"s-completed",
+		);
+		db.prepare("UPDATE events SET received_at = ? WHERE session_id = ?").run(
+			now - 10 * 60 * 1000,
+			"s-failed",
+		);
+		db.prepare("UPDATE events SET happened_at = NULL").run();
+
+		try {
+			const active = getFilteredSessions(db, { status: "active" }, now);
+			expect(active.length).toBe(1);
+			expect(active[0].sessionId).toBe("s-active");
+
+			const completed = getFilteredSessions(db, { status: "completed" }, now);
+			expect(completed.length).toBe(1);
+			expect(completed[0].sessionId).toBe("s-completed");
+
+			const failed = getFilteredSessions(db, { status: "failed" }, now);
+			expect(failed.length).toBe(1);
+			expect(failed[0].sessionId).toBe("s-failed");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("filters sessions by duration", () => {
+		const db = initDb(":memory:");
+		const now = Date.now();
+
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "sessionStart",
+			sessionId: "s-short",
+			happenedAt: new Date(now - 10 * 1000).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-short",
+			happenedAt: new Date(now).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "sessionStart",
+			sessionId: "s-long",
+			happenedAt: new Date(now - 5 * 60 * 1000).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-long",
+			happenedAt: new Date(now).toISOString(),
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const longOnly = getFilteredSessions(db, { minDuration: 2 }, now);
+			expect(longOnly.length).toBe(1);
+			expect(longOnly[0].sessionId).toBe("s-long");
+
+			const shortOnly = getFilteredSessions(db, { maxDuration: 0.5 }, now);
+			expect(shortOnly.length).toBe(1);
+			expect(shortOnly[0].sessionId).toBe("s-short");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("applies limit and offset after session filtering", () => {
+		const db = initDb(":memory:");
+		const now = Date.now();
+
+		for (let i = 0; i < 5; i++) {
+			insertEvent(db, {
+				source: "cursor",
+				client: "cursor",
+				event: "preToolUse",
+				sessionId: `s-${i}`,
+				happenedAt: new Date(now).toISOString(),
+				payload: JSON.stringify({}),
+			});
+		}
+		db.prepare("UPDATE events SET received_at = ?").run(now);
+
+		try {
+			const all = getFilteredSessions(db, {}, now);
+			expect(all.length).toBe(5);
+
+			const limited = getFilteredSessions(db, { limit: 2 }, now);
+			expect(limited.length).toBe(2);
+			expect(limited[0].sessionId).toBe("s-0");
+			expect(limited[1].sessionId).toBe("s-1");
+
+			const offset = getFilteredSessions(db, { limit: 2, offset: 2 }, now);
+			expect(offset.length).toBe(2);
+			expect(offset[0].sessionId).toBe("s-2");
+			expect(offset[1].sessionId).toBe("s-3");
+
+			const onlyOffset = getFilteredSessions(db, { offset: 4 }, now);
+			expect(onlyOffset.length).toBe(1);
+			expect(onlyOffset[0].sessionId).toBe("s-4");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("derives session status", () => {
+		const now = Date.now();
+		const active = {
+			sessionId: "s-1",
+			firstAt: null,
+			lastAt: null,
+			firstReceivedAt: now - 1000,
+			lastReceivedAt: now,
+			durationMs: 1000,
+			eventCount: 1,
+			projectPath: null,
+			projectPaths: [],
+			tools: [],
+			failureCount: 0,
+		};
+		const completed = {
+			...active,
+			lastReceivedAt: now - 10 * 60 * 1000,
+		};
+		const failed = {
+			...active,
+			failureCount: 1,
+		};
+
+		expect(sessionStatus(active, now)).toBe("active");
+		expect(sessionStatus(completed, now)).toBe("completed");
+		expect(sessionStatus(failed, now)).toBe("failed");
+	});
+
+	it("filters sessions, tool usage, and event frequency by time range", () => {
+		const now = Date.now();
+		const db = initDb(":memory:");
+		const old = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+		const recent = new Date(now).toISOString();
+
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-old",
+			toolName: "OldTool",
+			happenedAt: old,
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-recent",
+			toolName: "NewTool",
+			happenedAt: recent,
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-recent",
+			toolName: "NewTool",
+			happenedAt: recent,
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const all = getSessions(db, { range: "24h" }, now);
+			expect(all.length).toBe(1);
+			expect(all[0].sessionId).toBe("s-recent");
+			expect(all[0].eventCount).toBe(2);
+
+			const tools = getToolUsage(db, { range: "24h" }, 10, now);
+			expect(tools.length).toBe(1);
+			expect(tools[0].tool).toBe("NewTool");
+			expect(tools[0].count).toBe(2);
+
+			const frequency = getEventFrequency(db, { range: "24h" }, 24, "hour", now);
+			const nowHour = new Date(now);
+			nowHour.setUTCMinutes(0, 0, 0);
+			nowHour.setUTCMilliseconds(0);
+			const bucket = frequency.find((d) => d.bucket === nowHour.toISOString());
+			expect(bucket?.count).toBe(2);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("filters events by session ids including null", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const rows = getEvents(db, { sessionIds: [null, "s-1"] });
+			expect(rows.length).toBe(2);
+			const single = getEvents(db, { sessionIds: ["s-1"] });
+			expect(single.length).toBe(1);
+			const onlyNull = getEvents(db, { sessionIds: [null] });
+			expect(onlyNull.length).toBe(1);
 		} finally {
 			db.close();
 		}

@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync, existsSync 
 import path from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
-import { initDb, getEvents, getImportMtime } from "../src/db.js";
-import { importTranscripts, runImport } from "../src/import.js";
+import { initDb, getEvents, getImportMtime } from "../src/shared/db.js";
+import { importTranscripts, runImport } from "../src/cli/import.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));

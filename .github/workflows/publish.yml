@@ -60,4 +60,4 @@ jobs:
 
       - run: npm i -g npm@latest
 
-      - run: npm publish --provenance --access public
+      - run: npm stage publish --provenance --access public

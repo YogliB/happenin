@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import path from "node:path";
 import { homedir } from "node:os";
 import process from "node:process";
-import { CURSOR_HOOK_EVENTS, CLAUDE_HOOK_EVENTS } from "./constants.js";
+import { CURSOR_HOOK_EVENTS, CLAUDE_HOOK_EVENTS } from "../shared/constants.js";
 
 type CursorHookCommand = { command: string };
 type CursorHookFile = { version?: number; hooks: Record<string, CursorHookCommand[]> };

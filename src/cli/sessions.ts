@@ -1,7 +1,7 @@
 import process from "node:process";
-import { getSessions } from "./db.js";
+import { getFilteredSessions } from "../shared/db.js";
 import { runWithDb } from "./query.js";
-import type { Session } from "./types.js";
+import type { Session } from "../shared/types.js";
 
 function showHelp(): void {
 	process.stdout.write(`Usage: happenin sessions [options]
@@ -10,8 +10,13 @@ Options:
   --source <source>    filter by source (cursor, claude, ...)
   --event <event>      filter by event name
   --session <id>       filter by session id (partial match)
-  --q <text>           search event payloads
+  --q <text>           search event payloads and session ids
   --since <id>         events with id greater than <id>
+  --range <range>      time range: 24h, 7d, 30d, all (default: 24h)
+  --status <status>    filter by session status: active, completed, failed
+  --tool <tool>        filter by tool name
+  --minDuration <m>    minimum session duration in minutes
+  --maxDuration <m>    maximum session duration in minutes
   --limit <n>          maximum sessions to return (default: 100)
   --offset <n>         skip first <n> sessions
   --format <format>    output format: json (default), jsonl, summary
@@ -35,18 +40,23 @@ function formatSummary(sessions: Session[]): string {
 }
 
 export async function runSessions(argv: string[]): Promise<void> {
-	await runWithDb(argv, showHelp, (db, options, format) => {
-		const sessions = getSessions(db, options);
-		if (format === "jsonl") {
-			for (const s of sessions) {
-				process.stdout.write(`${JSON.stringify(s)}\n`);
+	await runWithDb(
+		argv,
+		showHelp,
+		(db, options, format) => {
+			const sessions = getFilteredSessions(db, options);
+			if (format === "jsonl") {
+				for (const s of sessions) {
+					process.stdout.write(`${JSON.stringify(s)}\n`);
+				}
+				return;
 			}
-			return;
-		}
-		if (format === "summary") {
-			process.stdout.write(`${formatSummary(sessions)}\n`);
-			return;
-		}
-		process.stdout.write(`${JSON.stringify(sessions, null, 2)}\n`);
-	});
+			if (format === "summary") {
+				process.stdout.write(`${formatSummary(sessions)}\n`);
+				return;
+			}
+			process.stdout.write(`${JSON.stringify(sessions, null, 2)}\n`);
+		},
+		true,
+	);
 }

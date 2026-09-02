@@ -2,7 +2,7 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
 	entry: {
-		bin: "src/bin.ts",
+		bin: "src/cli/bin.ts",
 	},
 	format: ["esm"],
 	platform: "node",

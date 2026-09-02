@@ -4,7 +4,17 @@ import path from "node:path";
 import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
 import { DEFAULT_DB_DIR, DEFAULT_DB_NAME } from "./constants.js";
-import type { EventInsert, EventRow, FilterOptionLists, FilterOptions, Session } from "./types.js";
+import type {
+	EventInsert,
+	EventRow,
+	FilterOptionLists,
+	FilterOptions,
+	Session,
+	SessionStatus,
+	TimeRange,
+	ToolUsage,
+	EventFrequency,
+} from "./types.js";
 
 const eventsColumns = `
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,6 +41,7 @@ const indexes = [
 	"CREATE INDEX IF NOT EXISTS idx_events_happened_at ON events(happened_at);",
 	"CREATE INDEX IF NOT EXISTS idx_events_received_at ON events(received_at);",
 	"CREATE INDEX IF NOT EXISTS idx_events_source_path ON events(source_path);",
+	"CREATE INDEX IF NOT EXISTS idx_events_subagent_id ON events(subagent_id);",
 ];
 
 const insertEventSql = `
@@ -206,6 +217,27 @@ export const backfillSubagentMetadata = (db: DatabaseSync): void => {
 					OR transcript_path IS NULL
 				);
 		`);
+		db.exec(`
+			UPDATE events
+			SET subagent_id = (
+				SELECT s.subagent_id
+				FROM events s
+				WHERE s.event = 'subagentStart'
+					AND s.subagent_id IS NOT NULL
+					AND json_extract(events.payload, '$.tool_use_id') = s.subagent_id
+				LIMIT 1
+			)
+			WHERE
+				event != 'subagentStart'
+				AND subagent_id IS NULL
+				AND json_valid(payload) = 1
+				AND json_extract(payload, '$.tool_use_id') IS NOT NULL
+				AND EXISTS (
+					SELECT 1 FROM events s
+					WHERE s.event = 'subagentStart'
+						AND s.subagent_id = json_extract(events.payload, '$.tool_use_id')
+				);
+		`);
 		db.exec("COMMIT;");
 	} catch (err) {
 		try {
@@ -263,7 +295,7 @@ const timestampKeys = [
 	"created_at",
 ];
 
-export function parseWhen(value: unknown): string | undefined {
+function parseWhen(value: unknown): string | undefined {
 	if (value === null || value === undefined) return undefined;
 
 	if (typeof value === "number") {
@@ -330,7 +362,18 @@ export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
 	);
 };
 
-function buildWhereClause(options: FilterOptions): {
+const timeExpr =
+	"COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', happened_at), strftime('%Y-%m-%dT%H:%M:%fZ', received_at / 1000.0, 'unixepoch'))";
+
+function rangeToMs(range: TimeRange): number {
+	const hours = range === "7d" ? 168 : range === "30d" ? 720 : 24;
+	return hours * 60 * 60 * 1000;
+}
+
+function buildWhereClause(
+	options: FilterOptions,
+	now = Date.now(),
+): {
 	clause: string;
 	params: (string | number | null)[];
 } {
@@ -349,13 +392,43 @@ function buildWhereClause(options: FilterOptions): {
 		conditions.push("event = ?");
 		params.push(options.event);
 	}
+	if (options.tool !== undefined && options.tool !== "") {
+		conditions.push("tool_name = ?");
+		params.push(options.tool);
+	}
 	if (options.sessionId !== undefined && options.sessionId !== "") {
-		conditions.push("session_id LIKE ?");
-		params.push(`%${options.sessionId}%`);
+		if (options.sessionIdExact) {
+			conditions.push("session_id = ?");
+			params.push(options.sessionId);
+		} else {
+			conditions.push("session_id LIKE ?");
+			params.push(`%${options.sessionId}%`);
+		}
+	}
+	if (options.sessionIds !== undefined && options.sessionIds.length > 0) {
+		const nonNullIds = options.sessionIds.filter((id): id is string => id !== null);
+		const nullSelected = options.sessionIds.some((id) => id === null);
+		const sessionClauses: string[] = [];
+		if (nonNullIds.length > 0) {
+			const placeholders = nonNullIds.map(() => "?").join(",");
+			sessionClauses.push(`session_id IN (${placeholders})`);
+			for (const id of nonNullIds) params.push(id);
+		}
+		if (nullSelected) {
+			sessionClauses.push("session_id IS NULL");
+		}
+		conditions.push(
+			sessionClauses.length === 1 ? sessionClauses[0] : `(${sessionClauses.join(" OR ")})`,
+		);
 	}
 	if (options.q !== undefined && options.q !== "") {
-		conditions.push("payload LIKE ?");
+		conditions.push("(payload LIKE ? OR session_id LIKE ?)");
 		params.push(`%${options.q}%`);
+		params.push(`%${options.q}%`);
+	}
+	if (options.range !== undefined && options.range !== "all") {
+		conditions.push(`${timeExpr} >= ?`);
+		params.push(new Date(now - rangeToMs(options.range)).toISOString());
 	}
 
 	const clause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -426,8 +499,12 @@ export const getSummary = (db: DatabaseSync, options: FilterOptions): Summary =>
 	return { total, bySource, byEvent, bySession };
 };
 
-export const getSessions = (db: DatabaseSync, options: FilterOptions): Session[] => {
-	const { clause, params } = buildWhereClause(options);
+export const getSessions = (
+	db: DatabaseSync,
+	options: FilterOptions,
+	now = Date.now(),
+): Session[] => {
+	const { clause, params } = buildWhereClause(options, now);
 	const limit = options.limit ?? 100;
 	const offset = options.offset ?? 0;
 	const sql = `
@@ -444,7 +521,7 @@ export const getSessions = (db: DatabaseSync, options: FilterOptions): Session[]
 		FROM events
 		${clause}
 		GROUP BY session_id
-		ORDER BY lastReceivedAt DESC
+		ORDER BY lastReceivedAt DESC, sessionId
 		LIMIT ?${offset > 0 ? " OFFSET ?" : ""}
 	`;
 	params.push(limit);
@@ -491,22 +568,150 @@ export const getSessions = (db: DatabaseSync, options: FilterOptions): Session[]
 	});
 };
 
+export const getToolUsage = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	limit = 10,
+	now = Date.now(),
+): ToolUsage[] => {
+	const { clause, params } = buildWhereClause(options, now);
+	const toolCondition = "tool_name IS NOT NULL AND tool_name <> ''";
+	const where = clause ? `${clause} AND ${toolCondition}` : `WHERE ${toolCondition}`;
+	const sql = `SELECT tool_name AS tool, COUNT(*) AS count FROM events ${where} GROUP BY tool_name ORDER BY count DESC, tool_name ASC LIMIT ?`;
+	const stmt = db.prepare(sql);
+	return stmt.all(...params, limit) as ToolUsage[];
+};
+
+function bucketExpr(groupBy: "hour" | "day"): string {
+	if (groupBy === "day") {
+		return `strftime('%Y-%m-%dT00:00:00.000Z', ${timeExpr})`;
+	}
+	return `strftime('%Y-%m-%dT%H:00:00.000Z', ${timeExpr})`;
+}
+
+function snapToRangeStart(groupBy: "hour" | "day", now = Date.now()): Date {
+	const date = new Date(now);
+	if (groupBy === "day") {
+		date.setUTCHours(0, 0, 0, 0);
+	} else {
+		date.setUTCMinutes(0, 0, 0);
+		date.setUTCMilliseconds(0);
+	}
+	return date;
+}
+
+function bucketStepMs(groupBy: "hour" | "day"): number {
+	return groupBy === "day" ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
+}
+
+export const getEventFrequency = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	hours = 24,
+	groupBy: "hour" | "day" = "hour",
+	now = Date.now(),
+): EventFrequency[] => {
+	if (hours <= 0) {
+		const expr = bucketExpr(groupBy);
+		const { clause, params } = buildWhereClause({ ...options, range: undefined }, now);
+		const sql = `SELECT ${expr} AS bucket, COUNT(*) AS count FROM events ${clause} GROUP BY bucket ORDER BY bucket`;
+		return db.prepare(sql).all(...params) as EventFrequency[];
+	}
+	const stepMs = bucketStepMs(groupBy);
+	const start = snapToRangeStart(groupBy, now);
+	const target = snapToRangeStart(groupBy, now - hours * 60 * 60 * 1000);
+	const bucketCount = Math.max(1, Math.ceil((start.getTime() - target.getTime()) / stepMs) + 1);
+	const cutoff = target.toISOString();
+
+	const expr = bucketExpr(groupBy);
+	const { clause, params } = buildWhereClause({ ...options, range: undefined }, now);
+	const timeCondition = `${expr} >= ?`;
+	const where = clause ? `${clause} AND ${timeCondition}` : `WHERE ${timeCondition}`;
+	const sql = `SELECT ${expr} AS bucket, COUNT(*) AS count FROM events ${where} GROUP BY bucket ORDER BY bucket`;
+	const stmt = db.prepare(sql);
+	const rows = stmt.all(...params, cutoff) as EventFrequency[];
+
+	const result: EventFrequency[] = [];
+	const seen = new Map<string, number>();
+	for (const row of rows) {
+		seen.set(row.bucket, row.count);
+	}
+	for (let i = 0; i < bucketCount; i++) {
+		const bucket =
+			groupBy === "day"
+				? `${target.toISOString().slice(0, 10)}T00:00:00.000Z`
+				: target.toISOString();
+		result.push({ bucket, count: seen.get(bucket) ?? 0 });
+		target.setTime(target.getTime() + stepMs);
+	}
+	return result;
+};
+
 export const getLastEventId = (db: DatabaseSync): number => {
 	const stmt = db.prepare("SELECT id FROM events ORDER BY id DESC LIMIT 1");
 	const row = stmt.get() as { id: number | bigint } | undefined;
 	return row ? Number(row.id) : 0;
 };
 
+export const sessionStatus = (session: Session, now: number): SessionStatus => {
+	if (session.failureCount > 0) return "failed";
+	const lastAtMs = session.lastAt ? Date.parse(session.lastAt) : NaN;
+	const lastActivity = Number.isNaN(lastAtMs)
+		? session.lastReceivedAt
+		: Math.min(lastAtMs, session.lastReceivedAt);
+	if (now - lastActivity <= 5 * 60 * 1000) return "active";
+	return "completed";
+};
+
+function matchesSessionFilters(session: Session, options: FilterOptions, now: number): boolean {
+	if (options.status !== undefined) {
+		const status = sessionStatus(session, now);
+		if (status !== options.status) return false;
+	}
+	if (options.minDuration !== undefined && session.durationMs < options.minDuration * 60 * 1000) {
+		return false;
+	}
+	if (options.maxDuration !== undefined && session.durationMs > options.maxDuration * 60 * 1000) {
+		return false;
+	}
+	return true;
+}
+
+export const getFilteredSessions = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	now = Date.now(),
+): Session[] => {
+	const sessions = getSessions(db, { ...options, limit: Number.MAX_SAFE_INTEGER, offset: 0 }, now);
+	const filtered = sessions.filter((session) => matchesSessionFilters(session, options, now));
+	const offset = options.offset ?? 0;
+	const limit = options.limit;
+	if (offset === 0 && limit === undefined) return filtered;
+	if (limit === undefined) return filtered.slice(offset);
+	return filtered.slice(offset, offset + limit);
+};
+
 export const getFilterOptions = (db: DatabaseSync): FilterOptionLists => {
+	const sourceRows = db
+		.prepare(
+			"SELECT DISTINCT source FROM events WHERE source IS NOT NULL AND source <> '' ORDER BY source",
+		)
+		.all() as { source: string }[];
 	const eventRows = db
 		.prepare(
 			"SELECT DISTINCT event FROM events WHERE event IS NOT NULL AND event <> '' ORDER BY event",
 		)
 		.all() as { event: string }[];
+	const toolRows = db
+		.prepare(
+			"SELECT DISTINCT tool_name AS tool FROM events WHERE tool_name IS NOT NULL AND tool_name <> '' ORDER BY tool_name",
+		)
+		.all() as { tool: string }[];
 
 	return {
-		sources: ["claude", "cursor"],
+		sources: sourceRows.map((row) => row.source),
 		events: eventRows.map((row) => row.event),
+		tools: toolRows.map((row) => row.tool),
 	};
 };
 

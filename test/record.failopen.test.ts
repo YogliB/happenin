@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { initDb, insertEvent } from "../src/db.js";
+import { initDb, insertEvent } from "../src/shared/db.js";
 
-vi.mock("../src/db.js", async (importOriginal) => ({
+vi.mock("../src/shared/db.js", async (importOriginal) => ({
 	...(await importOriginal()),
 	initDb: vi.fn(),
 	insertEvent: vi.fn(),
@@ -23,7 +23,7 @@ describe("record fail-open", () => {
 		initDb.mockImplementation(() => {
 			throw busyError(5);
 		});
-		const { recordFromRaw } = await import("../src/record.js");
+		const { recordFromRaw } = await import("../src/cli/record.js");
 		const response = recordFromRaw(
 			["cursor"],
 			JSON.stringify({ hook_event_name: "preToolUse", toolName: "Shell" }),
@@ -36,7 +36,7 @@ describe("record fail-open", () => {
 		insertEvent.mockImplementation(() => {
 			throw busyError(5);
 		});
-		const { recordFromRaw } = await import("../src/record.js");
+		const { recordFromRaw } = await import("../src/cli/record.js");
 		const response = recordFromRaw(
 			["cursor"],
 			JSON.stringify({ hook_event_name: "preToolUse", toolName: "Shell" }),
@@ -49,7 +49,7 @@ describe("record fail-open", () => {
 		insertEvent.mockImplementation(() => {
 			throw busyError(6);
 		});
-		const { recordFromRaw } = await import("../src/record.js");
+		const { recordFromRaw } = await import("../src/cli/record.js");
 		const response = recordFromRaw(
 			["cursor"],
 			JSON.stringify({ hook_event_name: "preToolUse", toolName: "Shell" }),
@@ -62,7 +62,7 @@ describe("record fail-open", () => {
 		insertEvent.mockImplementation(() => {
 			throw busyError(262);
 		});
-		const { recordFromRaw } = await import("../src/record.js");
+		const { recordFromRaw } = await import("../src/cli/record.js");
 		const response = recordFromRaw(
 			["cursor"],
 			JSON.stringify({ hook_event_name: "preToolUse", toolName: "Shell" }),
@@ -75,7 +75,7 @@ describe("record fail-open", () => {
 		insertEvent.mockImplementation(() => {
 			throw new Error("disk full");
 		});
-		const { recordFromRaw } = await import("../src/record.js");
+		const { recordFromRaw } = await import("../src/cli/record.js");
 		expect(() =>
 			recordFromRaw(
 				["cursor"],

@@ -9,8 +9,8 @@ import {
 	getImportMtime,
 	insertEvent,
 	backfillSubagentMetadata,
-} from "./db.js";
-import type { Source } from "./types.js";
+} from "../shared/db.js";
+import type { Source } from "../shared/types.js";
 
 const CLAUDE_SOURCE: Source = "claude-transcript";
 const CURSOR_SOURCE: Source = "cursor-transcript";
