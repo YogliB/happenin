@@ -855,6 +855,27 @@ describe("dashboard components", () => {
 		const specialHtml = renderSessionsTable([special], now);
 		expect(specialHtml).toContain('hx-get="/fragments/detail?session=a%26b%3Fc%23d"');
 		expect(specialHtml).toContain('title="a&amp;b?c#d"');
+
+		const withQuery = renderSessionsTable([base], now, "s-1", {
+			source: "cursor",
+			event: "preToolUse",
+			q: "needle",
+			range: "7d",
+			status: "active",
+			tool: "Shell",
+			minDuration: 1,
+			maxDuration: 5,
+			limit: 25,
+			offset: 10,
+		});
+		expect(withQuery).toContain(
+			'hx-get="/fragments/detail?session=s-1&amp;source=cursor&amp;event=preToolUse&amp;q=needle&amp;range=7d&amp;status=active&amp;tool=Shell&amp;minDuration=1&amp;maxDuration=5&amp;limit=25&amp;offset=10"',
+		);
+
+		const noSession: Session = { ...base, sessionId: null };
+		const noSessionHtml = renderSessionsTable([noSession], now);
+		expect(noSessionHtml).toContain("session-item-static");
+		expect(noSessionHtml).not.toContain("hx-get=");
 	});
 
 	it("renders session detail", () => {
@@ -908,6 +929,7 @@ describe("dashboard components", () => {
 		expect(detail).toContain("Copy JSON");
 		expect(detail).toContain("cursor");
 		expect(detail).toContain("Shell");
+		expect(detail).not.toContain("detail-truncated");
 
 		const fromReceived = renderSessionDetail("s-1", [
 			{
@@ -929,6 +951,32 @@ describe("dashboard components", () => {
 			},
 		]);
 		expect(fromReceived).toContain("Session Details - s-1");
+
+		const truncated = renderSessionDetail(
+			"s-1",
+			[
+				{
+					id: 1,
+					source: "cursor",
+					client: "cursor",
+					event: "preToolUse",
+					sessionId: "s-1",
+					happenedAt: new Date().toISOString(),
+					receivedAt: Date.now(),
+					projectPath: null,
+					filePath: null,
+					toolName: "Shell",
+					payload: JSON.stringify({}),
+					sourcePath: null,
+					subagentId: null,
+					subagentType: null,
+					transcriptPath: null,
+				},
+			],
+			5,
+		);
+		expect(truncated).toContain("detail-truncated");
+		expect(truncated).toContain("most recent of 5 events");
 	});
 
 	it("renders sessions table from received_at", () => {

@@ -121,6 +121,7 @@ function renderEventTree(events: EventRow[]): string {
 export function renderSessionDetail(
 	sessionId: string | null | undefined,
 	events: EventRow[],
+	totalEvents?: number,
 ): string {
 	if (!sessionId)
 		return `<div class="detail-header"><h2 class="detail-title">Session Details</h2></div><div class="empty">No events.</div>`;
@@ -129,12 +130,17 @@ export function renderSessionDetail(
 
 	const eventRows = renderEventTree(events);
 	const json = JSON.stringify(events, null, 2);
+	const truncated =
+		totalEvents !== undefined && totalEvents > events.length
+			? `<div class="detail-truncated">Showing the ${events.length} most recent of ${totalEvents} events — older events are hidden and the JSON copy is partial.</div>`
+			: "";
 	return `<section class="session-detail-view" data-session="${escapeAttr(sessionId)}">
 	<div class="detail-header">
 		<button type="button" class="detail-back" onclick="backToDashboard()" aria-label="back to dashboard">${backIcon}<span>Back</span></button>
 		<h2 class="detail-title">Session Details - ${escapeHtml(sessionId)}</h2>
-		<span class="detail-count">${events.length} events</span>
+		<span class="detail-count">${totalEvents ?? events.length} events</span>
 	</div>
+	${truncated}
 	<div class="detail-toolbar">
 		<input type="search" class="detail-search" placeholder="Search attributes..." oninput="filterSessionDetails(this.value)">
 		<button type="button" onclick="toggleSessionDetails(false)">Collapse All</button>

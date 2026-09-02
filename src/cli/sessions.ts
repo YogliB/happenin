@@ -12,7 +12,7 @@ Options:
   --session <id>       filter by session id (partial match)
   --q <text>           search event payloads and session ids
   --since <id>         events with id greater than <id>
-  --range <range>      time range: 24h, 7d, 30d (default: 24h)
+  --range <range>      time range: 24h, 7d, 30d, all (default: 24h)
   --status <status>    filter by session status: active, completed, failed
   --tool <tool>        filter by tool name
   --minDuration <m>    minimum session duration in minutes

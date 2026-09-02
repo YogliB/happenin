@@ -24,7 +24,7 @@ function parseMinutes(value: string): number | undefined {
 	return n;
 }
 
-const RANGES = ["24h", "7d", "30d"] as const;
+const RANGES = ["24h", "7d", "30d", "all"] as const;
 
 function showHelp(): void {
 	process.stdout.write(`Usage: happenin query [options]
@@ -35,7 +35,7 @@ Options:
   --session <id>       filter by session id (partial match)
   --q <text>           search event payloads and session ids
   --since <id>         events with id greater than <id>
-  --range <range>      time range: 24h, 7d, 30d (default: 24h)
+  --range <range>      time range: 24h, 7d, 30d, all (default: 24h)
   --tool <tool>        filter by tool name
   --limit <n>          maximum rows to return (default: 100)
   --offset <n>         skip first <n> rows
@@ -217,7 +217,7 @@ function parseFilterArgs(argv: string[]): {
 		}
 	}
 
-	return { options, format, dbPath, help };
+	return { options: { range: "24h", ...options }, format, dbPath, help };
 }
 
 export async function runWithDb(

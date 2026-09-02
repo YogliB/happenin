@@ -5,6 +5,7 @@ import {
 	getEventFrequency,
 	getToolUsage,
 	getFilteredSessions,
+	countEvents,
 } from "../../shared/db.js";
 import { renderMetricCards } from "./components/MetricCards.js";
 import { renderEventFrequencyChart } from "./components/ChartEvents.js";
@@ -128,7 +129,7 @@ function renderSessionsSidebar(
 	const pageSessions = allSessions.slice(offset, offset + limit);
 	return `<aside class="session-sidebar">
 <div class="session-list-wrapper">
-${renderSessionsTable(pageSessions, now, activeSessionId)}
+${renderSessionsTable(pageSessions, now, activeSessionId, query)}
 ${renderPager(query, allSessions.length)}
 </div>
 </aside>`;
@@ -197,8 +198,14 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 		limit: 1000,
 		offset: 0,
 	});
+	const total = countEvents(db, {
+		...query,
+		range: undefined,
+		sessionId: query.sessionId,
+		sessionIdExact: true,
+	});
 	return `${sidebar}
-<div class="main-content">${renderSessionDetail(query.sessionId, rows)}</div>`;
+<div class="main-content">${renderSessionDetail(query.sessionId, rows, total)}</div>`;
 }
 
 export function sendSessionDetailFragment(

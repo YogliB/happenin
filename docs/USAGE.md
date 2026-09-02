@@ -69,8 +69,10 @@ Query events from the local database and print them as JSON, JSONL, or a summary
 - `--source <source>` — filter by source.
 - `--event <event>` — filter by event name.
 - `--session <id>` — filter by session id (partial match).
-- `--q <text>` — search event payloads.
+- `--q <text>` — search event payloads and session ids.
 - `--since <id>` — events with an id greater than `<id>`.
+- `--range <range>` — time range: `24h`, `7d`, `30d`, `all` (default: `24h`).
+- `--tool <tool>` — filter by tool name.
 - `--limit <n>` — maximum rows to return (default: `100`).
 - `--offset <n>` — skip the first `<n>` rows.
 - `--format <json|jsonl|summary>` — output format (default: `json`).
@@ -86,11 +88,16 @@ happenin query --session abc123 --format summary
 
 Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes.
 
-- `--source <source>` — filter by source.
-- `--event <event>` — filter by event name.
+- `--source <source>` — filter sessions by source.
+- `--event <event>` — filter sessions by event name.
 - `--session <id>` — filter by session id (partial match).
-- `--q <text>` — search event payloads.
+- `--q <text>` — search event payloads and session ids.
 - `--since <id>` — sessions with an event id greater than `<id>`.
+- `--range <range>` — time range: `24h`, `7d`, `30d`, `all` (default: `24h`).
+- `--status <status>` — filter by session status: `active`, `completed`, `failed`.
+- `--tool <tool>` — filter sessions by tool name.
+- `--minDuration <minutes>` — minimum session duration.
+- `--maxDuration <minutes>` — maximum session duration.
 - `--limit <n>` — maximum sessions to return (default: `100`).
 - `--offset <n>` — skip the first `<n>` sessions.
 - `--format <json|jsonl|summary>` — output format (default: `json`).

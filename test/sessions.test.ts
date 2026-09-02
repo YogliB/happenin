@@ -151,7 +151,9 @@ describe("sessions", () => {
 		);
 		db.close();
 
-		const { output } = await captureOutput(() => runSessions(["--format", "summary"]));
+		const { output } = await captureOutput(() =>
+			runSessions(["--format", "summary", "--range", "all"]),
+		);
 		expect(output).toContain("no-session");
 		expect(output).toContain("project:-");
 		expect(output).toContain("tools:-");
@@ -179,7 +181,7 @@ describe("sessions", () => {
 		});
 		db.close();
 
-		const { output } = await captureOutput(() => runSessions([]));
+		const { output } = await captureOutput(() => runSessions(["--range", "all"]));
 		const parsed = JSON.parse(output) as { durationMs: number }[];
 		expect(parsed[0].durationMs).toBe(60 * 60 * 1000);
 	});

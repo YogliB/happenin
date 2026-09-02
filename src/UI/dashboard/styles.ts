@@ -74,6 +74,8 @@ button:hover { background: var(--surface-5); }
 .session-item:hover { background: var(--surface-3); }
 .session-item.active { background: var(--surface-3); box-shadow: inset 3px 0 0 var(--accent); }
 .session-item.active .session-id { color: var(--accent); }
+.session-item-static { cursor: default; }
+.session-item-static:hover { background: none; }
 .session-item:last-child { border-bottom: none; }
 .session-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; }
 .session-row { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
@@ -112,6 +114,7 @@ button:hover { background: var(--surface-5); }
 .detail-back { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; padding: 0.35rem 0.6rem; flex: 0 0 auto; }
 .detail-title { font-size: 1rem; font-weight: 600; color: var(--text); word-break: break-all; flex: 1 1 auto; min-width: 0; margin: 0; }
 .detail-count { font-size: 0.75rem; color: var(--text-3); white-space: nowrap; flex: 0 0 auto; }
+.detail-truncated { flex: 0 0 auto; font-size: 0.75rem; color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent); border-radius: 0.4rem; padding: 0.4rem 0.6rem; }
 .detail-toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; flex: 0 0 auto; }
 .detail-toolbar input[type="search"] { flex: 1; min-width: 14rem; }
 .detail-toolbar button { font-size: 0.8rem; padding: 0.4rem 0.65rem; }
