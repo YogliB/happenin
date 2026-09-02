@@ -934,7 +934,7 @@ describe("db edge cases", () => {
 
 		try {
 			const data = getEventFrequency(db, {});
-			expect(data.length).toBe(24);
+			expect(data.length).toBe(25);
 			const bucket = data.find((d) => d.bucket === twoHoursAgo.toISOString());
 			expect(bucket?.count).toBe(2);
 			const nowBucket = data.find((d) => d.bucket === now.toISOString());
@@ -944,7 +944,7 @@ describe("db edge cases", () => {
 			expect(filtered.every((d) => d.count === 0)).toBe(true);
 
 			const limited = getEventFrequency(db, {}, 6);
-			expect(limited.length).toBe(6);
+			expect(limited.length).toBe(7);
 			expect(limited.some((d) => d.count > 0)).toBe(true);
 		} finally {
 			db.close();
@@ -968,7 +968,7 @@ describe("db edge cases", () => {
 
 		try {
 			const data = getEventFrequency(db, {}, 168, "day");
-			expect(data.length).toBe(7);
+			expect(data.length).toBe(8);
 			const bucket = `${threeDaysAgo.toISOString().slice(0, 10)}T00:00:00.000Z`;
 			expect(data.find((d) => d.bucket === bucket)?.count).toBe(1);
 		} finally {
@@ -1147,6 +1147,7 @@ describe("db edge cases", () => {
 				payload: JSON.stringify({}),
 			});
 		}
+		db.prepare("UPDATE events SET received_at = ?").run(now);
 
 		try {
 			const all = getFilteredSessions(db, {}, now);
@@ -1250,6 +1251,34 @@ describe("db edge cases", () => {
 			nowHour.setUTCMilliseconds(0);
 			const bucket = frequency.find((d) => d.bucket === nowHour.toISOString());
 			expect(bucket?.count).toBe(2);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("filters events by session ids including null", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const rows = getEvents(db, { sessionIds: [null, "s-1"] });
+			expect(rows.length).toBe(2);
+			const single = getEvents(db, { sessionIds: ["s-1"] });
+			expect(single.length).toBe(1);
+			const onlyNull = getEvents(db, { sessionIds: [null] });
+			expect(onlyNull.length).toBe(1);
 		} finally {
 			db.close();
 		}

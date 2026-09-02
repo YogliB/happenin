@@ -31,7 +31,7 @@ export type FilterOptions = {
 	event?: string;
 	sessionId?: string;
 	sessionIdExact?: boolean;
-	sessionIds?: string[];
+	sessionIds?: (string | null)[];
 	q?: string;
 	limit?: number;
 	offset?: number;

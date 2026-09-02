@@ -406,10 +406,20 @@ function buildWhereClause(
 		}
 	}
 	if (options.sessionIds !== undefined && options.sessionIds.length > 0) {
-		// oxlint-disable-next-line security/detect-non-literal-regexp -- placeholders are not user input
-		const placeholders = options.sessionIds.map(() => "?").join(",");
-		conditions.push(`session_id IN (${placeholders})`);
-		for (const id of options.sessionIds) params.push(id);
+		const nonNullIds = options.sessionIds.filter((id): id is string => id !== null);
+		const nullSelected = options.sessionIds.some((id) => id === null);
+		const sessionClauses: string[] = [];
+		if (nonNullIds.length > 0) {
+			const placeholders = nonNullIds.map(() => "?").join(",");
+			sessionClauses.push(`session_id IN (${placeholders})`);
+			for (const id of nonNullIds) params.push(id);
+		}
+		if (nullSelected) {
+			sessionClauses.push("session_id IS NULL");
+		}
+		conditions.push(
+			sessionClauses.length === 1 ? sessionClauses[0] : `(${sessionClauses.join(" OR ")})`,
+		);
 	}
 	if (options.q !== undefined && options.q !== "") {
 		conditions.push("(payload LIKE ? OR session_id LIKE ?)");
@@ -590,15 +600,8 @@ function snapToRangeStart(groupBy: "hour" | "day", now = Date.now()): Date {
 	return date;
 }
 
-function rangeToBuckets(
-	hours: number,
-	groupBy: "hour" | "day",
-): { bucketCount: number; stepMs: number } {
-	if (groupBy === "day") {
-		const bucketCount = Math.max(1, Math.round(hours / 24));
-		return { bucketCount, stepMs: 24 * 60 * 60 * 1000 };
-	}
-	return { bucketCount: hours, stepMs: 60 * 60 * 1000 };
+function bucketStepMs(groupBy: "hour" | "day"): number {
+	return groupBy === "day" ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
 }
 
 export const getEventFrequency = (
@@ -614,9 +617,10 @@ export const getEventFrequency = (
 		const sql = `SELECT ${expr} AS bucket, COUNT(*) AS count FROM events ${clause} GROUP BY bucket ORDER BY bucket`;
 		return db.prepare(sql).all(...params) as EventFrequency[];
 	}
-	const { bucketCount, stepMs } = rangeToBuckets(hours, groupBy);
+	const stepMs = bucketStepMs(groupBy);
 	const start = snapToRangeStart(groupBy, now);
-	const target = new Date(start.getTime() - (bucketCount - 1) * stepMs);
+	const target = snapToRangeStart(groupBy, now - hours * 60 * 60 * 1000);
+	const bucketCount = Math.max(1, Math.ceil((start.getTime() - target.getTime()) / stepMs) + 1);
 	const cutoff = target.toISOString();
 
 	const expr = bucketExpr(groupBy);
@@ -651,7 +655,11 @@ export const getLastEventId = (db: DatabaseSync): number => {
 
 export const sessionStatus = (session: Session, now: number): SessionStatus => {
 	if (session.failureCount > 0) return "failed";
-	if (now - session.lastReceivedAt <= 5 * 60 * 1000) return "active";
+	const lastAtMs = session.lastAt ? Date.parse(session.lastAt) : NaN;
+	const lastActivity = Number.isNaN(lastAtMs)
+		? session.lastReceivedAt
+		: Math.min(lastAtMs, session.lastReceivedAt);
+	if (now - lastActivity <= 5 * 60 * 1000) return "active";
 	return "completed";
 };
 

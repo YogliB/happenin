@@ -143,7 +143,7 @@ export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): st
 		{ ...query, limit: undefined, offset: undefined },
 		now,
 	);
-	const sessionIds = allSessions.map((s) => s.sessionId).filter((id): id is string => id !== null);
+	const sessionIds = allSessions.map((s) => s.sessionId);
 	let frequency: EventFrequency[] = [];
 	let toolUsage: ToolUsage[] = [];
 	if (sessionIds.length > 0) {

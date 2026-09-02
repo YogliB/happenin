@@ -834,7 +834,11 @@ describe("dashboard components", () => {
 			tools: ["Shell"],
 			failureCount: 0,
 		};
-		const completed: Session = { ...base, lastReceivedAt: now - 10 * 60 * 1000 };
+		const completed: Session = {
+			...base,
+			lastAt: new Date(now - 10 * 60 * 1000).toISOString(),
+			lastReceivedAt: now - 10 * 60 * 1000,
+		};
 		const failed: Session = { ...base, failureCount: 1 };
 
 		const activeHtml = renderSessionsTable([base], now);
