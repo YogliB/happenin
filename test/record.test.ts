@@ -235,6 +235,43 @@ describe("record", () => {
 		db.close();
 	});
 
+	it("tags child events with the subagent id via tool_use_id", () => {
+		recordFromRaw(
+			["cursor"],
+			JSON.stringify({
+				hook_event_name: "subagentStart",
+				conversation_id: "conv-1",
+				subagent_id: "toolu-1",
+				subagent_type: "shell",
+			}),
+		);
+		const matched = recordFromRaw(
+			["cursor"],
+			JSON.stringify({
+				hook_event_name: "preToolUse",
+				session_id: "conv-1",
+				tool_use_id: "toolu-1",
+			}),
+		);
+		const unmatched = recordFromRaw(
+			["cursor"],
+			JSON.stringify({
+				hook_event_name: "preToolUse",
+				session_id: "conv-1",
+				tool_use_id: "toolu-other",
+			}),
+		);
+		expect(matched).toBe(JSON.stringify({ permission: "allow" }));
+		expect(unmatched).toBe(JSON.stringify({ permission: "allow" }));
+
+		const db = initDb();
+		const rows = getEvents(db, { event: "preToolUse", limit: 10 });
+		expect(rows.length).toBe(2);
+		expect(rows.find((row) => row.toolName === null && row.subagentId === "toolu-1")).toBeTruthy();
+		expect(rows.find((row) => row.subagentId === null)).toBeTruthy();
+		db.close();
+	});
+
 	it("extracts project path from workspace_roots and falls back timestamps", () => {
 		const payload = JSON.stringify({
 			hook_event_name: "preToolUse",

@@ -91,11 +91,11 @@ function renderEvent(e: EventRow): string {
 </details>`;
 }
 
-function renderSubagentGroup(group: EventGroup): string {
+function renderSubagentGroup(group: EventGroup, subagentId: string): string {
 	const parent = group.parent;
 	const children = group.children.map(renderEvent).join("");
 	const label = escapeHtml(parent.subagentType || "subagent");
-	const id = parent.subagentId ? ` · ${escapeHtml(truncate(parent.subagentId, 18))}` : "";
+	const id = ` · ${escapeHtml(truncate(subagentId, 18))}`;
 	const badge = `<span class="subagent-badge">${label}${id} · ${group.children.length}</span>`;
 	return `<details class="detail-event detail-subagent" data-event-id="${parent.id}" open>
 	<summary>${eventSummary(parent)}${badge}</summary>
@@ -111,7 +111,9 @@ function renderEventTree(events: EventRow[]): string {
 	const groups = groupEvents(events);
 	return groups
 		.map((g) =>
-			g.subagentId ? renderSubagentGroup(g) : [g.parent, ...g.children].map(renderEvent).join(""),
+			g.subagentId
+				? renderSubagentGroup(g, g.subagentId)
+				: [g.parent, ...g.children].map(renderEvent).join(""),
 		)
 		.join("");
 }
