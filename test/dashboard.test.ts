@@ -6,9 +6,28 @@ import { EventEmitter } from "node:events";
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import * as dbModule from "../src/db.js";
-import { initDb, insertEvent, getEvents } from "../src/db.js";
-import type { EventInsert, EventRow } from "../src/types.js";
+import { initDb, insertEvent } from "../src/shared/db.js";
+import { dashboardHtml } from "../src/UI/dashboard/page.js";
+import {
+	parseQuery,
+	renderSessionsContent,
+	renderSessionDetailFragment,
+} from "../src/UI/dashboard/fragments.js";
+import {
+	escapeHtml,
+	escapeAttr,
+	formatDuration,
+	formatTimestamp,
+	truncate,
+} from "../src/UI/dashboard/utils.js";
+import { renderHeader } from "../src/UI/dashboard/components/Header.js";
+import { renderFilters } from "../src/UI/dashboard/components/Filters.js";
+import { renderMetricCards } from "../src/UI/dashboard/components/MetricCards.js";
+import { renderEventFrequencyChart } from "../src/UI/dashboard/components/ChartEvents.js";
+import { renderToolChart } from "../src/UI/dashboard/components/ChartTools.js";
+import { renderSessionsTable } from "../src/UI/dashboard/components/SessionsTable.js";
+import { renderSessionDetail } from "../src/UI/dashboard/components/DetailPanel.js";
+import type { EventInsert, Session } from "../src/shared/types.js";
 
 vi.mock("node:http", () => ({ default: { createServer: vi.fn() } }));
 vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
@@ -70,32 +89,38 @@ function eventInsert(partial: Partial<EventInsert> & { payload: string }): Event
 		source: "cursor",
 		client: "cursor",
 		event: "preToolUse",
-		payload: partial.payload,
 		...partial,
+		payload: partial.payload,
 	};
 }
 
 function createMockRes(): {
 	headersSent: boolean;
+	writableEnded: boolean;
 	setTimeout: ReturnType<typeof vi.fn>;
 	writeHead: ReturnType<typeof vi.fn>;
 	write: ReturnType<typeof vi.fn>;
 	end: ReturnType<typeof vi.fn>;
+	destroy: ReturnType<typeof vi.fn>;
 } {
 	const res: {
 		headersSent: boolean;
+		writableEnded: boolean;
 		setTimeout: ReturnType<typeof vi.fn>;
 		writeHead: ReturnType<typeof vi.fn>;
 		write: ReturnType<typeof vi.fn>;
 		end: ReturnType<typeof vi.fn>;
+		destroy: ReturnType<typeof vi.fn>;
 	} = {
 		headersSent: false,
+		writableEnded: false,
 		setTimeout: vi.fn(),
 		writeHead: vi.fn((_code: number) => {
 			res.headersSent = true;
 		}),
 		write: vi.fn(),
 		end: vi.fn(),
+		destroy: vi.fn(),
 	};
 	return res;
 }
@@ -133,7 +158,7 @@ async function closeServer(server: http.Server): Promise<void> {
 }
 
 describe("dashboard", () => {
-	let dashboard: typeof import("../src/dashboard.js");
+	let dashboard: typeof import("../src/UI/dashboard/index.js");
 	let homeDir: string;
 	let originalHome: string | undefined;
 
@@ -141,7 +166,7 @@ describe("dashboard", () => {
 		vi.mocked(http.createServer).mockImplementation((requestListener: http.RequestListener) =>
 			createFakeServer(requestListener),
 		);
-		dashboard = await import("../src/dashboard.js");
+		dashboard = await import("../src/UI/dashboard/index.js");
 	});
 
 	beforeEach(() => {
@@ -181,24 +206,43 @@ describe("dashboard", () => {
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
 		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
-		expect(res.end).toHaveBeenCalledWith(expect.stringContaining("happenin"));
+		const html = res.end.mock.calls[0]?.[0] as string;
+		expect(html).toContain("Session Overview Analytics");
+		expect(html).toContain("dashboard-content");
 	});
 
-	it("serves the events fragment with paging", () => {
-		for (let i = 0; i < 60; i++) {
+	it("serves the sessions fragment", () => {
+		for (let i = 0; i < 5; i++) {
 			insertEvent(
 				dashboard.db,
-				eventInsert({ sessionId: `s-${i % 3}`, payload: JSON.stringify({ i }) }),
+				eventInsert({ sessionId: `s-${i % 2}`, payload: JSON.stringify({ i }) }),
 			);
 		}
-		const req = createMockReq({ url: "/fragments/events?page=2" });
+		const req = createMockReq({ url: "/fragments/sessions" });
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
 		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 		const html = res.end.mock.calls[0]?.[0] as string;
-		expect(html).toContain("feed-pager");
-		expect(html).toContain('page-number"');
-		expect(html).toContain(">2<");
+		expect(html).toContain("metric-grid");
+		expect(html).toContain("sessions-table");
+	});
+
+	it("falls back to the default time range for invalid range values", () => {
+		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		const req = createMockReq({ url: "/fragments/sessions?range=999d" });
+		const res = createMockRes();
+		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
+	});
+
+	it("serves the session detail fragment", () => {
+		insertEvent(dashboard.db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
+		const req = createMockReq({ url: "/fragments/detail?session=s-1" });
+		const res = createMockRes();
+		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
+		const html = res.end.mock.calls[0]?.[0] as string;
+		expect(html).toContain("Session Details - s-1");
 	});
 
 	it("serves events as json", () => {
@@ -229,7 +273,7 @@ describe("dashboard", () => {
 		db2.close();
 		dashboard.setDb(db2);
 
-		const req = createMockReq({ url: "/fragments/events" });
+		const req = createMockReq({ url: "/fragments/sessions" });
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
 		expect(res.writeHead).toHaveBeenCalledWith(500, { "Content-Type": "text/plain" });
@@ -245,6 +289,19 @@ describe("dashboard", () => {
 		dashboard.handleRequest(createMockReq({ url: "/" }), res as unknown as http.ServerResponse);
 		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 		expect(res.end).toHaveBeenCalled();
+		expect(res.destroy).toHaveBeenCalled();
+	});
+
+	it("does not destroy an already-ended response", () => {
+		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		const res = createMockRes();
+		res.end = vi.fn(() => {
+			res.writableEnded = true;
+			throw new Error("end failed");
+		});
+		dashboard.handleRequest(createMockReq({ url: "/" }), res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
+		expect(res.destroy).not.toHaveBeenCalled();
 	});
 
 	it("sends an event stream and pings on new events", () => {
@@ -278,7 +335,7 @@ describe("dashboard", () => {
 
 	it("sends an event stream directly with header variants", () => {
 		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
-		for (const header of ["5", ["5"], "not-a-number"]) {
+		for (const header of ["5", ["5"], "not-a-number", "0", ""]) {
 			const res = createMockRes();
 			dashboard.sendEventsStream(
 				createMockReq({
@@ -306,6 +363,39 @@ describe("dashboard", () => {
 
 		expect(res.write).toHaveBeenCalledWith("retry: 500\n\n");
 		vi.useRealTimers();
+	});
+
+	it("uses last event id as zero when the database is empty", () => {
+		const db = initDb(":memory:");
+		dashboard.setDb(db);
+		vi.useFakeTimers();
+
+		const res = createMockRes();
+		dashboard.sendEventsStream(
+			createMockReq({ url: "/events/stream" }) as unknown as http.IncomingMessage,
+			res as unknown as http.ServerResponse,
+		);
+		vi.advanceTimersByTime(300);
+
+		expect(res.write).toHaveBeenCalledWith("retry: 500\n\n");
+		expect(res.write).not.toHaveBeenCalledWith("event: message\ndata: ping\n\n");
+
+		vi.useRealTimers();
+	});
+
+	it("handles requests with an undefined url", () => {
+		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		const res = createMockRes();
+		dashboard.handleRequest(
+			{
+				method: "GET",
+				url: undefined,
+				headers: {},
+				on: vi.fn(),
+			} as unknown as http.IncomingMessage,
+			res as unknown as http.ServerResponse,
+		);
+		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 	});
 
 	it("starts the server and routes requests through the listener", async () => {
@@ -407,141 +497,6 @@ describe("dashboard", () => {
 		Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
 	});
 
-	it("covers render event row and session group branches", () => {
-		insertEvent(dashboard.db, {
-			source: "cursor",
-			client: "cursor",
-			event: "preToolUse",
-			sessionId: "s-1",
-			happenedAt: null as unknown as undefined,
-			projectPath: "/project",
-			filePath: "/file.txt",
-			toolName: "Shell",
-			subagentId: "sub-1",
-			subagentType: "a".repeat(40),
-			transcriptPath: "/transcript.jsonl",
-			payload: JSON.stringify({}),
-		});
-		insertEvent(dashboard.db, {
-			source: "cursor",
-			client: "cursor",
-			event: "sessionStart",
-			sessionId: undefined as unknown as string,
-			payload: JSON.stringify({}),
-		});
-
-		const [withMeta] = getEvents(dashboard.db, { event: "preToolUse", limit: 10 });
-		const [noSession] = getEvents(dashboard.db, { event: "sessionStart", limit: 10 });
-		const rowHtml = dashboard.renderEventRow(withMeta);
-		expect(rowHtml).toContain("Shell");
-		expect(rowHtml).toContain("/file.txt");
-		expect(rowHtml).toContain("sub-1");
-		expect(rowHtml).toContain("subagent");
-		expect(rowHtml).toContain("transcript");
-
-		const groupHtml = dashboard.renderSessionGroup(noSession.sessionId, [noSession]);
-		expect(groupHtml).toContain("no session");
-
-		const group = dashboard.groupEventsBySession([withMeta, noSession]);
-		expect(group.length).toBe(2);
-	});
-
-	it("renders the feed fragment with all query filters and pager branches", () => {
-		for (let i = 0; i < 60; i++) {
-			insertEvent(
-				dashboard.db,
-				eventInsert({ sessionId: `s-${i % 3}`, payload: JSON.stringify({ i }) }),
-			);
-		}
-
-		for (const url of [
-			"/fragments/events?source=cursor&event=preToolUse&session=s-1&q=0&since=0&page=2",
-			"/fragments/events?page=1",
-			"/fragments/events?page=0",
-			"/fragments/events?page=not-a-number&since=not-a-number",
-			"/fragments/events?since=5",
-		]) {
-			const req = createMockReq({ url });
-			const res = createMockRes();
-			dashboard.handleRequest(req, res as unknown as http.ServerResponse);
-			expect(res.writeHead).toHaveBeenCalledWith(200, {
-				"Content-Type": "text/html; charset=utf-8",
-			});
-		}
-	});
-
-	it("returns an empty fragment when no events match", () => {
-		const req = createMockReq({ url: "/fragments/events" });
-		const res = createMockRes();
-		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
-		const html = res.end.mock.calls[0]?.[0] as string;
-		expect(html).toContain("No events found");
-	});
-
-	it("sends a no-op stream ping when no new events arrive", () => {
-		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
-		vi.useFakeTimers();
-
-		const res = createMockRes();
-		dashboard.sendEventsStream(
-			createMockReq({ url: "/events/stream" }) as unknown as http.IncomingMessage,
-			res as unknown as http.ServerResponse,
-		);
-
-		vi.advanceTimersByTime(300);
-
-		expect(res.write).toHaveBeenCalledWith("retry: 500\n\n");
-		expect(res.write).toHaveBeenCalledTimes(1);
-		vi.useRealTimers();
-	});
-
-	it("handles undefined request url and missing event fields", () => {
-		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
-
-		const req = createMockReq({ url: undefined });
-		(req as { url: undefined }).url = undefined;
-		const res = createMockRes();
-		dashboard.handleRequest(
-			req as unknown as http.IncomingMessage,
-			res as unknown as http.ServerResponse,
-		);
-		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
-
-		const fakeRow = {
-			id: 1,
-			source: undefined as unknown as string,
-			client: "cursor",
-			event: undefined as unknown as string,
-			sessionId: null,
-			happenedAt: null,
-			receivedAt: undefined as unknown as number,
-			projectPath: null,
-			filePath: null,
-			toolName: null,
-			sourcePath: null,
-			subagentId: null,
-			subagentType: null,
-			transcriptPath: null,
-			payload: {},
-		};
-		const html = dashboard.renderEventRow(fakeRow as EventRow);
-		expect(html).toContain('<span class="source"></span>');
-		expect(html).toContain('<span class="event"></span>');
-	});
-
-	it("falls back to 0 when lastEventId is missing in the stream", () => {
-		const spy = vi
-			.spyOn(dbModule, "getLastEventId")
-			.mockReturnValue(undefined as unknown as number);
-		const res = createMockRes();
-		dashboard.sendEventsStream(
-			createMockReq({ url: "/events/stream" }) as unknown as http.IncomingMessage,
-			res as unknown as http.ServerResponse,
-		);
-		expect(res.write).toHaveBeenCalledWith("retry: 500\n\n");
-		spy.mockRestore();
-	});
-
 	it("ignores unknown runDashboard arguments", async () => {
 		listenResponses = new Map([[1234, { type: "listening" }]]);
 		await dashboard.runDashboard(["--unknown", "--no-open", "--port", "1234"]);
@@ -549,7 +504,7 @@ describe("dashboard", () => {
 	});
 
 	it("rejects invalid --port=65536", async () => {
-		const exit = vi.spyOn(process, "exit").mockImplementation((code) => {
+		const exit = vi.spyOn(process, "exit").mockImplementation((code?: number) => {
 			throw new Error(`exit:${code}`);
 		});
 
@@ -568,5 +523,468 @@ describe("dashboard", () => {
 		await expect(dashboard.runDashboard(["--port=0"])).rejects.toThrow("exit:1");
 
 		exit.mockRestore();
+	});
+});
+
+describe("dashboard page and fragments", () => {
+	it("renders the dashboard page", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, eventInsert({ payload: JSON.stringify({}) }));
+		const html = dashboardHtml(db, { range: "24h" });
+		expect(html).toContain("Session Overview Analytics");
+		expect(html).toContain("dashboard-content");
+		expect(html).toContain("session-detail");
+		expect(html).toContain("metric-grid");
+		db.close();
+	});
+
+	it("parses all query parameters", () => {
+		const url = new URL(
+			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&minDuration=1&maxDuration=10&session=s-1&since=5&event=preToolUse&limit=10&offset=5",
+		);
+		const query = parseQuery(url);
+		expect(query.q).toBe("test");
+		expect(query.range).toBe("7d");
+		expect(query.status).toBe("failed");
+		expect(query.source).toBe("cursor");
+		expect(query.tool).toBe("Shell");
+		expect(query.minDuration).toBe(1);
+		expect(query.maxDuration).toBe(10);
+		expect(query.sessionId).toBe("s-1");
+		expect(query.since).toBe(5);
+		expect(query.event).toBe("preToolUse");
+		expect(query.limit).toBe(10);
+		expect(query.offset).toBe(5);
+	});
+
+	it("renders sessions and events content", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
+		const sessionsHtml = renderSessionsContent(db, {});
+		expect(sessionsHtml).toContain("metric-grid");
+		expect(sessionsHtml).toContain("sessions-table");
+
+		const eventsHtml = renderSessionDetailFragment(db, { sessionId: "s-1" });
+		expect(eventsHtml).toContain("Session Details - s-1");
+
+		const emptyEvents = renderSessionDetailFragment(db, {});
+		expect(emptyEvents).toContain("No events");
+
+		const html30d = renderSessionsContent(db, { range: "30d" });
+		expect(html30d).toContain("metric-grid");
+
+		const html7d = renderSessionsContent(db, { range: "7d" });
+		expect(html7d).toContain("metric-grid");
+
+		const htmlAll = renderSessionsContent(db, { range: "all" });
+		expect(htmlAll).toContain("metric-grid");
+		expect(htmlAll).toContain("sessions-table");
+		db.close();
+	});
+
+	it("fans out subagents in session details", () => {
+		const db = initDb(":memory:");
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				event: "subagentStart",
+				subagentId: "sa-1",
+				subagentType: "transcript",
+				payload: JSON.stringify({}),
+			}),
+		);
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				event: "preToolUse",
+				subagentId: "sa-1",
+				toolName: "Grep",
+				payload: JSON.stringify({}),
+			}),
+		);
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				event: "preToolUse",
+				toolName: "Shell",
+				filePath: "/some/path",
+				payload: JSON.stringify({}),
+			}),
+		);
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				event: "preToolUse",
+				subagentId: "sa-2",
+				toolName: "Read",
+				payload: JSON.stringify({}),
+			}),
+		);
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				event: "preToolUse",
+				subagentId: "sa-2",
+				toolName: "Write",
+				payload: JSON.stringify({}),
+			}),
+		);
+		const html = renderSessionDetailFragment(db, { sessionId: "s-1" });
+		expect(html).toContain("detail-subagent");
+		expect(html).toContain("transcript");
+		expect(html).toContain("sa-1");
+		expect(html).toContain("sa-2");
+		expect(html).toContain("Grep");
+		expect(html).toContain("Shell");
+		expect(html).toContain("Read");
+		expect(html).toContain("Write");
+		expect(html).toContain("/some/path");
+		db.close();
+	});
+
+	it("paginates the sessions table", () => {
+		const db = initDb(":memory:");
+		for (let i = 0; i < 12; i++) {
+			insertEvent(
+				db,
+				eventInsert({
+					sessionId: `s-${i}`,
+					toolName: "Shell",
+					payload: JSON.stringify({ note: "findme" }),
+				}),
+			);
+		}
+		const first = renderSessionsContent(db, {
+			q: "findme",
+			source: "cursor",
+			event: "preToolUse",
+			sessionId: "s-",
+			since: 0,
+			range: "24h",
+			status: "active",
+			tool: "Shell",
+			minDuration: 0,
+			maxDuration: 10,
+			limit: 5,
+			offset: 0,
+		});
+		expect(first).toContain('class="pager"');
+		expect(first).toContain("Page 1 of 3");
+		expect(first).toContain("Previous</button>");
+		expect(first).toContain('offset=5"');
+		expect(first).toContain("limit=5");
+		expect(first).toContain("q=findme");
+		expect(first).toContain("status=active");
+
+		const middle = renderSessionsContent(db, {
+			limit: 5,
+			offset: 5,
+		});
+		expect(middle).toContain("Page 2 of 3");
+		expect(middle).toContain('offset=0"');
+		expect(middle).toContain('offset=10"');
+
+		const last = renderSessionsContent(db, {
+			limit: 5,
+			offset: 10,
+		});
+		expect(last).toContain("Page 3 of 3");
+		expect(last).toContain("Next</button>");
+
+		const noPager = renderSessionsContent(db, { limit: 100 });
+		expect(noPager).not.toContain('class="pager"');
+		db.close();
+	});
+
+	it("parses invalid and default query parameters", () => {
+		const url = new URL(
+			"http://localhost/?range=30d&status=bad&since=abc&minDuration=xyz&maxDuration=&limit=abc&offset=-1",
+		);
+		const query = parseQuery(url);
+		expect(query.range).toBe("30d");
+		expect(query.status).toBeUndefined();
+		expect(query.since).toBeUndefined();
+		expect(query.minDuration).toBeUndefined();
+		expect(query.maxDuration).toBeUndefined();
+		expect(query.limit).toBeUndefined();
+		expect(query.offset).toBeUndefined();
+	});
+});
+
+describe("dashboard components", () => {
+	it("escapes and formats helpers", () => {
+		expect(escapeHtml("<script>")).toBe("&lt;script&gt;");
+		expect(escapeAttr('a"b')).toBe("a&quot;b");
+		expect(truncate("hello world", 8)).toBe("hello w…");
+		expect(formatDuration(125000)).toBe("2m 5s");
+		expect(formatDuration(5000)).toBe("5s");
+		expect(formatTimestamp("invalid")).toBe("-");
+		expect(formatTimestamp(null)).toBe("-");
+		const ts = new Date("2024-09-01T12:00:00.000Z").toISOString();
+		expect(formatTimestamp(ts)).toContain("2024");
+	});
+
+	it("renders header with selected values", () => {
+		const html = renderHeader({ q: "test", range: "7d" });
+		expect(html).toContain("happenin");
+		expect(html).toContain("Session Overview Analytics");
+		expect(html).toContain('value="test"');
+		expect(html).toContain('value="7d" selected');
+	});
+
+	it("renders filters with selected values", () => {
+		const html = renderFilters(
+			{ sources: ["claude", "cursor"], events: [], tools: ["Shell", "Edit"] },
+			{ status: "active", source: "cursor", tool: "Shell", minDuration: 5, maxDuration: 30 },
+		);
+		expect(html).toContain('name="status"');
+		expect(html).toContain('name="source"');
+		expect(html).toContain('name="tool"');
+		expect(html).toContain('value="5"');
+		expect(html).toContain('value="30"');
+	});
+
+	it("renders filters with no selection", () => {
+		const html = renderFilters({ sources: [], events: [], tools: [] }, {});
+		expect(html).toContain('<option value="" selected>all</option>');
+	});
+
+	it("renders metric cards", () => {
+		const full = renderMetricCards({
+			totalSessions: 10,
+			totalEvents: 100,
+			averageDurationMs: 125000,
+			successRate: 85.5,
+		});
+		expect(full).toContain("10");
+		expect(full).toContain("100");
+		expect(full).toContain("2m 5s");
+		expect(full).toContain("86%");
+
+		const empty = renderMetricCards({
+			totalSessions: 0,
+			totalEvents: 0,
+			averageDurationMs: 0,
+			successRate: 0,
+		});
+		expect(empty).toContain("-");
+	});
+
+	it("renders event frequency chart", () => {
+		const empty = renderEventFrequencyChart([], "hour");
+		expect(empty).toContain("No data");
+
+		const hourly = renderEventFrequencyChart(
+			[
+				{ bucket: "2024-09-01T10:00:00.000Z", count: 1 },
+				{ bucket: "2024-09-01T11:00:00.000Z", count: 3 },
+			],
+			"hour",
+		);
+		expect(hourly).toContain("svg");
+		expect(hourly).toContain("polyline");
+		expect(hourly).toContain("10:00");
+
+		const daily = renderEventFrequencyChart(
+			Array.from({ length: 30 }, (_, i) => ({
+				bucket: `2024-08-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`,
+				count: i,
+			})),
+			"day",
+		);
+		expect(daily).toContain("svg");
+		expect(daily).toContain("08-01");
+	});
+
+	it("renders tool chart", () => {
+		const empty = renderToolChart([]);
+		expect(empty).toContain("No data");
+
+		const single = renderToolChart([{ tool: "Shell", count: 5 }]);
+		expect(single).toContain("Shell");
+		expect(single).toContain('style="width: 100%"');
+
+		const multi = renderToolChart([
+			{ tool: "Shell", count: 10 },
+			{ tool: "Edit", count: 5 },
+			{ tool: "a".repeat(30), count: 1 },
+		]);
+		expect(multi).toContain("Edit");
+		expect(multi).toContain('style="width: 50%"');
+		expect(multi).toContain("title=");
+	});
+
+	it("renders sessions table", () => {
+		const now = Date.now();
+		const base: Session = {
+			sessionId: "s-1",
+			firstAt: new Date(now - 10000).toISOString(),
+			lastAt: new Date(now).toISOString(),
+			firstReceivedAt: now - 10000,
+			lastReceivedAt: now,
+			durationMs: 10000,
+			eventCount: 2,
+			projectPath: null,
+			projectPaths: [],
+			tools: ["Shell"],
+			failureCount: 0,
+		};
+		const completed: Session = { ...base, lastReceivedAt: now - 10 * 60 * 1000 };
+		const failed: Session = { ...base, failureCount: 1 };
+
+		const activeHtml = renderSessionsTable([base], now);
+		expect(activeHtml).toContain("s-1");
+		expect(activeHtml).toContain("status-active");
+		expect(activeHtml).toContain('hx-get="/fragments/detail?session=s-1"');
+
+		const completedHtml = renderSessionsTable([completed], now);
+		expect(completedHtml).toContain("status-completed");
+
+		const failedHtml = renderSessionsTable([failed], now);
+		expect(failedHtml).toContain("status-failed");
+
+		const empty = renderSessionsTable([]);
+		expect(empty).toContain("No sessions found");
+
+		const special: Session = { ...base, sessionId: "a&b?c#d" };
+		const specialHtml = renderSessionsTable([special], now);
+		expect(specialHtml).toContain('hx-get="/fragments/detail?session=a%26b%3Fc%23d"');
+		expect(specialHtml).toContain('title="a&amp;b?c#d"');
+	});
+
+	it("renders session detail", () => {
+		const empty = renderSessionDetail(null, []);
+		expect(empty).toContain("No events");
+
+		const emptyWithSession = renderSessionDetail("s-1", []);
+		expect(emptyWithSession).toContain("No events");
+
+		const nullWithEvents = renderSessionDetail(undefined, [
+			{
+				id: 1,
+				source: "cursor",
+				client: "cursor",
+				event: "preToolUse",
+				sessionId: "s-1",
+				happenedAt: new Date().toISOString(),
+				receivedAt: Date.now(),
+				projectPath: null,
+				filePath: null,
+				toolName: "Shell",
+				payload: JSON.stringify({}),
+				sourcePath: null,
+				subagentId: null,
+				subagentType: null,
+				transcriptPath: null,
+			},
+		]);
+		expect(nullWithEvents).toContain("No events");
+
+		const detail = renderSessionDetail("s-1", [
+			{
+				id: 1,
+				source: "cursor",
+				client: "cursor",
+				event: "preToolUse",
+				sessionId: "s-1",
+				happenedAt: new Date().toISOString(),
+				receivedAt: Date.now(),
+				projectPath: null,
+				filePath: null,
+				toolName: "Shell",
+				payload: JSON.stringify({}),
+				sourcePath: null,
+				subagentId: null,
+				subagentType: null,
+				transcriptPath: null,
+			},
+		]);
+		expect(detail).toContain("Session Details - s-1");
+		expect(detail).toContain("Copy JSON");
+		expect(detail).toContain("cursor");
+		expect(detail).toContain("Shell");
+
+		const fromReceived = renderSessionDetail("s-1", [
+			{
+				id: 2,
+				source: undefined,
+				client: undefined,
+				event: undefined,
+				sessionId: "s-1",
+				happenedAt: undefined,
+				receivedAt: Date.now(),
+				projectPath: undefined,
+				filePath: undefined,
+				toolName: undefined,
+				payload: JSON.stringify({}),
+				sourcePath: undefined,
+				subagentId: undefined,
+				subagentType: undefined,
+				transcriptPath: undefined,
+			},
+		]);
+		expect(fromReceived).toContain("Session Details - s-1");
+	});
+
+	it("renders sessions table from received_at", () => {
+		const now = Date.now();
+		const s: Session = {
+			sessionId: "s-1",
+			firstAt: null,
+			lastAt: null,
+			firstReceivedAt: now,
+			lastReceivedAt: now,
+			durationMs: 0,
+			eventCount: 1,
+			projectPath: null,
+			projectPaths: [],
+			tools: [],
+			failureCount: 0,
+		};
+		const html = renderSessionsTable([s], now);
+		expect(html).toContain("s-1");
+		expect(html).toContain("status-active");
+	});
+
+	it("renders event frequency chart with zero counts and many buckets", () => {
+		const empty = renderEventFrequencyChart(
+			[
+				{ bucket: "2024-09-01T00:00:00.000Z", count: 0 },
+				{ bucket: "2024-09-02T00:00:00.000Z", count: 0 },
+			],
+			"day",
+		);
+		expect(empty).toContain("svg");
+
+		const single = renderEventFrequencyChart(
+			[{ bucket: "2024-09-01T10:00:00.000Z", count: 1 }],
+			"hour",
+		);
+		expect(single).toContain("svg");
+		expect(single).toContain("10:00");
+
+		const hourly = renderEventFrequencyChart(
+			Array.from({ length: 24 }, (_, i) => ({
+				bucket: `2024-09-01T${String(i).padStart(2, "0")}:00:00.000Z`,
+				count: i === 12 ? 5 : 0,
+			})),
+			"hour",
+		);
+		expect(hourly).toContain("polyline");
+		expect(hourly).toContain("12:00");
+	});
+
+	it("renders tool chart with zero counts", () => {
+		const html = renderToolChart([
+			{ tool: "Shell", count: 0 },
+			{ tool: "Edit", count: 0 },
+		]);
+		expect(html).toContain("Shell");
+		expect(html).toContain('style="width: 0%"');
 	});
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_RESPONSES } from "../src/constants.js";
-import type { Source } from "../src/types.js";
+import { DEFAULT_RESPONSES } from "../src/shared/constants.js";
+import type { Source } from "../src/shared/types.js";
 
 describe("DEFAULT_RESPONSES", () => {
 	it("returns continue for cursor beforeSubmitPrompt", () => {

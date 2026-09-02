@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { eventView } from "../src/view.js";
-import type { EventRow } from "../src/types.js";
+import { eventView } from "../src/shared/view.js";
+import type { EventRow } from "../src/shared/types.js";
 
 describe("view", () => {
 	it("parses a valid JSON payload", () => {

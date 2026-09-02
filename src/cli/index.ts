@@ -1,14 +1,30 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { runInstall } from "./install.js";
 import { runRecord } from "./record.js";
 import { runImport } from "./import.js";
-import { runDashboard } from "./dashboard.js";
+import { runDashboard } from "../UI/dashboard/index.js";
 import { runQuery } from "./query.js";
 import { runSessions } from "./sessions.js";
 
-const HELP_PATH = new URL("../assets/help.md", import.meta.url);
-const PACKAGE_PATH = new URL("../package.json", import.meta.url);
+function findPackageRoot(): string {
+	const start = path.dirname(fileURLToPath(import.meta.url));
+	let current = start;
+	while (true) {
+		const parent = path.dirname(current);
+		if (parent === current) break;
+		// oxlint-disable-next-line security/detect-non-literal-fs-filename -- package root is derived from import.meta.url, not user input
+		if (existsSync(path.join(current, "package.json"))) return current;
+		current = parent;
+	}
+	return start;
+}
+
+const root = findPackageRoot();
+const HELP_PATH = path.join(root, "assets", "help.md");
+const PACKAGE_PATH = path.join(root, "package.json");
 
 function renderHelp(text: string): string {
 	const styled = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;

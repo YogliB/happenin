@@ -4,8 +4,8 @@ import { Readable } from "node:stream";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
-import { recordFromRaw, runRecord, isBusyError } from "../src/record.js";
-import { initDb, getEvents } from "../src/db.js";
+import { recordFromRaw, runRecord, isBusyError } from "../src/cli/record.js";
+import { initDb, getEvents } from "../src/shared/db.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));

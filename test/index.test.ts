@@ -9,7 +9,7 @@ describe("bin", () => {
 		const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 		process.argv = ["node", "/some/path/bin.js", "--version"];
 		vi.resetModules();
-		await import("../src/bin.js");
+		await import("../src/cli/bin.js");
 		expect(write).toHaveBeenCalledWith(expect.stringMatching(/^\d+\.\d+\.\d+\n$/));
 		write.mockRestore();
 	});
@@ -32,7 +32,7 @@ describe("index", () => {
 	it("shows help when no command is given", async () => {
 		process.argv = ["node", "happenin"];
 		vi.resetModules();
-		const { default: run } = await import("../src/index.js");
+		const { default: run } = await import("../src/cli/index.js");
 		await run();
 		expect(write).toHaveBeenCalled();
 	});
@@ -41,7 +41,7 @@ describe("index", () => {
 		for (const flag of ["--help", "-h"]) {
 			process.argv = ["node", "happenin", flag];
 			vi.resetModules();
-			const { default: run } = await import("../src/index.js");
+			const { default: run } = await import("../src/cli/index.js");
 			await run();
 			expect(write).toHaveBeenCalled();
 		}
@@ -51,7 +51,7 @@ describe("index", () => {
 		for (const flag of ["--version", "-v"]) {
 			process.argv = ["node", "happenin", flag];
 			vi.resetModules();
-			const { default: run } = await import("../src/index.js");
+			const { default: run } = await import("../src/cli/index.js");
 			await run();
 			expect(write).toHaveBeenCalledWith(expect.stringMatching(/^\d+\.\d+\.\d+\n$/));
 		}
@@ -65,12 +65,12 @@ describe("index", () => {
 		const runQuery = vi.fn();
 		const runSessions = vi.fn();
 
-		vi.doMock("../src/install.js", () => ({ runInstall }));
-		vi.doMock("../src/record.js", () => ({ runRecord }));
-		vi.doMock("../src/import.js", () => ({ runImport }));
-		vi.doMock("../src/dashboard.js", () => ({ runDashboard }));
-		vi.doMock("../src/query.js", () => ({ runQuery }));
-		vi.doMock("../src/sessions.js", () => ({ runSessions }));
+		vi.doMock("../src/cli/install.js", () => ({ runInstall }));
+		vi.doMock("../src/cli/record.js", () => ({ runRecord }));
+		vi.doMock("../src/cli/import.js", () => ({ runImport }));
+		vi.doMock("../src/UI/dashboard/index.js", () => ({ runDashboard }));
+		vi.doMock("../src/cli/query.js", () => ({ runQuery }));
+		vi.doMock("../src/cli/sessions.js", () => ({ runSessions }));
 
 		for (const [command, fn] of [
 			["install", runInstall],
@@ -82,17 +82,17 @@ describe("index", () => {
 		] as const) {
 			process.argv = ["node", "happenin", command];
 			vi.resetModules();
-			const { default: run } = await import("../src/index.js");
+			const { default: run } = await import("../src/cli/index.js");
 			await run();
 			expect(fn).toHaveBeenCalledWith([]);
 		}
 
-		vi.doUnmock("../src/install.js");
-		vi.doUnmock("../src/record.js");
-		vi.doUnmock("../src/import.js");
-		vi.doUnmock("../src/dashboard.js");
-		vi.doUnmock("../src/query.js");
-		vi.doUnmock("../src/sessions.js");
+		vi.doUnmock("../src/cli/install.js");
+		vi.doUnmock("../src/cli/record.js");
+		vi.doUnmock("../src/cli/import.js");
+		vi.doUnmock("../src/UI/dashboard/index.js");
+		vi.doUnmock("../src/cli/query.js");
+		vi.doUnmock("../src/cli/sessions.js");
 	});
 
 	it("reports unknown commands and exits with code 1", async () => {
@@ -100,7 +100,7 @@ describe("index", () => {
 		const previous = process.exitCode;
 		process.argv = ["node", "happenin", "nope"];
 		vi.resetModules();
-		const { default: run } = await import("../src/index.js");
+		const { default: run } = await import("../src/cli/index.js");
 		await run();
 		expect(err).toHaveBeenCalledWith("Unknown command: nope\n");
 		expect(process.exitCode).toBe(1);
@@ -114,7 +114,7 @@ describe("index", () => {
 		delete process.env.NO_COLOR;
 		process.argv = ["node", "happenin", "--help"];
 		vi.resetModules();
-		const { default: run } = await import("../src/index.js");
+		const { default: run } = await import("../src/cli/index.js");
 		await run();
 		const output = write.mock.calls[0]?.[0] as string;
 		expect(output).toContain("\u001b[1m");
@@ -127,7 +127,7 @@ describe("index", () => {
 		delete process.env.NO_COLOR;
 		process.argv = ["node", "happenin", "--help"];
 		vi.resetModules();
-		const { default: run } = await import("../src/index.js");
+		const { default: run } = await import("../src/cli/index.js");
 		await run();
 		const output = write.mock.calls[0]?.[0] as string;
 		expect(output).not.toContain("\u001b[1m");
@@ -140,7 +140,7 @@ describe("index", () => {
 		process.env.NO_COLOR = "1";
 		process.argv = ["node", "happenin", "--help"];
 		vi.resetModules();
-		const { default: run } = await import("../src/index.js");
+		const { default: run } = await import("../src/cli/index.js");
 		await run();
 		const output = write.mock.calls[0]?.[0] as string;
 		expect(output).not.toContain("\u001b[1m");
@@ -166,7 +166,7 @@ describe("index", () => {
 
 		process.argv = ["node", "happenin"];
 		vi.resetModules();
-		const { default: run } = await import("../src/index.js");
+		const { default: run } = await import("../src/cli/index.js");
 		await run();
 		const output = write.mock.calls[0]?.[0] as string;
 		expect(output).toContain("Run happenin <command>");
@@ -192,7 +192,7 @@ describe("index", () => {
 
 		process.argv = ["node", "happenin", "--version"];
 		vi.resetModules();
-		const { default: run } = await import("../src/index.js");
+		const { default: run } = await import("../src/cli/index.js");
 		await run();
 		expect(write).toHaveBeenCalledWith("0.0.0\n");
 		vi.doUnmock("node:fs");
@@ -217,7 +217,27 @@ describe("index", () => {
 
 		process.argv = ["node", "happenin", "--version"];
 		vi.resetModules();
-		const { default: run } = await import("../src/index.js");
+		const { default: run } = await import("../src/cli/index.js");
+		await run();
+		expect(write).toHaveBeenCalledWith("0.0.0\n");
+		vi.doUnmock("node:fs");
+	});
+
+	it("falls back when package root cannot be found", async () => {
+		vi.doMock("node:fs", async (importOriginal) => {
+			const actual = await importOriginal();
+			return {
+				...actual,
+				existsSync: vi.fn(() => false),
+				readFileSync: vi.fn(() => {
+					throw new Error("missing");
+				}),
+			};
+		});
+
+		process.argv = ["node", "happenin", "--version"];
+		vi.resetModules();
+		const { default: run } = await import("../src/cli/index.js");
 		await run();
 		expect(write).toHaveBeenCalledWith("0.0.0\n");
 		vi.doUnmock("node:fs");

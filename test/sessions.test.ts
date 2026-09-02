@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
-import { initDb, insertEvent } from "../src/db.js";
-import { runSessions } from "../src/sessions.js";
+import { initDb, insertEvent } from "../src/shared/db.js";
+import { runSessions } from "../src/cli/sessions.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));
@@ -227,6 +227,136 @@ describe("sessions", () => {
 		const parsed = JSON.parse(output) as { projectPath: string; projectPaths: string[] }[];
 		expect(parsed[0].projectPath).toBe("/aaa");
 		expect(parsed[0].projectPaths).toEqual(["/aaa", "/zzz"]);
+	});
+
+	it("filters sessions by status, tool, duration, and range", async () => {
+		const now = Date.now();
+		const db = initDb();
+		const sql =
+			"INSERT INTO events (source, received_at, happened_at, session_id, tool_name, event, payload) VALUES (?, ?, ?, ?, ?, ?, ?)";
+		const stmt = db.prepare(sql);
+		stmt.run(
+			"cursor",
+			now,
+			new Date(now).toISOString(),
+			"s-active",
+			"Shell",
+			"preToolUse",
+			JSON.stringify({}),
+		);
+		stmt.run(
+			"cursor",
+			now - 10 * 60 * 1000,
+			new Date(now).toISOString(),
+			"s-completed",
+			"Read",
+			"preToolUse",
+			JSON.stringify({}),
+		);
+		stmt.run(
+			"cursor",
+			now - 10 * 60 * 1000,
+			new Date(now).toISOString(),
+			"s-failed",
+			"Shell",
+			"toolFailure",
+			JSON.stringify({}),
+		);
+		db.close();
+
+		const dbPath = process.env.HAPPENIN_DB as string;
+
+		const { output: out1 } = await captureOutput(() =>
+			runSessions(["--db", dbPath, "--status=completed", "--tool", "Read", "--range", "24h"]),
+		);
+		const completed = JSON.parse(out1) as { sessionId: string }[];
+		expect(completed.length).toBe(1);
+		expect(completed[0].sessionId).toBe("s-completed");
+
+		const { output: out2 } = await captureOutput(() =>
+			runSessions(["--db", dbPath, "--status", "failed", "--tool=Shell"]),
+		);
+		const failed = JSON.parse(out2) as { sessionId: string }[];
+		expect(failed.length).toBe(1);
+		expect(failed[0].sessionId).toBe("s-failed");
+
+		const { output: out3 } = await captureOutput(() =>
+			runSessions([
+				"--db",
+				dbPath,
+				"--status",
+				"active",
+				"--minDuration",
+				"0",
+				"--maxDuration",
+				"1",
+			]),
+		);
+		const active = JSON.parse(out3) as { sessionId: string }[];
+		expect(active.length).toBe(1);
+		expect(active[0].sessionId).toBe("s-active");
+	});
+
+	it("applies limit and offset to sessions", async () => {
+		const now = Date.now();
+		const db = initDb();
+		const stmt = db.prepare(
+			"INSERT INTO events (source, received_at, happened_at, session_id, tool_name, event, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		);
+		for (let i = 0; i < 3; i++) {
+			stmt.run(
+				"cursor",
+				now + (2 - i) * 1000,
+				new Date(now).toISOString(),
+				`s-${i}`,
+				null,
+				"preToolUse",
+				JSON.stringify({}),
+			);
+		}
+		db.close();
+
+		const dbPath = process.env.HAPPENIN_DB as string;
+		const { output: out1 } = await captureOutput(() =>
+			runSessions(["--db", dbPath, "--limit", "1"]),
+		);
+		const limited = JSON.parse(out1) as { sessionId: string }[];
+		expect(limited.length).toBe(1);
+		expect(limited[0].sessionId).toBe("s-0");
+
+		const { output: out2 } = await captureOutput(() =>
+			runSessions(["--db", dbPath, "--limit=1", "--offset=1"]),
+		);
+		const offset = JSON.parse(out2) as { sessionId: string }[];
+		expect(offset.length).toBe(1);
+		expect(offset[0].sessionId).toBe("s-1");
+	});
+
+	it("ignores invalid session filter values", async () => {
+		const db = initDb();
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			payload: JSON.stringify({}),
+		});
+		db.close();
+
+		const dbPath = process.env.HAPPENIN_DB as string;
+		const { output } = await captureOutput(() =>
+			runSessions([
+				"--db",
+				dbPath,
+				"--status=bad",
+				"--range=bad",
+				"--minDuration=bad",
+				"--maxDuration=-1",
+			]),
+		);
+		const parsed = JSON.parse(output) as { sessionId: string }[];
+		expect(parsed.length).toBe(1);
+		expect(parsed[0].sessionId).toBe("s-1");
 	});
 
 	it("shows help and exits for -h and --help", async () => {

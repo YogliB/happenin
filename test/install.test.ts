@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync
 import path from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
-import { runInstall, parseTargets, resolveBin, formatError, homeDir } from "../src/install.js";
+import { runInstall, parseTargets, resolveBin, formatError, homeDir } from "../src/cli/install.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));

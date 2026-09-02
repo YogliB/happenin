@@ -71,18 +71,21 @@ Common commands:
 
 ### Project layout
 
-- `src/index.ts` — CLI dispatch.
-- `src/bin.ts` — executable entry point.
-- `src/db.ts` — SQLite data layer.
-- `src/constants.ts` — hook event lists and default responses.
-- `src/types.ts` — shared TypeScript types.
-- `src/record.ts` — hook target: parse stdin, insert event, respond.
-- `src/install.ts` — install Cursor / Claude Code hooks.
-- `src/import.ts` — import Claude and Cursor transcripts.
-- `src/query.ts` — filter and format events for the `query` and `sessions` commands.
-- `src/sessions.ts` — session summaries for the `sessions` command.
-- `src/view.ts` — shared event view used by `query` and `dashboard`.
-- `src/dashboard.ts` — HTTP server and dashboard HTML.
+- `src/cli/index.ts` — CLI dispatch.
+- `src/cli/bin.ts` — executable entry point.
+- `src/shared/db.ts` — SQLite data layer.
+- `src/shared/constants.ts` — hook event lists and default responses.
+- `src/shared/types.ts` — shared TypeScript types.
+- `src/cli/record.ts` — hook target: parse stdin, insert event, respond.
+- `src/cli/install.ts` — install Cursor / Claude Code hooks.
+- `src/cli/import.ts` — import Claude and Cursor transcripts.
+- `src/cli/query.ts` — filter and format events for the `query` and `sessions` commands.
+- `src/cli/sessions.ts` — session summaries for the `sessions` command.
+- `src/shared/view.ts` — shared event view used by `query` and `dashboard`.
+- `src/UI/dashboard/index.ts` — HTTP server, SSE, and routing.
+- `src/UI/dashboard/page.ts` — full-page HTML shell and client script.
+- `src/UI/dashboard/fragments.ts` — HTMX fragment rendering and query parsing.
+- `src/UI/dashboard/components/*.ts` — header, filters, metric cards, charts, sessions table, detail panel.
 - `assets/help.md` — help text shown by `--help`.
 - `dist/` — build output.
 - `test/` — vitest test files.

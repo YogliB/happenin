@@ -1,7 +1,7 @@
 import process from "node:process";
-import { initDb, insertEvent, firstHappenedAtPayload } from "./db.js";
-import { DEFAULT_RESPONSES } from "./constants.js";
-import type { EventInsert, Source } from "./types.js";
+import { initDb, insertEvent, firstHappenedAtPayload } from "../shared/db.js";
+import { DEFAULT_RESPONSES } from "../shared/constants.js";
+import type { EventInsert, Source } from "../shared/types.js";
 
 function asString(value: unknown): string | undefined {
 	if (value === null || value === undefined) {
@@ -57,9 +57,9 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 		event = argv[1];
 	}
 
-	const shouldExtractSubagent = source === "cursor" && event === "subagentStart";
+	const isSubagentStart = source === "cursor" && event === "subagentStart";
 
-	const sessionId = shouldExtractSubagent
+	const sessionId = isSubagentStart
 		? (asString(payload.parent_conversation_id) ??
 			asString(payload.conversation_id) ??
 			asString(payload.sessionId) ??
@@ -79,9 +79,9 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 	const toolName = asString(payload.toolName ?? payload.tool_name ?? payload.tool);
 	const client = asString(payload.client) ?? (source === "cursor" ? "cursor" : "claude_code");
 
-	const subagentId = shouldExtractSubagent ? asString(payload.subagent_id) : undefined;
-	const subagentType = shouldExtractSubagent ? asString(payload.subagent_type) : undefined;
-	const transcriptPath = shouldExtractSubagent ? asString(payload.transcript_path) : undefined;
+	const subagentId = asString(payload.subagent_id) ?? undefined;
+	const subagentType = asString(payload.subagent_type) ?? undefined;
+	const transcriptPath = asString(payload.transcript_path) ?? undefined;
 
 	const insert: EventInsert = {
 		source: source as Source,
@@ -102,6 +102,17 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 	let db: ReturnType<typeof initDb> | undefined;
 	try {
 		db = initDb(dbPath, 500);
+		if (!insert.subagentId) {
+			const toolUseId = asString(payload.tool_use_id);
+			if (toolUseId) {
+				const parent = db
+					.prepare(
+						"SELECT subagent_id FROM events WHERE event = 'subagentStart' AND subagent_id = ? LIMIT 1",
+					)
+					.get(toolUseId) as { subagent_id: string } | undefined;
+				if (parent) insert.subagentId = parent.subagent_id;
+			}
+		}
 		insertEvent(db, insert);
 	} catch (err) {
 		if (isBusyError(err)) {

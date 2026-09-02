@@ -16,20 +16,15 @@ import {
 	getFilterOptions,
 	getSummary,
 	backfillSubagentMetadata,
-} from "../src/db.js";
+} from "../src/shared/db.js";
 
-import { recordFromRaw } from "../src/record.js";
-import { runInstall } from "../src/install.js";
-import { importTranscripts } from "../src/import.js";
-import {
-	dashboardHtml,
-	groupEventsBySession,
-	parseQuery,
-	renderEventRow,
-	renderSessionGroup,
-} from "../src/dashboard.js";
-import { eventView } from "../src/view.js";
-import type { EventInsert, EventRow } from "../src/types.js";
+import { recordFromRaw } from "../src/cli/record.js";
+import { runInstall } from "../src/cli/install.js";
+import { importTranscripts } from "../src/cli/import.js";
+import { dashboardHtml } from "../src/UI/dashboard/page.js";
+import { parseQuery } from "../src/UI/dashboard/fragments.js";
+import { eventView } from "../src/shared/view.js";
+import type { EventInsert, EventRow } from "../src/shared/types.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));
@@ -118,7 +113,7 @@ describe("happenin", () => {
 			});
 
 			const options = getFilterOptions(db);
-			expect(options.sources).toEqual(["claude", "cursor"]);
+			expect(options.sources).toEqual(["claude", "cursor", "cursor-transcript"]);
 			expect(options.events).toEqual(["PreToolUse", "preToolUse", "prompt"]);
 		});
 
@@ -358,7 +353,7 @@ describe("happenin", () => {
 			const rows = getEvents(db, { event: "preToolUse", limit: 10 });
 			expect(rows.length).toBe(1);
 			expect(rows[0].sessionId).toBeNull();
-			expect(rows[0].subagentId).toBeNull();
+			expect(rows[0].subagentId).toBe("sub-1");
 			expect(rows[0].subagentType).toBeNull();
 			expect(rows[0].transcriptPath).toBeNull();
 		});
@@ -496,184 +491,72 @@ describe("happenin", () => {
 
 	describe("dashboard", () => {
 		it("renders dashboard html with the required libraries", () => {
-			const html = dashboardHtml();
+			const db = initDb(":memory:");
+			insertEvent(db, {
+				source: "cursor",
+				client: "cursor",
+				event: "preToolUse",
+				payload: JSON.stringify({}),
+			});
+			const html = dashboardHtml(db, {});
 			expect(html).toContain("htmx.org@2.0.10");
 			expect(html).toContain("htmx-ext-sse@2.2.4");
-			expect(html).toContain("alpinejs@3.14.8");
 			expect(html).toContain('sse-connect="/events/stream"');
-			expect(html).not.toContain('sse-swap="message"');
-			expect(html).toContain('hx-trigger="load, sse:message"');
+			expect(html).toContain('hx-trigger="sse:message"');
 			expect(html).toContain('hx-swap="innerHTML"');
 			expect(html).toContain("data-theme-toggle");
 			expect(html).toContain("data-filter-form");
 			expect(html).toContain("happenin-theme");
 			expect(html).toContain("happenin-filters");
-
-			expect(html).toContain("🌙");
-			expect(html).toContain('id="feed-pager"');
+			expect(html).toContain("Session Overview Analytics");
 			expect(html).toContain('<select name="source">');
-			expect(html).toContain('<select name="event">');
-			expect(html).not.toContain('<select name="session">');
-			expect(html).toContain('name="session"');
-			expect(html).not.toContain(">Filter</button>");
+			expect(html).toContain('<select name="tool">');
+			expect(html).toContain("metric-grid");
+			expect(html).toContain("sessions-table");
 			expect(html).toContain("input changed delay:300ms");
+			db.close();
 		});
 
 		it("renders filter select options", () => {
-			const html = dashboardHtml({
-				sources: ["cursor", "claude"],
-				events: ["preToolUse"],
-			});
-			expect(html).toContain('<option value="cursor">cursor</option>');
-			expect(html).toContain('<option value="claude">claude</option>');
-			expect(html).toContain('<option value="preToolUse">preToolUse</option>');
-			expect(html).toContain('class="search"');
-		});
-
-		it("renders an event row with escaped fields", () => {
-			const row: EventRow = {
-				id: 1,
+			const db = initDb(":memory:");
+			insertEvent(db, {
 				source: "cursor",
 				client: "cursor",
 				event: "preToolUse",
-				sessionId: "s-1",
-				happenedAt: "2024-01-01T00:00:00Z",
-				receivedAt: 1700000000000,
-				toolName: "Shell<>&",
-				filePath: "foo/bar.ts",
-				projectPath: "/project",
-				payload: JSON.stringify({ tool: "Shell" }),
-			};
-			const html = renderEventRow(row);
-			expect(html).toContain("preToolUse");
-			expect(html).toContain("Shell&lt;&gt;&amp;");
-			expect(html).toContain("foo/bar.ts");
-			expect(html).toContain("session:s-1");
+				toolName: "Shell",
+				payload: JSON.stringify({}),
+			});
+			insertEvent(db, {
+				source: "claude",
+				client: "claude_code",
+				event: "PreToolUse",
+				toolName: "Edit",
+				payload: JSON.stringify({}),
+			});
+			const html = dashboardHtml(db, {});
+			expect(html).toContain('<option value="cursor">cursor</option>');
+			expect(html).toContain('<option value="claude">claude</option>');
+			expect(html).toContain('<option value="Shell">Shell</option>');
+			expect(html).toContain('<option value="Edit">Edit</option>');
+			expect(html).toContain('class="search"');
+			db.close();
 		});
 
 		it("ignores empty filter query params sent by the form", () => {
-			const url = new URL("http://localhost/fragments/events?source=&event=&session=&q=&page=2");
+			const url = new URL(
+				"http://localhost/fragments/detail?source=&event=&session=&q=&status=&tool=&minDuration=&maxDuration=&limit=&offset=",
+			);
 			const options = parseQuery(url);
 			expect(options.source).toBeUndefined();
 			expect(options.event).toBeUndefined();
 			expect(options.sessionId).toBeUndefined();
 			expect(options.q).toBeUndefined();
-			expect(options.page).toBe(2);
-			expect(options.offset).toBe(50);
-		});
-
-		it("renders a session group and omits session from inner rows", () => {
-			const rows: EventRow[] = [
-				{
-					id: 2,
-					source: "cursor",
-					client: "cursor",
-					event: "preToolUse",
-					sessionId: "s-1",
-					happenedAt: "2024-01-01T00:00:01Z",
-					receivedAt: 1700000001000,
-					toolName: "Shell",
-					payload: JSON.stringify({ tool: "Shell" }),
-				},
-				{
-					id: 1,
-					source: "cursor",
-					client: "cursor",
-					event: "sessionStart",
-					sessionId: "s-1",
-					happenedAt: "2024-01-01T00:00:00Z",
-					receivedAt: 1700000000000,
-					payload: JSON.stringify({}),
-				},
-			];
-			const html = renderSessionGroup("s-1", rows);
-			expect(html).toContain("s-1");
-			expect(html).toContain("preToolUse");
-			expect(html).toContain("sessionStart");
-			expect(html).not.toContain("session:s-1");
-			expect(html).toContain('data-session="s-1"');
-			expect(html).toContain("<details");
-			expect(html).toContain("<summary");
-			expect(html).toMatch(/<details[^>]*\bopen\b/);
-		});
-
-		it("groups non-contiguous events by session into a single group each", () => {
-			const rows: EventRow[] = [
-				{
-					id: 5,
-					source: "cursor",
-					client: "cursor",
-					event: "sessionStart",
-					sessionId: "s-2",
-					happenedAt: "2024-01-01T00:00:04Z",
-					receivedAt: 1700000004000,
-					payload: JSON.stringify({}),
-				},
-				{
-					id: 4,
-					source: "cursor",
-					client: "cursor",
-					event: "preToolUse",
-					sessionId: "s-1",
-					happenedAt: "2024-01-01T00:00:03Z",
-					receivedAt: 1700000003000,
-					payload: JSON.stringify({ tool: "Shell" }),
-				},
-				{
-					id: 3,
-					source: "cursor",
-					client: "cursor",
-					event: "prompt",
-					sessionId: "s-2",
-					happenedAt: "2024-01-01T00:00:02Z",
-					receivedAt: 1700000002000,
-					payload: JSON.stringify({}),
-				},
-				{
-					id: 2,
-					source: "cursor",
-					client: "cursor",
-					event: "sessionStart",
-					sessionId: "s-1",
-					happenedAt: "2024-01-01T00:00:01Z",
-					receivedAt: 1700000001000,
-					payload: JSON.stringify({}),
-				},
-				{
-					id: 1,
-					source: "cursor",
-					client: "cursor",
-					event: "prompt",
-					sessionId: "s-1",
-					happenedAt: "2024-01-01T00:00:00Z",
-					receivedAt: 1700000000000,
-					payload: JSON.stringify({}),
-				},
-			];
-			const groups = groupEventsBySession(rows);
-			expect(groups.length).toBe(2);
-			expect(groups[0].sessionId).toBe("s-2");
-			expect(groups[0].rows.map((r) => r.id)).toEqual([5, 3]);
-			expect(groups[1].sessionId).toBe("s-1");
-			expect(groups[1].rows.map((r) => r.id)).toEqual([4, 2, 1]);
-		});
-
-		it("renders subagent metadata in an event row", () => {
-			const row: EventRow = {
-				id: 1,
-				source: "cursor",
-				client: "cursor",
-				event: "subagentStart",
-				sessionId: "s-1",
-				happenedAt: "2024-01-01T00:00:00Z",
-				receivedAt: 1700000000000,
-				subagentType: "shell",
-				transcriptPath: "/very/long/path/to/agent-transcripts/sub-1/sub-1.jsonl",
-				payload: JSON.stringify({}),
-			};
-			const html = renderEventRow(row);
-			expect(html).toContain("subagent:shell");
-			expect(html).toContain("transcript:sub-1.jsonl");
+			expect(options.status).toBeUndefined();
+			expect(options.tool).toBeUndefined();
+			expect(options.minDuration).toBeUndefined();
+			expect(options.maxDuration).toBeUndefined();
+			expect(options.limit).toBeUndefined();
+			expect(options.offset).toBeUndefined();
 		});
 	});
 

@@ -3,9 +3,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
-import { initDb, insertEvent } from "../src/db.js";
-import { runQuery } from "../src/query.js";
-import type { EventRow } from "../src/types.js";
+import { initDb, insertEvent } from "../src/shared/db.js";
+import { runQuery } from "../src/cli/query.js";
+import type { EventRow } from "../src/shared/types.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));
@@ -131,6 +131,7 @@ describe("query", () => {
 			client: "cursor",
 			event: "preToolUse",
 			sessionId: "s-1",
+			toolName: "Shell",
 			payload: JSON.stringify({ tool: "Shell", q: "find" }),
 		});
 		insertEvent(db, {
@@ -149,6 +150,8 @@ describe("query", () => {
 				"--session=s-1",
 				"--q=Shell",
 				"--since=0",
+				"--range=24h",
+				"--tool=Shell",
 				"--limit=1",
 				"--offset=0",
 				"--format=json",
@@ -161,6 +164,45 @@ describe("query", () => {
 		expect(parsed.rows.length).toBe(1);
 		expect(parsed.rows[0].source).toBe("cursor");
 		expect(parsed.rows[0].sessionId).toBe("s-1");
+		expect(parsed.rows[0].toolName).toBe("Shell");
+	});
+
+	it("filters by time range and tool", async () => {
+		const db = initDb();
+		const now = Date.now();
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Shell",
+			happenedAt: new Date(now).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-old",
+			toolName: "Shell",
+			happenedAt: new Date(now - 48 * 60 * 60 * 1000).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		db.close();
+
+		const dbPath = process.env.HAPPENIN_DB as string;
+		const { output: out1 } = await captureOutput(() =>
+			runQuery(["--db", dbPath, "--range=24h", "--tool=Shell"]),
+		);
+		const parsed1 = JSON.parse(out1) as { total: number; rows: EventRow[] };
+		expect(parsed1.total).toBe(1);
+		expect(parsed1.rows[0].sessionId).toBe("s-1");
+
+		const { output: out2 } = await captureOutput(() =>
+			runQuery(["--db", dbPath, "--range=7d", "--tool=Shell"]),
+		);
+		const parsed2 = JSON.parse(out2) as { total: number; rows: EventRow[] };
+		expect(parsed2.total).toBe(2);
 	});
 
 	it("supports space-separated flags and --db=", async () => {
@@ -219,6 +261,22 @@ describe("query", () => {
 				"9999",
 				"--foo=bar",
 				"--since=not-a-number",
+				"--range=invalid",
+				"--range",
+				"invalid",
+				"--status=invalid",
+				"--status",
+				"invalid",
+				"--tool=",
+				"--minDuration=bad",
+				"--minDuration",
+				"bad",
+				"--minDuration=",
+				"--minDuration=0.5",
+				"--maxDuration=-1",
+				"--maxDuration",
+				"-1",
+				"--maxDuration=2",
 				"--limit=zero",
 				"--format=invalid",
 			]),
