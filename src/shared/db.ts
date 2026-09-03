@@ -499,6 +499,48 @@ export const getSummary = (db: DatabaseSync, options: FilterOptions): Summary =>
 	return { total, bySource, byEvent, bySession };
 };
 
+type SessionAggregateRow = {
+	sessionId: string | null;
+	subagentId?: string | null;
+	subagentType?: string | null;
+	eventCount: number;
+	firstReceivedAt: number | bigint;
+	lastReceivedAt: number | bigint;
+	firstAt: string | null;
+	lastAt: string | null;
+	projectPaths: string | null;
+	toolNames: string | null;
+	failureCount: number | bigint;
+};
+
+function toSession(row: SessionAggregateRow): Session {
+	const firstReceivedAt = Number(row.firstReceivedAt);
+	const lastReceivedAt = Number(row.lastReceivedAt);
+	const projectPaths = JSON.parse(row.projectPaths as string) as string[];
+	const tools = JSON.parse(row.toolNames as string) as string[];
+	const firstAtMs = row.firstAt ? Date.parse(row.firstAt) : NaN;
+	const lastAtMs = row.lastAt ? Date.parse(row.lastAt) : NaN;
+	const durationMs =
+		!Number.isNaN(firstAtMs) && !Number.isNaN(lastAtMs) && lastAtMs >= firstAtMs
+			? lastAtMs - firstAtMs
+			: lastReceivedAt - firstReceivedAt;
+	return {
+		sessionId: row.sessionId,
+		subagentId: row.subagentId,
+		subagentType: row.subagentType,
+		firstAt: row.firstAt,
+		lastAt: row.lastAt,
+		firstReceivedAt,
+		lastReceivedAt,
+		durationMs,
+		eventCount: Number(row.eventCount),
+		projectPath: projectPaths[0] ?? null,
+		projectPaths,
+		tools,
+		failureCount: Number(row.failureCount),
+	};
+}
+
 export const getSessions = (
 	db: DatabaseSync,
 	options: FilterOptions,
@@ -530,42 +572,8 @@ export const getSessions = (
 	}
 
 	const stmt = db.prepare(sql);
-	const rows = stmt.all(...params) as {
-		sessionId: string | null;
-		eventCount: number;
-		firstReceivedAt: number | bigint;
-		lastReceivedAt: number | bigint;
-		firstAt: string | null;
-		lastAt: string | null;
-		projectPaths: string | null;
-		toolNames: string | null;
-		failureCount: number | bigint;
-	}[];
-	return rows.map((row) => {
-		const firstReceivedAt = Number(row.firstReceivedAt);
-		const lastReceivedAt = Number(row.lastReceivedAt);
-		const projectPaths = JSON.parse(row.projectPaths as string) as string[];
-		const tools = JSON.parse(row.toolNames as string) as string[];
-		const firstAtMs = row.firstAt ? Date.parse(row.firstAt) : NaN;
-		const lastAtMs = row.lastAt ? Date.parse(row.lastAt) : NaN;
-		const durationMs =
-			!Number.isNaN(firstAtMs) && !Number.isNaN(lastAtMs) && lastAtMs >= firstAtMs
-				? lastAtMs - firstAtMs
-				: lastReceivedAt - firstReceivedAt;
-		return {
-			sessionId: row.sessionId,
-			firstAt: row.firstAt,
-			lastAt: row.lastAt,
-			firstReceivedAt,
-			lastReceivedAt,
-			durationMs,
-			eventCount: Number(row.eventCount),
-			projectPath: projectPaths[0] ?? null,
-			projectPaths,
-			tools,
-			failureCount: Number(row.failureCount),
-		};
-	});
+	const rows = stmt.all(...params) as SessionAggregateRow[];
+	return rows.map(toSession);
 };
 
 export const getToolUsage = (
@@ -677,6 +685,37 @@ function matchesSessionFilters(session: Session, options: FilterOptions, now: nu
 	return true;
 }
 
+export const getSubagentsBySession = (
+	db: DatabaseSync,
+	parentSessionIds: (string | null)[],
+): Session[] => {
+	const ids = [...new Set(parentSessionIds.filter((id): id is string => id !== null))];
+	if (ids.length === 0) return [];
+
+	const placeholders = ids.map(() => "?").join(",");
+	const sql = `
+    SELECT
+      session_id AS sessionId,
+      subagent_id AS subagentId,
+      MAX(subagent_type) AS subagentType,
+      COUNT(*) AS eventCount,
+      MIN(received_at) AS firstReceivedAt,
+      MAX(received_at) AS lastReceivedAt,
+      MIN(happened_at) AS firstAt,
+      MAX(happened_at) AS lastAt,
+      COALESCE(json_group_array(DISTINCT project_path ORDER BY project_path) FILTER (WHERE project_path IS NOT NULL AND project_path <> ''), '[]') AS projectPaths,
+      COALESCE(json_group_array(DISTINCT tool_name ORDER BY tool_name) FILTER (WHERE tool_name IS NOT NULL AND tool_name <> ''), '[]') AS toolNames,
+      SUM(CASE WHEN event LIKE '%Failure%' THEN 1 ELSE 0 END) AS failureCount
+    FROM events
+    WHERE subagent_id IS NOT NULL AND subagent_id <> '' AND session_id IN (${placeholders})
+    GROUP BY session_id, subagent_id
+    ORDER BY lastReceivedAt DESC, subagent_id
+  `;
+	const stmt = db.prepare(sql);
+	const rows = stmt.all(...ids) as SessionAggregateRow[];
+	return rows.map(toSession);
+};
+
 export const getFilteredSessions = (
 	db: DatabaseSync,
 	options: FilterOptions = {},
@@ -684,11 +723,22 @@ export const getFilteredSessions = (
 ): Session[] => {
 	const sessions = getSessions(db, { ...options, limit: Number.MAX_SAFE_INTEGER, offset: 0 }, now);
 	const filtered = sessions.filter((session) => matchesSessionFilters(session, options, now));
+	const subagents = getSubagentsBySession(
+		db,
+		filtered.map((s) => s.sessionId),
+	);
+	const byParent = new Map<string | null, Session[]>();
+	for (const sub of subagents) {
+		const list = byParent.get(sub.sessionId) ?? [];
+		list.push(sub);
+		byParent.set(sub.sessionId, list);
+	}
+	const withChildren = filtered.map((s) => ({ ...s, children: byParent.get(s.sessionId) }));
 	const offset = options.offset ?? 0;
 	const limit = options.limit;
-	if (offset === 0 && limit === undefined) return filtered;
-	if (limit === undefined) return filtered.slice(offset);
-	return filtered.slice(offset, offset + limit);
+	if (offset === 0 && limit === undefined) return withChildren;
+	if (limit === undefined) return withChildren.slice(offset);
+	return withChildren.slice(offset, offset + limit);
 };
 
 export const getFilterOptions = (db: DatabaseSync): FilterOptionLists => {

@@ -1003,6 +1003,81 @@ describe("dashboard components", () => {
 		expect(html).toContain("status-active");
 	});
 
+	it("renders session tree with subagents", () => {
+		const now = Date.now();
+		const base: Session = {
+			sessionId: "s-1",
+			firstAt: new Date(now - 60_000).toISOString(),
+			lastAt: new Date(now).toISOString(),
+			firstReceivedAt: now - 60_000,
+			lastReceivedAt: now,
+			durationMs: 60_000,
+			eventCount: 3,
+			projectPath: "/p",
+			projectPaths: ["/p"],
+			tools: ["Shell"],
+			failureCount: 0,
+			children: [
+				{
+					sessionId: "s-1",
+					subagentId: "sub-1",
+					subagentType: "shell",
+					firstAt: new Date(now - 30_000).toISOString(),
+					lastAt: new Date(now - 10_000).toISOString(),
+					firstReceivedAt: now - 30_000,
+					lastReceivedAt: now - 10_000,
+					durationMs: 20_000,
+					eventCount: 2,
+					projectPath: "/p",
+					projectPaths: ["/p"],
+					tools: ["Shell"],
+					failureCount: 0,
+				},
+				{
+					sessionId: "s-1",
+					subagentId: "sub-2",
+					subagentType: null,
+					firstAt: null,
+					lastAt: null,
+					firstReceivedAt: now - 5_000,
+					lastReceivedAt: now - 2_000,
+					durationMs: 3_000,
+					eventCount: 1,
+					projectPath: null,
+					projectPaths: [],
+					tools: [],
+					failureCount: 0,
+				},
+				{
+					sessionId: "s-1",
+					subagentId: null,
+					subagentType: null,
+					firstAt: null,
+					lastAt: null,
+					firstReceivedAt: now,
+					lastReceivedAt: now,
+					durationMs: 0,
+					eventCount: 1,
+					projectPath: null,
+					projectPaths: [],
+					tools: [],
+					failureCount: 0,
+				},
+			],
+		};
+
+		const html = renderSessionsTable([base], now, "sub-1");
+		expect(html).toContain("session-parent");
+		expect(html).toContain("session-toggle");
+		expect(html).toContain("session-children");
+		expect(html).toContain("sub-1");
+		expect(html).toContain("sub-2");
+		expect(html).toContain("session-subagent");
+		expect(html).toContain("subagent-type-badge");
+		expect(html).toContain("active");
+		expect(html).toContain("no subagent");
+	});
+
 	it("renders event frequency chart with zero counts and many buckets", () => {
 		const empty = renderEventFrequencyChart(
 			[
