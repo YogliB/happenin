@@ -4,8 +4,13 @@ import type { FilterOptions, Session } from "../../../shared/types.js";
 
 const chevronIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>`;
 
-function detailLink(query: FilterOptions | undefined, sessionId: string): string {
+function detailLink(
+	query: FilterOptions | undefined,
+	sessionId: string,
+	subagentId?: string | null,
+): string {
 	const params = new URLSearchParams({ session: sessionId });
+	if (subagentId) params.set("subagent", subagentId);
 	if (query?.source) params.set("source", query.source);
 	if (query?.event) params.set("event", query.event);
 	if (query?.q) params.set("q", query.q);
@@ -23,6 +28,7 @@ function renderSessionRow(
 	s: Session,
 	now: number,
 	activeSessionId?: string,
+	activeSubagentId?: string,
 	query?: FilterOptions,
 	isChild = false,
 	toggle = "",
@@ -33,16 +39,22 @@ function renderSessionRow(
 	const display = escapeHtml(truncate(rawId, 28));
 	const start = escapeHtml(formatTimestamp(s.firstAt ?? s.firstReceivedAt));
 	const duration = escapeHtml(formatDuration(s.durationMs));
-	const active =
-		activeSessionId !== undefined &&
-		(isChild ? s.subagentId === activeSessionId : s.sessionId === activeSessionId)
-			? " active"
-			: "";
+	const isActive = isChild
+		? s.subagentId === activeSubagentId
+		: s.sessionId === activeSessionId && !activeSubagentId;
+	const active = isActive ? " active" : "";
 	const linkId = s.sessionId ?? "";
+	const subagentLink = isChild ? s.subagentId : undefined;
 	const hxAttrs = linkId
-		? ` hx-get="${escapeAttr(detailLink(query, linkId))}" hx-target="#dashboard-content" hx-swap="innerHTML"`
+		? ` hx-get="${escapeAttr(detailLink(query, linkId, subagentLink))}" hx-target="#dashboard-content" hx-swap="innerHTML"`
 		: "";
 	const subagentClass = isChild ? " session-subagent" : "";
+	const expandedClass =
+		!isChild &&
+		activeSubagentId !== undefined &&
+		s.children?.some((c) => c.subagentId === activeSubagentId)
+			? " expanded"
+			: "";
 	const parentClass = !isChild && s.children?.length ? " session-parent" : "";
 	const staticClass = !isChild && !s.sessionId ? " session-item-static" : "";
 	const dataAttr = isChild
@@ -52,7 +64,7 @@ function renderSessionRow(
 		isChild && s.subagentType
 			? ` <span class="subagent-type-badge">${escapeHtml(s.subagentType)}</span>`
 			: "";
-	return `<li class="session-item${parentClass}${subagentClass}${active}${staticClass}"${dataAttr}${hxAttrs}>
+	return `<li class="session-item${parentClass}${expandedClass}${subagentClass}${active}${staticClass}"${dataAttr}${hxAttrs}>
 		${toggle}
 		<div class="session-main">
 			<div class="session-row">
@@ -70,6 +82,7 @@ export function renderSessionsTable(
 	sessions: Session[],
 	now = Date.now(),
 	activeSessionId?: string,
+	activeSubagentId?: string,
 	query?: FilterOptions,
 ): string {
 	if (sessions.length === 0) {
@@ -79,16 +92,20 @@ export function renderSessionsTable(
 	const rows = sessions
 		.map((s) => {
 			if (!s.children?.length) {
-				return renderSessionRow(s, now, activeSessionId, query);
+				return renderSessionRow(s, now, activeSessionId, activeSubagentId, query);
 			}
-			const toggle = `<button type="button" class="session-toggle" aria-label="toggle subagents" onclick="event.stopPropagation(); const li = this.closest('.session-item'); li.classList.toggle('expanded'); this.textContent = li.classList.contains('expanded') ? '▾' : '▸'">▸</button>`;
+			const expanded =
+				activeSubagentId !== undefined && s.children.some((c) => c.subagentId === activeSubagentId);
+			const arrow = expanded ? "▾" : "▸";
+			const toggle = `<button type="button" class="session-toggle" aria-label="toggle subagents" onclick="event.stopPropagation(); const li = this.closest('.session-item'); li.classList.toggle('expanded'); this.textContent = li.classList.contains('expanded') ? '▾' : '▸'">${arrow}</button>`;
 			const children = s.children
-				.map((c) => renderSessionRow(c, now, activeSessionId, query, true))
+				.map((c) => renderSessionRow(c, now, activeSessionId, activeSubagentId, query, true))
 				.join("");
 			return renderSessionRow(
 				s,
 				now,
 				activeSessionId,
+				activeSubagentId,
 				query,
 				false,
 				toggle,

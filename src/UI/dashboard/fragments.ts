@@ -21,7 +21,7 @@ import type {
 	ToolUsage,
 } from "../../shared/types.js";
 
-export type QueryOptions = FilterOptions;
+export type QueryOptions = FilterOptions & { subagentId?: string };
 
 function parseNumber(value: string | null): number | undefined {
 	if (!value) return undefined;
@@ -47,6 +47,7 @@ export function parseQuery(url: URL): QueryOptions {
 	const source = url.searchParams.get("source") || undefined;
 	const event = url.searchParams.get("event") || undefined;
 	const session = url.searchParams.get("session") || undefined;
+	const subagent = url.searchParams.get("subagent") || undefined;
 	const q = url.searchParams.get("q") || undefined;
 	const status = url.searchParams.get("status") || undefined;
 	const tool = url.searchParams.get("tool") || undefined;
@@ -70,6 +71,7 @@ export function parseQuery(url: URL): QueryOptions {
 		source,
 		event,
 		sessionId: session,
+		subagentId: subagent,
 		q,
 		status:
 			status === "active" || status === "completed" || status === "failed" ? status : undefined,
@@ -123,13 +125,14 @@ function renderSessionsSidebar(
 	query: QueryOptions,
 	now: number,
 	activeSessionId?: string,
+	activeSubagentId?: string,
 ): string {
 	const limit = query.limit && query.limit > 0 ? query.limit : 25;
 	const offset = query.offset ?? 0;
 	const pageSessions = allSessions.slice(offset, offset + limit);
 	return `<aside class="session-sidebar">
 <div class="session-list-wrapper">
-${renderSessionsTable(pageSessions, now, activeSessionId, query)}
+${renderSessionsTable(pageSessions, now, activeSessionId, activeSubagentId, query)}
 ${renderPager(query, allSessions.length)}
 </div>
 </aside>`;
@@ -185,7 +188,7 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 		{ ...query, sessionId: undefined, limit: undefined, offset: undefined },
 		now,
 	);
-	const sidebar = renderSessionsSidebar(allSessions, query, now, query.sessionId);
+	const sidebar = renderSessionsSidebar(allSessions, query, now, query.sessionId, query.subagentId);
 	if (!query.sessionId) {
 		return `${sidebar}
 <div class="main-content"><div class="detail-area"><div class="empty">No events.</div></div></div>`;
@@ -204,8 +207,10 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 		sessionId: query.sessionId,
 		sessionIdExact: true,
 	});
+	const filtered = query.subagentId ? rows.filter((e) => e.subagentId === query.subagentId) : rows;
+	const detailTotal = query.subagentId ? filtered.length : total;
 	return `${sidebar}
-<div class="main-content">${renderSessionDetail(query.sessionId, rows, total)}</div>`;
+<div class="main-content">${renderSessionDetail(query.sessionId, filtered, detailTotal, query.subagentId)}</div>`;
 }
 
 export function sendSessionDetailFragment(

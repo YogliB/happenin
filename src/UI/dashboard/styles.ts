@@ -89,11 +89,13 @@ button:hover { background: var(--surface-5); }
 .session-toggle { background: none; border: none; color: var(--text-3); font-size: 0.8rem; padding: 0; margin-right: 0.5rem; cursor: pointer; width: 1rem; text-align: center; }
 .session-toggle:hover { color: var(--accent); }
 .session-children { display: none; width: 100%; list-style: none; padding: 0; margin: 0; align-self: flex-start; }
-.session-children .session-item { padding-left: 2.25rem; background: var(--surface-2); border-bottom: 1px solid var(--border-2); }
+.session-children .session-item { padding-left: 2.75rem; background: none; border-bottom: 1px solid var(--border-2); border-left: 3px solid var(--border-3); }
 .session-children .session-item:hover { background: var(--surface-3); }
+.session-children .session-item.active { background: var(--surface-3); border-left-color: var(--accent-2); box-shadow: inset 3px 0 0 var(--accent-2); }
 .session-children .session-subagent .session-id { color: var(--accent-2); }
+.session-children .session-subagent .session-chevron { display: none; }
 .session-item.expanded > .session-children { display: block; }
-.subagent-type-badge { font-size: 0.7rem; color: var(--text-3); margin-left: 0.35rem; }
+.subagent-type-badge { font-size: 0.65rem; color: var(--text-3); margin-left: 0.35rem; padding: 0.08rem 0.3rem; background: var(--surface-2); border-radius: 0.2rem; }
 .main-content { display: grid; grid-template-rows: auto 1fr; gap: 1.25rem; min-height: 0; overflow: hidden; }
 .main-content:has(.session-detail-view) { grid-template-rows: 1fr; }
 .main-metrics .metric-grid { grid-template-columns: repeat(4, 1fr); gap: 1rem; }

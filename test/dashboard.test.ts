@@ -540,7 +540,7 @@ describe("dashboard page and fragments", () => {
 
 	it("parses all query parameters", () => {
 		const url = new URL(
-			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&minDuration=1&maxDuration=10&session=s-1&since=5&event=preToolUse&limit=10&offset=5",
+			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5",
 		);
 		const query = parseQuery(url);
 		expect(query.q).toBe("test");
@@ -551,6 +551,7 @@ describe("dashboard page and fragments", () => {
 		expect(query.minDuration).toBe(1);
 		expect(query.maxDuration).toBe(10);
 		expect(query.sessionId).toBe("s-1");
+		expect(query.subagentId).toBe("sub-1");
 		expect(query.since).toBe(5);
 		expect(query.event).toBe("preToolUse");
 		expect(query.limit).toBe(10);
@@ -644,6 +645,12 @@ describe("dashboard page and fragments", () => {
 		expect(html).toContain("Read");
 		expect(html).toContain("Write");
 		expect(html).toContain("/some/path");
+
+		const filtered = renderSessionDetailFragment(db, { sessionId: "s-1", subagentId: "sa-1" });
+		expect(filtered).toContain("Session Details - s-1 · sa-1");
+		expect(filtered).toContain("Grep");
+		expect(filtered).not.toContain("Write");
+		expect(filtered).not.toContain("Shell");
 		db.close();
 	});
 
@@ -860,7 +867,7 @@ describe("dashboard components", () => {
 		expect(specialHtml).toContain('hx-get="/fragments/detail?session=a%26b%3Fc%23d"');
 		expect(specialHtml).toContain('title="a&amp;b?c#d"');
 
-		const withQuery = renderSessionsTable([base], now, "s-1", {
+		const withQuery = renderSessionsTable([base], now, "s-1", undefined, {
 			source: "cursor",
 			event: "preToolUse",
 			q: "needle",
@@ -981,6 +988,51 @@ describe("dashboard components", () => {
 		);
 		expect(truncated).toContain("detail-truncated");
 		expect(truncated).toContain("most recent of 5 events");
+
+		const subagent = renderSessionDetail(
+			"s-1",
+			[
+				{
+					id: 1,
+					source: "cursor",
+					client: "cursor",
+					event: "preToolUse",
+					sessionId: "s-1",
+					happenedAt: new Date().toISOString(),
+					receivedAt: Date.now(),
+					projectPath: null,
+					filePath: null,
+					toolName: "Shell",
+					payload: JSON.stringify({}),
+					sourcePath: null,
+					subagentId: "sub-1",
+					subagentType: null,
+					transcriptPath: null,
+				},
+				{
+					id: 2,
+					source: "cursor",
+					client: "cursor",
+					event: "preToolUse",
+					sessionId: "s-1",
+					happenedAt: new Date().toISOString(),
+					receivedAt: Date.now(),
+					projectPath: null,
+					filePath: null,
+					toolName: "Read",
+					payload: JSON.stringify({}),
+					sourcePath: null,
+					subagentId: "sub-2",
+					subagentType: null,
+					transcriptPath: null,
+				},
+			],
+			undefined,
+			"sub-1",
+		);
+		expect(subagent).toContain("Session Details - s-1 · sub-1");
+		expect(subagent).toContain("Shell");
+		expect(subagent).not.toContain("Read");
 	});
 
 	it("renders sessions table from received_at", () => {
@@ -1066,7 +1118,7 @@ describe("dashboard components", () => {
 			],
 		};
 
-		const html = renderSessionsTable([base], now, "sub-1");
+		const html = renderSessionsTable([base], now, "s-1", "sub-1");
 		expect(html).toContain("session-parent");
 		expect(html).toContain("session-toggle");
 		expect(html).toContain("session-children");
@@ -1074,6 +1126,9 @@ describe("dashboard components", () => {
 		expect(html).toContain("sub-2");
 		expect(html).toContain("session-subagent");
 		expect(html).toContain("subagent-type-badge");
+		expect(html).toContain("expanded");
+		expect(html).toContain('data-subagent="sub-1"');
+		expect(html).toContain("subagent=sub-1");
 		expect(html).toContain("active");
 		expect(html).toContain("no subagent");
 	});
