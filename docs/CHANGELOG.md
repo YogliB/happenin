@@ -17,3 +17,7 @@
 ## [0.0.1]
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
+
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/YogliB/happenin/compare/v0.0.1...v0.1.0
+[0.0.1]: https://github.com/YogliB/happenin/releases/tag/v0.0.1
