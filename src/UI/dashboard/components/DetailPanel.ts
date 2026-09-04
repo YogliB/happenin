@@ -122,23 +122,28 @@ export function renderSessionDetail(
 	sessionId: string | null | undefined,
 	events: EventRow[],
 	totalEvents?: number,
+	activeSubagentId?: string,
 ): string {
 	if (!sessionId)
 		return `<div class="detail-header"><h2 class="detail-title">Session Details</h2></div><div class="empty">No events.</div>`;
-	if (events.length === 0)
-		return `<div class="detail-header"><h2 class="detail-title">Session Details - ${escapeHtml(sessionId)}</h2></div><div class="empty">No events for this session.</div>`;
+	const displayEvents = activeSubagentId
+		? events.filter((e) => e.subagentId === activeSubagentId)
+		: events;
+	const title = activeSubagentId ? `${sessionId} · ${activeSubagentId}` : sessionId;
+	if (displayEvents.length === 0)
+		return `<div class="detail-header"><h2 class="detail-title">Session Details - ${escapeHtml(title)}</h2></div><div class="empty">No events for this subagent.</div>`;
 
-	const eventRows = renderEventTree(events);
-	const json = JSON.stringify(events, null, 2);
+	const eventRows = renderEventTree(displayEvents);
+	const json = JSON.stringify(displayEvents, null, 2);
 	const truncated =
-		totalEvents !== undefined && totalEvents > events.length
-			? `<div class="detail-truncated">Showing the ${events.length} most recent of ${totalEvents} events — older events are hidden and the JSON copy is partial.</div>`
+		totalEvents !== undefined && totalEvents > displayEvents.length
+			? `<div class="detail-truncated">Showing the ${displayEvents.length} most recent of ${totalEvents} events — older events are hidden and the JSON copy is partial.</div>`
 			: "";
-	return `<section class="session-detail-view" data-session="${escapeAttr(sessionId)}">
+	return `<section class="session-detail-view" data-session="${escapeAttr(sessionId)}" data-subagent="${escapeAttr(activeSubagentId ?? "")}">
 	<div class="detail-header">
 		<button type="button" class="detail-back" onclick="backToDashboard()" aria-label="back to dashboard">${backIcon}<span>Back</span></button>
-		<h2 class="detail-title">Session Details - ${escapeHtml(sessionId)}</h2>
-		<span class="detail-count">${totalEvents ?? events.length} events</span>
+		<h2 class="detail-title">Session Details - ${escapeHtml(title)}</h2>
+		<span class="detail-count">${totalEvents ?? displayEvents.length} events</span>
 	</div>
 	${truncated}
 	<div class="detail-toolbar">

@@ -77,4 +77,7 @@ export type Session = {
 	projectPaths: string[];
 	tools: string[];
 	failureCount: number;
+	subagentId?: string | null;
+	subagentType?: string | null;
+	children?: Session[];
 };

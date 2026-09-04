@@ -23,6 +23,7 @@ import {
 	getEventFrequency,
 	getFilterOptions,
 	getFilteredSessions,
+	getSubagentsBySession,
 	sessionStatus,
 } from "../src/shared/db.js";
 
@@ -1279,6 +1280,72 @@ describe("db edge cases", () => {
 			expect(single.length).toBe(1);
 			const onlyNull = getEvents(db, { sessionIds: [null] });
 			expect(onlyNull.length).toBe(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("groups subagents by parent session", () => {
+		const db = initDb(":memory:");
+		const now = Date.now();
+
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "sessionStart",
+			sessionId: "parent",
+			happenedAt: new Date(now - 60_000).toISOString(),
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "subagentStart",
+			sessionId: "parent",
+			happenedAt: new Date(now - 30_000).toISOString(),
+			subagentId: "sub-1",
+			subagentType: "shell",
+			payload: JSON.stringify({ subagent_id: "sub-1", subagent_type: "shell" }),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "parent",
+			happenedAt: new Date(now - 20_000).toISOString(),
+			subagentId: "sub-1",
+			toolName: "Shell",
+			payload: JSON.stringify({ tool_use_id: "sub-1" }),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "subagentStart",
+			sessionId: "parent",
+			happenedAt: new Date(now - 5_000).toISOString(),
+			subagentId: "sub-2",
+			subagentType: "edit",
+			payload: JSON.stringify({ subagent_id: "sub-2" }),
+		});
+		db.prepare("UPDATE events SET happened_at = NULL WHERE subagent_id = 'sub-2'").run();
+
+		try {
+			const parents = getFilteredSessions(db, {}, now);
+			expect(parents.length).toBe(1);
+			expect(parents[0].children?.length).toBe(2);
+			const child = parents[0].children!.find((c) => c.subagentId === "sub-1")!;
+			expect(child.sessionId).toBe("parent");
+			expect(child.subagentType).toBe("shell");
+			expect(child.eventCount).toBe(2);
+			expect(child.durationMs).toBeGreaterThanOrEqual(0);
+
+			const noChildren = getSubagentsBySession(db, []);
+			expect(noChildren).toEqual([]);
+
+			const direct = getSubagentsBySession(db, ["parent"]);
+			expect(direct.length).toBe(2);
+			expect(direct.some((s) => s.subagentId === "sub-2" && s.durationMs >= 0)).toBe(true);
+			expect(direct.some((s) => s.subagentId === "sub-1" && s.firstAt !== null)).toBe(true);
 		} finally {
 			db.close();
 		}
