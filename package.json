@@ -1,6 +1,6 @@
 {
 	"name": "happenin",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.",
 	"keywords": [
 		"agents",
