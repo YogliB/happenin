@@ -20,7 +20,7 @@ Cursor and Claude Code can emit local hooks for each session, tool use, prompt, 
 ## Requirements
 
 - macOS
-- Node.js `>= 24.0.0` (uses the built-in `node:sqlite` module)
+- Node.js `>= 22.13.0` (uses the built-in `node:sqlite` module, available since Node 22.13)
 - Zero runtime dependencies
 - The dashboard loads htmx and htmx-ext-sse from a CDN
 

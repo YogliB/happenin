@@ -6,7 +6,7 @@ The build uses `tsdown` to bundle `src/` into `dist/bin.js`.
 
 ### Solution
 
-- Make sure you are using Node 24 or later (`cat .node-version`).
+- Make sure you are using Node 24 or later for development (`cat .node-version`). Node `>= 22.13` is enough to _run_ happenin, but the build toolchain requires Node 24.
 - Run `nub install` first to install dev dependencies.
 - If the error is TypeScript-related, run `nub run typecheck` for detailed diagnostics.
 

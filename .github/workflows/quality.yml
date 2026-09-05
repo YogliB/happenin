@@ -7,11 +7,18 @@ on:
 
 jobs:
   quality:
-    name: Quality
+    name: Quality (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24"]
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Pin Node for this matrix leg
+        run: echo "${{ matrix.node }}" > .node-version
 
       - uses: nubjs/setup-nub@v0
         with:
