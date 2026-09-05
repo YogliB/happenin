@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
+- `npm install -g happenin` now works on Node.js 22.13 or later (previously 24 or later); the test suite and package smoke tests run on Node.js 22 and 24 in CI.
 
 ## [0.1.0]
 
