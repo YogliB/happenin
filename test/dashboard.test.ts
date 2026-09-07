@@ -1175,6 +1175,18 @@ describe("dashboard components", () => {
 		const mainTagEnd = html.indexOf(">", mainOpen);
 		expect(html.slice(mainOpen, mainTagEnd + 1)).toContain("hx-get");
 		expect(html).toContain("subagent=sub-1");
+
+		const activeParent = renderSessionsTable([base], now, "s-1");
+		expect(activeParent).toContain("session-parent expanded");
+		expect(activeParent).toContain(">▾</button>");
+
+		const childActive = renderSessionsTable([base], now, "other-session", "sub-1");
+		expect(childActive).toContain("session-parent expanded");
+		expect(childActive).toContain(">▾</button>");
+
+		const inactive = renderSessionsTable([base], now);
+		expect(inactive).toContain('session-parent"');
+		expect(inactive).toContain(">▸</button>");
 	});
 
 	it("renders event frequency chart with zero counts and many buckets", () => {

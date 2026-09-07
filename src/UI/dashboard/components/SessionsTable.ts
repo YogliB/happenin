@@ -57,8 +57,9 @@ function renderSessionRow(
 	const subagentClass = isChild ? " session-subagent" : "";
 	const expandedClass =
 		!isChild &&
-		activeSubagentId !== undefined &&
-		s.children?.some((c) => c.subagentId === activeSubagentId)
+		(s.sessionId === activeSessionId ||
+			(activeSubagentId !== undefined &&
+				s.children?.some((c) => c.subagentId === activeSubagentId)))
 			? " expanded"
 			: "";
 	const parentClass = !isChild && s.children?.length ? " session-parent" : "";
@@ -101,7 +102,9 @@ export function renderSessionsTable(
 				return renderSessionRow(s, now, activeSessionId, activeSubagentId, query);
 			}
 			const expanded =
-				activeSubagentId !== undefined && s.children.some((c) => c.subagentId === activeSubagentId);
+				s.sessionId === activeSessionId ||
+				(activeSubagentId !== undefined &&
+					s.children.some((c) => c.subagentId === activeSubagentId));
 			const arrow = expanded ? "▾" : "▸";
 			const toggle = `<button type="button" class="session-toggle" aria-label="toggle subagents" onclick="event.stopPropagation(); const li = this.closest('.session-item'); li.classList.toggle('expanded'); this.textContent = li.classList.contains('expanded') ? '▾' : '▸'">${arrow}</button>`;
 			const children = s.children
