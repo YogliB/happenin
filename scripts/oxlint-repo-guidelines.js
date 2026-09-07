@@ -18,11 +18,39 @@ const allowedDocs = new Set([
 	"docs/dashboard.gif",
 	".github/pull_request_template.md",
 	"skills/happenin/SKILL.md",
+	"llms.txt",
 ]);
 const docsAnchorFile = path.resolve("src/cli/index.ts");
 const boxDrawingChars = /[\u2500-\u257F]/;
+const asciiDiagramPattern = /\+[-=]{2,}\+|--+>|<--+|==+>|<==+/;
+const fenceStart = /^```(\S*)/;
 let docViolations;
 let diagramViolations;
+
+export function hasNonMermaidDiagram(content) {
+	let inFence = false;
+	let fenceIsMermaid = false;
+	for (const line of content.split("\n")) {
+		const fence = line.match(fenceStart);
+		if (fence) {
+			if (inFence) {
+				inFence = false;
+				fenceIsMermaid = false;
+			} else {
+				inFence = true;
+				fenceIsMermaid = fence[1] === "mermaid";
+			}
+			continue;
+		}
+		if (boxDrawingChars.test(line)) {
+			return true;
+		}
+		if (inFence && !fenceIsMermaid && asciiDiagramPattern.test(line)) {
+			return true;
+		}
+	}
+	return false;
+}
 
 function* walkDocs(dir, prefix = "") {
 	// eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -63,8 +91,8 @@ function getDiagramViolations() {
 
 	const violations = [];
 	for (const file of allowedDocs) {
-		if (!file.endsWith(".md") || !existsSync(file)) continue;
-		if (boxDrawingChars.test(readFileSync(file, "utf8"))) {
+		if (!/\.(md|txt)$/.test(file) || !existsSync(file)) continue;
+		if (hasNonMermaidDiagram(readFileSync(file, "utf8"))) {
 			violations.push(file);
 		}
 	}
