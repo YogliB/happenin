@@ -1,15 +1,7 @@
 import { readdirSync } from "node:fs";
 import path from "node:path";
 
-const ignoredDocDirs = new Set([
-	"node_modules",
-	".git",
-	"dist",
-	"coverage",
-	".devin",
-	".agents",
-	"skills",
-]);
+const ignoredDocDirs = new Set(["node_modules", ".git", "dist", "coverage", ".devin", ".agents"]);
 const allowedDocs = new Set([
 	"AGENTS.md",
 	"CLAUDE.md",
@@ -23,9 +15,11 @@ const allowedDocs = new Set([
 	"docs/SECURITY.md",
 	"docs/TROUBLESHOOTING.md",
 	"docs/USAGE.md",
+	"docs/dashboard.gif",
 	".github/pull_request_template.md",
+	"skills/happenin/SKILL.md",
 ]);
-const docsAnchorFile = path.resolve("src/index.ts");
+const docsAnchorFile = path.resolve("src/cli/index.ts");
 let docViolations;
 
 function* walkDocs(dir, prefix = "") {
