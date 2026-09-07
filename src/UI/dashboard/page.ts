@@ -190,7 +190,7 @@ const clientScript = `
 		for (const item of content.querySelectorAll('.session-item')) {
 			const sessionMatch = !!sessionId && item.dataset.session === sessionId;
 			const itemSubagent = item.dataset.subagent || null;
-			const subagentMatch = itemSubagent === subagentId;
+			const subagentMatch = itemSubagent === null || itemSubagent === subagentId;
 			item.classList.toggle('active', sessionMatch && subagentMatch);
 		}
 		const list = content.querySelector('.session-list');

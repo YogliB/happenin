@@ -39,9 +39,7 @@ function renderSessionRow(
 	const display = escapeHtml(truncate(rawId, 28));
 	const start = escapeHtml(formatTimestamp(s.firstAt ?? s.firstReceivedAt));
 	const duration = escapeHtml(formatDuration(s.durationMs));
-	const isActive = isChild
-		? s.subagentId === activeSubagentId
-		: s.sessionId === activeSessionId && !activeSubagentId;
+	const isActive = isChild ? s.subagentId === activeSubagentId : s.sessionId === activeSessionId;
 	const active = isActive ? " active" : "";
 	const linkId = s.sessionId ?? "";
 	const subagentLink = isChild ? s.subagentId : undefined;
