@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const ignoredDocDirs = new Set(["node_modules", ".git", "dist", "coverage", ".devin", ".agents"]);
@@ -18,9 +18,44 @@ const allowedDocs = new Set([
 	"docs/dashboard.gif",
 	".github/pull_request_template.md",
 	"skills/happenin/SKILL.md",
+	"llms.txt",
 ]);
 const docsAnchorFile = path.resolve("src/cli/index.ts");
+const boxDrawingChars = /[\u2500-\u257F]/;
+const asciiBoxBorder = /\+[-=]{2,}\+/;
+const arrowConnectors = ["-->", "<--", "==>", "<=="];
+const fenceStart = /^ {0,3}```\s*(\S*)/;
 let docViolations;
+let diagramViolations;
+
+export function hasNonMermaidDiagram(content) {
+	let inFence = false;
+	let fenceIsMermaid = false;
+	for (const line of content.split("\n")) {
+		const fence = line.match(fenceStart);
+		if (fence) {
+			if (inFence) {
+				inFence = false;
+				fenceIsMermaid = false;
+			} else {
+				inFence = true;
+				fenceIsMermaid = fence[1] === "mermaid";
+			}
+			continue;
+		}
+		if (boxDrawingChars.test(line)) {
+			return true;
+		}
+		if (
+			inFence &&
+			!fenceIsMermaid &&
+			(asciiBoxBorder.test(line) || arrowConnectors.some((c) => line.includes(c)))
+		) {
+			return true;
+		}
+	}
+	return false;
+}
 
 function* walkDocs(dir, prefix = "") {
 	// eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -54,6 +89,23 @@ function getDocViolations() {
 	return violations;
 }
 
+function getDiagramViolations() {
+	if (diagramViolations) {
+		return diagramViolations;
+	}
+
+	const violations = [];
+	for (const file of allowedDocs) {
+		if (!/\.(md|txt)$/.test(file) || !existsSync(file)) continue;
+		if (hasNonMermaidDiagram(readFileSync(file, "utf8"))) {
+			violations.push(file);
+		}
+	}
+
+	diagramViolations = violations;
+	return violations;
+}
+
 const plugin = {
 	meta: {
 		name: "oxlint-repo-guidelines",
@@ -72,6 +124,13 @@ const plugin = {
 						if (violations.length > 0) {
 							context.report({
 								message: `New docs/markdown files are not allowed: ${violations.join(", ")}`,
+								node,
+							});
+						}
+						const ascii = getDiagramViolations();
+						if (ascii.length > 0) {
+							context.report({
+								message: `ASCII diagrams are not allowed in docs; use mermaid: ${ascii.join(", ")}`,
 								node,
 							});
 						}

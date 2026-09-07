@@ -2,26 +2,15 @@
 
 ## Data flow
 
-```
-┌─────────────────┐   stdin (JSON)   ┌───────────┐   INSERT   ┌─────────────┐
-│ Cursor / Claude │ ────────────────▶ │  record   │ ────────▶ │   SQLite    │
-│      hooks      │                   │  command  │            │  happenin   │
-└─────────────────┘                   └───────────┘            │    .db      │
-                                                               └─────────────┘
-                                                                       ▲
-                                                                       │
-┌───────────┐   ┌───────────┐   hx-get/SSE       ┌─────────────┐     │
-│  browser  │ ◀──│ dashboard │ ◀───────────────── │    GET      │     │
-│  (htmx +  │   │  server   │                    │  /events    │ ────┘
-│  vanilla) │   │           │   ┌──────────────┐ │  /fragments │
-└───────────┘   └───────────┘   │ import (run) │ └─────────────┘
-                                └──────────────┘
-                                       │
-                                       ▼
-                          ┌──────────────────────────┐
-                          │ Claude JSONL, Cursor     │
-                          │ prompt_history, meta     │
-                          └──────────────────────────┘
+```mermaid
+flowchart LR
+    hooks["Cursor / Claude hooks"] -- "stdin (JSON)" --> record["record command"]
+    record -- "INSERT" --> db[("SQLite happenin.db")]
+    transcripts["Claude JSONL · Cursor prompt_history · meta"] --> import["import (run)"]
+    import --> db
+    db --> api["GET /events · /fragments"]
+    api --> dash["dashboard server"]
+    dash -- "hx-get / SSE" --> browser["browser (htmx + vanilla)"]
 ```
 
 ## Components
