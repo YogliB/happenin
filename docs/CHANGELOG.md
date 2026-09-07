@@ -7,7 +7,6 @@
 ## [0.2.0]
 
 - Sessions sidebar nests subagent rows under their parent with a selectable, filterable detail view.
-- Docs data-flow diagram now renders with mermaid, and the docs lint rule flags new Markdown and ASCII diagrams.
 
 ## [0.1.1]
 
