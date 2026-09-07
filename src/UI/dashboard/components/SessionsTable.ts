@@ -45,9 +45,15 @@ function renderSessionRow(
 	const active = isActive ? " active" : "";
 	const linkId = s.sessionId ?? "";
 	const subagentLink = isChild ? s.subagentId : undefined;
-	const hxAttrs = linkId
-		? ` hx-get="${escapeAttr(detailLink(query, linkId, subagentLink))}" hx-target="#dashboard-content" hx-swap="innerHTML"`
-		: "";
+	const isContainer = !isChild && !!s.children?.length;
+	const hxAttrs =
+		linkId && !isContainer
+			? ` hx-get="${escapeAttr(detailLink(query, linkId, subagentLink))}" hx-target="#dashboard-content" hx-swap="innerHTML"`
+			: "";
+	const mainHxAttrs =
+		linkId && isContainer
+			? ` hx-get="${escapeAttr(detailLink(query, linkId))}" hx-target="#dashboard-content" hx-swap="innerHTML"`
+			: "";
 	const subagentClass = isChild ? " session-subagent" : "";
 	const expandedClass =
 		!isChild &&
@@ -66,7 +72,7 @@ function renderSessionRow(
 			: "";
 	return `<li class="session-item${parentClass}${expandedClass}${subagentClass}${active}${staticClass}"${dataAttr}${hxAttrs}>
 		${toggle}
-		<div class="session-main">
+		<div class="session-main"${mainHxAttrs}>
 			<div class="session-row">
 				<span class="session-id" title="${escapeAttr(rawId)}">${display}${badge}</span>
 				<span class="status-badge status-${status}">${status}</span>

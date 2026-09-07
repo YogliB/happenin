@@ -186,8 +186,12 @@ const clientScript = `
 		const detail = content.querySelector('.session-detail-view');
 		document.body.classList.toggle('session-detail-open', !!detail);
 		const sessionId = detail ? detail.getAttribute('data-session') : null;
+		const subagentId = detail ? detail.getAttribute('data-subagent') || null : null;
 		for (const item of content.querySelectorAll('.session-item')) {
-			item.classList.toggle('active', !!sessionId && item.dataset.session === sessionId);
+			const sessionMatch = !!sessionId && item.dataset.session === sessionId;
+			const itemSubagent = item.dataset.subagent || null;
+			const subagentMatch = itemSubagent === subagentId;
+			item.classList.toggle('active', sessionMatch && subagentMatch);
 		}
 		const list = content.querySelector('.session-list');
 		if (list) {

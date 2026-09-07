@@ -1133,6 +1133,50 @@ describe("dashboard components", () => {
 		expect(html).toContain("no subagent");
 	});
 
+	it("keeps parent hx-get off the li so child clicks cannot bubble to it", () => {
+		const now = Date.now();
+		const base: Session = {
+			sessionId: "s-1",
+			firstAt: new Date(now - 60_000).toISOString(),
+			lastAt: new Date(now).toISOString(),
+			firstReceivedAt: now - 60_000,
+			lastReceivedAt: now,
+			durationMs: 60_000,
+			eventCount: 3,
+			projectPath: "/p",
+			projectPaths: ["/p"],
+			tools: ["Shell"],
+			failureCount: 0,
+			children: [
+				{
+					sessionId: "s-1",
+					subagentId: "sub-1",
+					subagentType: "edit",
+					firstAt: new Date(now - 30_000).toISOString(),
+					lastAt: new Date(now - 10_000).toISOString(),
+					firstReceivedAt: now - 30_000,
+					lastReceivedAt: now - 10_000,
+					durationMs: 20_000,
+					eventCount: 2,
+					projectPath: "/p",
+					projectPaths: ["/p"],
+					tools: ["Edit"],
+					failureCount: 0,
+				},
+			],
+		};
+
+		const html = renderSessionsTable([base], now);
+		const parentOpen = html.indexOf('class="session-item session-parent');
+		const parentTagEnd = html.indexOf(">", parentOpen);
+		const parentTag = html.slice(parentOpen, parentTagEnd + 1);
+		expect(parentTag).not.toContain("hx-get");
+		const mainOpen = html.indexOf("session-main", parentTagEnd);
+		const mainTagEnd = html.indexOf(">", mainOpen);
+		expect(html.slice(mainOpen, mainTagEnd + 1)).toContain("hx-get");
+		expect(html).toContain("subagent=sub-1");
+	});
+
 	it("renders event frequency chart with zero counts and many buckets", () => {
 		const empty = renderEventFrequencyChart(
 			[

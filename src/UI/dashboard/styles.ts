@@ -85,7 +85,10 @@ button:hover { background: var(--surface-5); }
 .session-chevron:hover { color: var(--accent); background: none; }
 .session-list .empty { padding: 2rem 1rem; text-align: center; color: var(--text-4); }
 .session-item { flex-wrap: wrap; }
-.session-item.session-parent { padding-bottom: 0; }
+.session-item.session-parent { padding-bottom: 0; cursor: default; }
+.session-item.session-parent:hover { background: none; }
+.session-item.session-parent > .session-main { cursor: pointer; }
+.session-item.session-parent > .session-main:hover { background: var(--surface-3); }
 .session-toggle { background: none; border: none; color: var(--text-3); font-size: 0.8rem; padding: 0; margin-right: 0.5rem; cursor: pointer; width: 1rem; text-align: center; }
 .session-toggle:hover { color: var(--accent); }
 .session-children { display: none; width: 100%; list-style: none; padding: 0; margin: 0; align-self: flex-start; }
