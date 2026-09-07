@@ -16,6 +16,13 @@ describe("hasNonMermaidDiagram", () => {
 	it("allows mermaid fences", () => {
 		const doc = "```mermaid\nflowchart LR\n    A --> B\n```\n";
 		expect(hasNonMermaidDiagram(doc)).toBe(false);
+		const spaced = "``` mermaid\nflowchart LR\n    A --> B\n```\n";
+		expect(hasNonMermaidDiagram(spaced)).toBe(false);
+	});
+
+	it("flags ASCII diagrams inside indented fences", () => {
+		const doc = "- item\n  ```\n  +---+  +---+\n  | A |-->| B |\n  +---+  +---+\n  ```\n";
+		expect(hasNonMermaidDiagram(doc)).toBe(true);
 	});
 
 	it("ignores prose punctuation and tables", () => {

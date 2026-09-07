@@ -24,7 +24,7 @@ const docsAnchorFile = path.resolve("src/cli/index.ts");
 const boxDrawingChars = /[\u2500-\u257F]/;
 const asciiBoxBorder = /\+[-=]{2,}\+/;
 const arrowConnectors = ["-->", "<--", "==>", "<=="];
-const fenceStart = /^```(\S*)/;
+const fenceStart = /^ {0,3}```\s*(\S*)/;
 let docViolations;
 let diagramViolations;
 
