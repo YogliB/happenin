@@ -1,6 +1,7 @@
 .DS_Store
 .agents/plans/
 .agents/reports/
+.agents/flows/
 .devin/
 .env
 .env.*
