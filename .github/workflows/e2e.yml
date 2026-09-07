@@ -7,13 +7,14 @@ on:
 
 jobs:
   e2e:
-    name: e2e (${{ matrix.os }})
+    name: e2e (${{ matrix.os }}, Node ${{ matrix.node }})
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest]
+        node: ["22", "24"]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
 
@@ -21,7 +22,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
 
       - name: Install happenin from npm
         run: npm install -g happenin

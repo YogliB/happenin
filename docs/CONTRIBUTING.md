@@ -51,6 +51,8 @@ If the issue is security-related, do not report it publicly. See [docs/SECURITY.
 
 ### Your First Code Contribution
 
+Development requires Node 24 or later (`.node-version` pins it). Node `>= 22.13` can run happenin but cannot build it.
+
 ```bash
 git clone git@github.com:YogliB/happenin.git
 cd happenin

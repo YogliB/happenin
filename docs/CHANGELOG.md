@@ -1,10 +1,14 @@
 # happenin changelog
 
-## Unreleased
+## [Unreleased]
 
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
 
-## 0.1.0
+## [0.1.1]
+
+- `npm install -g happenin` now works on Node.js 22.13 or later (previously 24 or later); the test suite and package smoke tests run on Node.js 22 and 24 in CI.
+
+## [0.1.0]
 
 - Redesigned the browser dashboard into an analytics view: left sessions sidebar, metrics cards, event-frequency and tool-usage charts, full-height session detail with a subagent timeline, live SSE updates, and an emoji theme toggle.
 - Added dashboard filters for source, event, tool, query, status, duration, and range, with sticky header/filters and responsive viewport-constrained layout.
@@ -14,6 +18,11 @@
 - Existing rows are backfilled for `happened_at` and `project_path` on the next database open.
 - New `happenin sessions` command prints session-level summaries.
 
-## 0.0.1
+## [0.0.1]
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
+
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/YogliB/happenin/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/YogliB/happenin/compare/v0.0.1...v0.1.0
+[0.0.1]: https://github.com/YogliB/happenin/releases/tag/v0.0.1
