@@ -22,7 +22,8 @@ const allowedDocs = new Set([
 ]);
 const docsAnchorFile = path.resolve("src/cli/index.ts");
 const boxDrawingChars = /[\u2500-\u257F]/;
-const asciiDiagramPattern = /\+[-=]{2,}\+|--+>|<--+|==+>|<==+/;
+const asciiBoxBorder = /\+[-=]{2,}\+/;
+const arrowConnectors = ["-->", "<--", "==>", "<=="];
 const fenceStart = /^```(\S*)/;
 let docViolations;
 let diagramViolations;
@@ -45,7 +46,11 @@ export function hasNonMermaidDiagram(content) {
 		if (boxDrawingChars.test(line)) {
 			return true;
 		}
-		if (inFence && !fenceIsMermaid && asciiDiagramPattern.test(line)) {
+		if (
+			inFence &&
+			!fenceIsMermaid &&
+			(asciiBoxBorder.test(line) || arrowConnectors.some((c) => line.includes(c)))
+		) {
 			return true;
 		}
 	}
