@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const ignoredDocDirs = new Set(["node_modules", ".git", "dist", "coverage", ".devin", ".agents"]);
@@ -20,7 +20,9 @@ const allowedDocs = new Set([
 	"skills/happenin/SKILL.md",
 ]);
 const docsAnchorFile = path.resolve("src/cli/index.ts");
+const boxDrawingChars = /[\u2500-\u257F]/;
 let docViolations;
+let diagramViolations;
 
 function* walkDocs(dir, prefix = "") {
 	// eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -54,6 +56,23 @@ function getDocViolations() {
 	return violations;
 }
 
+function getDiagramViolations() {
+	if (diagramViolations) {
+		return diagramViolations;
+	}
+
+	const violations = [];
+	for (const file of allowedDocs) {
+		if (!file.endsWith(".md") || !existsSync(file)) continue;
+		if (boxDrawingChars.test(readFileSync(file, "utf8"))) {
+			violations.push(file);
+		}
+	}
+
+	diagramViolations = violations;
+	return violations;
+}
+
 const plugin = {
 	meta: {
 		name: "oxlint-repo-guidelines",
@@ -72,6 +91,13 @@ const plugin = {
 						if (violations.length > 0) {
 							context.report({
 								message: `New docs/markdown files are not allowed: ${violations.join(", ")}`,
+								node,
+							});
+						}
+						const ascii = getDiagramViolations();
+						if (ascii.length > 0) {
+							context.report({
+								message: `ASCII diagrams are not allowed in docs; use mermaid: ${ascii.join(", ")}`,
 								node,
 							});
 						}

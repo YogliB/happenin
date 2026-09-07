@@ -80,7 +80,7 @@ Keep changes focused. Squash to a single commit and write a [Conventional Commit
 
 ### Improving The Documentation
 
-Documentation lives in `README.md`, `AGENTS.md`, `CLAUDE.md`, `llms.txt`, and `docs/`. Keep them aligned when changing workflows or navigation. A custom `oxlint-repo-guidelines/no-more-docs` rule blocks new Markdown or `docs/` files that are not in the allow-list. Add new docs to `scripts/oxlint-repo-guidelines.js` and to `AGENTS.md` before opening a PR.
+Documentation lives in `README.md`, `AGENTS.md`, `CLAUDE.md`, `llms.txt`, and `docs/`. Keep them aligned when changing workflows or navigation. A custom `oxlint-repo-guidelines/no-more-docs` rule blocks new Markdown or `docs/` files that are not in the allow-list. Add new docs to `scripts/oxlint-repo-guidelines.js` and to `AGENTS.md` before opening a PR. Diagrams must use mermaid fenced code blocks — the same rule flags box-drawing characters in docs.
 
 ## Styleguides
 
