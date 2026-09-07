@@ -692,12 +692,24 @@ function matchesSessionFilters(session: Session, options: FilterOptions, now: nu
 export const getSubagentsBySession = (
 	db: DatabaseSync,
 	parentSessionIds: (string | null)[],
+	options: FilterOptions = {},
 ): Session[] => {
 	const ids = [...new Set(parentSessionIds.filter((id): id is string => id !== null))];
 	if (ids.length === 0) return [];
 
-	const placeholders = ids.map(() => "?").join(",");
-	const sql = `
+	const { clause, params } = buildWhereClause({
+		...options,
+		sessionId: undefined,
+		sessionIds: undefined,
+		subagentId: undefined,
+	});
+	const filterSql = clause ? ` ${clause.replace(/^WHERE/, "AND")}` : "";
+
+	const rows: SessionAggregateRow[] = [];
+	for (let i = 0; i < ids.length; i += 500) {
+		const chunk = ids.slice(i, i + 500);
+		const placeholders = chunk.map(() => "?").join(",");
+		const sql = `
     SELECT
       session_id AS sessionId,
       subagent_id AS subagentId,
@@ -711,12 +723,13 @@ export const getSubagentsBySession = (
       COALESCE(json_group_array(DISTINCT tool_name ORDER BY tool_name) FILTER (WHERE tool_name IS NOT NULL AND tool_name <> ''), '[]') AS toolNames,
       SUM(CASE WHEN event LIKE '%Failure%' THEN 1 ELSE 0 END) AS failureCount
     FROM events
-    WHERE subagent_id IS NOT NULL AND subagent_id <> '' AND session_id IN (${placeholders})
+    WHERE subagent_id IS NOT NULL AND subagent_id <> '' AND session_id IN (${placeholders})${filterSql}
     GROUP BY session_id, subagent_id
     ORDER BY lastReceivedAt DESC, subagent_id
   `;
-	const stmt = db.prepare(sql);
-	const rows = stmt.all(...ids) as SessionAggregateRow[];
+		const stmt = db.prepare(sql);
+		rows.push(...(stmt.all(...chunk, ...params) as SessionAggregateRow[]));
+	}
 	return rows.map(toSession);
 };
 
@@ -730,6 +743,7 @@ export const getFilteredSessions = (
 	const subagents = getSubagentsBySession(
 		db,
 		filtered.map((s) => s.sessionId),
+		options,
 	);
 	const byParent = new Map<string | null, Session[]>();
 	for (const sub of subagents) {

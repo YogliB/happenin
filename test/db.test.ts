@@ -1346,6 +1346,19 @@ describe("db edge cases", () => {
 			expect(direct.length).toBe(2);
 			expect(direct.some((s) => s.subagentId === "sub-2" && s.durationMs >= 0)).toBe(true);
 			expect(direct.some((s) => s.subagentId === "sub-1" && s.firstAt !== null)).toBe(true);
+
+			const byTool = getSubagentsBySession(db, ["parent"], { tool: "Shell" });
+			expect(byTool.length).toBe(1);
+			expect(byTool[0].subagentId).toBe("sub-1");
+			expect(byTool[0].eventCount).toBe(1);
+
+			const byEvent = getSubagentsBySession(db, ["parent"], { event: "subagentStart" });
+			expect(byEvent.length).toBe(2);
+			expect(byEvent.every((s) => s.eventCount === 1)).toBe(true);
+
+			const manyIds = ["parent", ...Array.from({ length: 1500 }, (_, i) => `other-${i}`)];
+			const batched = getSubagentsBySession(db, manyIds);
+			expect(batched.length).toBe(2);
 		} finally {
 			db.close();
 		}
