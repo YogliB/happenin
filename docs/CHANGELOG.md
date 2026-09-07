@@ -3,7 +3,11 @@
 ## [Unreleased]
 
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
+
+## [0.2.0]
+
 - Sessions sidebar nests subagent rows under their parent with a selectable, filterable detail view.
+- Docs data-flow diagram now renders with mermaid, and the docs lint rule flags new Markdown and ASCII diagrams.
 
 ## [0.1.1]
 
@@ -23,7 +27,8 @@
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
 
-[Unreleased]: https://github.com/YogliB/happenin/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/YogliB/happenin/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/YogliB/happenin/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/YogliB/happenin/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/YogliB/happenin/releases/tag/v0.0.1
