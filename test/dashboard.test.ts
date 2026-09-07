@@ -540,7 +540,7 @@ describe("dashboard page and fragments", () => {
 
 	it("parses all query parameters", () => {
 		const url = new URL(
-			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&minDuration=1&maxDuration=10&session=s-1&since=5&event=preToolUse&limit=10&offset=5",
+			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5",
 		);
 		const query = parseQuery(url);
 		expect(query.q).toBe("test");
@@ -551,6 +551,7 @@ describe("dashboard page and fragments", () => {
 		expect(query.minDuration).toBe(1);
 		expect(query.maxDuration).toBe(10);
 		expect(query.sessionId).toBe("s-1");
+		expect(query.subagentId).toBe("sub-1");
 		expect(query.since).toBe(5);
 		expect(query.event).toBe("preToolUse");
 		expect(query.limit).toBe(10);
@@ -644,6 +645,12 @@ describe("dashboard page and fragments", () => {
 		expect(html).toContain("Read");
 		expect(html).toContain("Write");
 		expect(html).toContain("/some/path");
+
+		const filtered = renderSessionDetailFragment(db, { sessionId: "s-1", subagentId: "sa-1" });
+		expect(filtered).toContain("Session Details - s-1 · sa-1");
+		expect(filtered).toContain("Grep");
+		expect(filtered).not.toContain("Write");
+		expect(filtered).not.toContain("Shell");
 		db.close();
 	});
 
@@ -860,7 +867,7 @@ describe("dashboard components", () => {
 		expect(specialHtml).toContain('hx-get="/fragments/detail?session=a%26b%3Fc%23d"');
 		expect(specialHtml).toContain('title="a&amp;b?c#d"');
 
-		const withQuery = renderSessionsTable([base], now, "s-1", {
+		const withQuery = renderSessionsTable([base], now, "s-1", undefined, {
 			source: "cursor",
 			event: "preToolUse",
 			q: "needle",
@@ -981,6 +988,51 @@ describe("dashboard components", () => {
 		);
 		expect(truncated).toContain("detail-truncated");
 		expect(truncated).toContain("most recent of 5 events");
+
+		const subagent = renderSessionDetail(
+			"s-1",
+			[
+				{
+					id: 1,
+					source: "cursor",
+					client: "cursor",
+					event: "preToolUse",
+					sessionId: "s-1",
+					happenedAt: new Date().toISOString(),
+					receivedAt: Date.now(),
+					projectPath: null,
+					filePath: null,
+					toolName: "Shell",
+					payload: JSON.stringify({}),
+					sourcePath: null,
+					subagentId: "sub-1",
+					subagentType: null,
+					transcriptPath: null,
+				},
+				{
+					id: 2,
+					source: "cursor",
+					client: "cursor",
+					event: "preToolUse",
+					sessionId: "s-1",
+					happenedAt: new Date().toISOString(),
+					receivedAt: Date.now(),
+					projectPath: null,
+					filePath: null,
+					toolName: "Read",
+					payload: JSON.stringify({}),
+					sourcePath: null,
+					subagentId: "sub-2",
+					subagentType: null,
+					transcriptPath: null,
+				},
+			],
+			undefined,
+			"sub-1",
+		);
+		expect(subagent).toContain("Session Details - s-1 · sub-1");
+		expect(subagent).toContain("Shell");
+		expect(subagent).not.toContain("Read");
 	});
 
 	it("renders sessions table from received_at", () => {
@@ -1001,6 +1053,172 @@ describe("dashboard components", () => {
 		const html = renderSessionsTable([s], now);
 		expect(html).toContain("s-1");
 		expect(html).toContain("status-active");
+	});
+
+	it("renders session tree with subagents", () => {
+		const now = Date.now();
+		const base: Session = {
+			sessionId: "s-1",
+			firstAt: new Date(now - 60_000).toISOString(),
+			lastAt: new Date(now).toISOString(),
+			firstReceivedAt: now - 60_000,
+			lastReceivedAt: now,
+			durationMs: 60_000,
+			eventCount: 3,
+			projectPath: "/p",
+			projectPaths: ["/p"],
+			tools: ["Shell"],
+			failureCount: 0,
+			children: [
+				{
+					sessionId: "s-1",
+					subagentId: "sub-1",
+					subagentType: "shell",
+					firstAt: new Date(now - 30_000).toISOString(),
+					lastAt: new Date(now - 10_000).toISOString(),
+					firstReceivedAt: now - 30_000,
+					lastReceivedAt: now - 10_000,
+					durationMs: 20_000,
+					eventCount: 2,
+					projectPath: "/p",
+					projectPaths: ["/p"],
+					tools: ["Shell"],
+					failureCount: 0,
+				},
+				{
+					sessionId: "s-1",
+					subagentId: "sub-2",
+					subagentType: null,
+					firstAt: null,
+					lastAt: null,
+					firstReceivedAt: now - 5_000,
+					lastReceivedAt: now - 2_000,
+					durationMs: 3_000,
+					eventCount: 1,
+					projectPath: null,
+					projectPaths: [],
+					tools: [],
+					failureCount: 0,
+				},
+				{
+					sessionId: "s-1",
+					subagentId: null,
+					subagentType: null,
+					firstAt: null,
+					lastAt: null,
+					firstReceivedAt: now,
+					lastReceivedAt: now,
+					durationMs: 0,
+					eventCount: 1,
+					projectPath: null,
+					projectPaths: [],
+					tools: [],
+					failureCount: 0,
+				},
+			],
+		};
+
+		const html = renderSessionsTable([base], now, "s-1", "sub-1");
+		expect(html).toContain("session-parent");
+		expect(html).toContain("session-toggle");
+		expect(html).toContain("session-children");
+		expect(html).toContain("sub-1");
+		expect(html).toContain("sub-2");
+		expect(html).toContain("session-subagent");
+		expect(html).toContain("subagent-type-badge");
+		expect(html).toContain("expanded");
+		expect(html).toContain('data-subagent="sub-1"');
+		expect(html).toContain("subagent=sub-1");
+		expect(html).toContain("active");
+		expect(html).toContain("no subagent");
+	});
+
+	it("keeps parent hx-get off the li so child clicks cannot bubble to it", () => {
+		const now = Date.now();
+		const base: Session = {
+			sessionId: "s-1",
+			firstAt: new Date(now - 60_000).toISOString(),
+			lastAt: new Date(now).toISOString(),
+			firstReceivedAt: now - 60_000,
+			lastReceivedAt: now,
+			durationMs: 60_000,
+			eventCount: 3,
+			projectPath: "/p",
+			projectPaths: ["/p"],
+			tools: ["Shell"],
+			failureCount: 0,
+			children: [
+				{
+					sessionId: "s-1",
+					subagentId: "sub-1",
+					subagentType: "edit",
+					firstAt: new Date(now - 30_000).toISOString(),
+					lastAt: new Date(now - 10_000).toISOString(),
+					firstReceivedAt: now - 30_000,
+					lastReceivedAt: now - 10_000,
+					durationMs: 20_000,
+					eventCount: 2,
+					projectPath: "/p",
+					projectPaths: ["/p"],
+					tools: ["Edit"],
+					failureCount: 0,
+				},
+			],
+		};
+
+		const html = renderSessionsTable([base], now);
+		const parentOpen = html.indexOf('class="session-item session-parent');
+		const parentTagEnd = html.indexOf(">", parentOpen);
+		const parentTag = html.slice(parentOpen, parentTagEnd + 1);
+		expect(parentTag).not.toContain("hx-get");
+		const mainOpen = html.indexOf("session-main", parentTagEnd);
+		const mainTagEnd = html.indexOf(">", mainOpen);
+		expect(html.slice(mainOpen, mainTagEnd + 1)).toContain("hx-get");
+		expect(html).toContain("subagent=sub-1");
+
+		const activeParent = renderSessionsTable([base], now, "s-1");
+		expect(activeParent).toContain("session-parent expanded");
+		expect(activeParent).toContain(">▾</button>");
+
+		const other: Session = {
+			...base,
+			sessionId: "other",
+			children: [{ ...base.children[0], sessionId: "other" }],
+		};
+
+		const childActive = renderSessionsTable([base, other], now, "s-1", "sub-1");
+
+		const parentClass = 'class="session-item session-parent';
+		const baseParentOpen = childActive.indexOf(parentClass);
+		const baseParentTagEnd = childActive.indexOf(">", baseParentOpen);
+		const baseParentTag = childActive.slice(baseParentOpen, baseParentTagEnd + 1);
+		expect(baseParentTag).toContain("expanded");
+		expect(baseParentTag).toContain(" active");
+		expect(baseParentTag).toContain('data-session="s-1"');
+
+		const otherParentOpen = childActive.indexOf(parentClass, baseParentTagEnd);
+		const otherParentTagEnd = childActive.indexOf(">", otherParentOpen);
+		const otherParentTag = childActive.slice(otherParentOpen, otherParentTagEnd + 1);
+		expect(otherParentTag).not.toContain("expanded");
+		expect(otherParentTag).not.toContain(" active");
+		expect(otherParentTag).toContain('data-session="other"');
+
+		const subagentClass = 'class="session-item session-subagent';
+		const baseSubOpen = childActive.indexOf(subagentClass);
+		const baseSubTagEnd = childActive.indexOf(">", baseSubOpen);
+		const baseSubTag = childActive.slice(baseSubOpen, baseSubTagEnd + 1);
+		expect(baseSubTag).toContain(" active");
+		expect(baseSubTag).toContain('data-session="s-1"');
+
+		const otherSubOpen = childActive.indexOf(subagentClass, baseSubTagEnd);
+		const otherSubTagEnd = childActive.indexOf(">", otherSubOpen);
+		const otherSubTag = childActive.slice(otherSubOpen, otherSubTagEnd + 1);
+		expect(otherSubTag).not.toContain(" active");
+		expect(otherSubTag).toContain('data-session="other"');
+
+		const inactive = renderSessionsTable([base], now);
+		expect(inactive).toContain('session-parent"');
+		expect(inactive).toContain(">▸</button>");
 	});
 
 	it("renders event frequency chart with zero counts and many buckets", () => {

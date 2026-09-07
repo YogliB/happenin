@@ -1,20 +1,6 @@
 # AGENTS.md
 
-Agent-facing entry point. **Read the rules before doing any work in this repo.** For the open format, see [agents.md](https://agents.md/).
-
-## Rules
-
-These rules are always-on. Read them before every task:
-
-| Rule     | File                                      | What it covers                                     |
-| -------- | ----------------------------------------- | -------------------------------------------------- |
-| Caveman  | [@caveman.md](.agents/rules/caveman.md)   | Terse, token-efficient responses.                  |
-| Ponytail | [@ponytail.md](.agents/rules/ponytail.md) | Lazy senior dev mode: stdlib first, minimal diffs. |
-| RTK      | [@rtk.md](.agents/rules/rtk.md)           | Token-optimized CLI proxy commands.                |
-
-@.agents/rules/caveman.md
-@.agents/rules/ponytail.md
-@.agents/rules/rtk.md
+Agent-facing entry point. For the open format, see [agents.md](https://agents.md/).
 
 ## Docs index
 

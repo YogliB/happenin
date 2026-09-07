@@ -32,6 +32,7 @@ export type FilterOptions = {
 	sessionId?: string;
 	sessionIdExact?: boolean;
 	sessionIds?: (string | null)[];
+	subagentId?: string;
 	q?: string;
 	limit?: number;
 	offset?: number;
@@ -77,4 +78,7 @@ export type Session = {
 	projectPaths: string[];
 	tools: string[];
 	failureCount: number;
+	subagentId?: string | null;
+	subagentType?: string | null;
+	children?: Session[];
 };

@@ -47,6 +47,7 @@ export function parseQuery(url: URL): QueryOptions {
 	const source = url.searchParams.get("source") || undefined;
 	const event = url.searchParams.get("event") || undefined;
 	const session = url.searchParams.get("session") || undefined;
+	const subagent = url.searchParams.get("subagent") || undefined;
 	const q = url.searchParams.get("q") || undefined;
 	const status = url.searchParams.get("status") || undefined;
 	const tool = url.searchParams.get("tool") || undefined;
@@ -70,6 +71,7 @@ export function parseQuery(url: URL): QueryOptions {
 		source,
 		event,
 		sessionId: session,
+		subagentId: subagent,
 		q,
 		status:
 			status === "active" || status === "completed" || status === "failed" ? status : undefined,
@@ -123,13 +125,14 @@ function renderSessionsSidebar(
 	query: QueryOptions,
 	now: number,
 	activeSessionId?: string,
+	activeSubagentId?: string,
 ): string {
 	const limit = query.limit && query.limit > 0 ? query.limit : 25;
 	const offset = query.offset ?? 0;
 	const pageSessions = allSessions.slice(offset, offset + limit);
 	return `<aside class="session-sidebar">
 <div class="session-list-wrapper">
-${renderSessionsTable(pageSessions, now, activeSessionId, query)}
+${renderSessionsTable(pageSessions, now, activeSessionId, activeSubagentId, query)}
 ${renderPager(query, allSessions.length)}
 </div>
 </aside>`;
@@ -140,14 +143,14 @@ export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): st
 	const { hours, groupBy } = rangeToParams(query.range);
 	const allSessions = getFilteredSessions(
 		db,
-		{ ...query, limit: undefined, offset: undefined },
+		{ ...query, subagentId: undefined, limit: undefined, offset: undefined },
 		now,
 	);
 	const sessionIds = allSessions.map((s) => s.sessionId);
 	let frequency: EventFrequency[] = [];
 	let toolUsage: ToolUsage[] = [];
 	if (sessionIds.length > 0) {
-		const chartQuery: QueryOptions = { ...query, sessionIds };
+		const chartQuery: QueryOptions = { ...query, subagentId: undefined, sessionIds };
 		frequency = getEventFrequency(db, chartQuery, hours, groupBy, now);
 		toolUsage = getToolUsage(db, chartQuery, 10, now);
 	}
@@ -182,10 +185,10 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 	const now = Date.now();
 	const allSessions = getFilteredSessions(
 		db,
-		{ ...query, sessionId: undefined, limit: undefined, offset: undefined },
+		{ ...query, sessionId: undefined, subagentId: undefined, limit: undefined, offset: undefined },
 		now,
 	);
-	const sidebar = renderSessionsSidebar(allSessions, query, now, query.sessionId);
+	const sidebar = renderSessionsSidebar(allSessions, query, now, query.sessionId, query.subagentId);
 	if (!query.sessionId) {
 		return `${sidebar}
 <div class="main-content"><div class="detail-area"><div class="empty">No events.</div></div></div>`;
@@ -195,6 +198,7 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 		range: undefined,
 		sessionId: query.sessionId,
 		sessionIdExact: true,
+		subagentId: query.subagentId,
 		limit: 1000,
 		offset: 0,
 	});
@@ -203,9 +207,10 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 		range: undefined,
 		sessionId: query.sessionId,
 		sessionIdExact: true,
+		subagentId: query.subagentId,
 	});
 	return `${sidebar}
-<div class="main-content">${renderSessionDetail(query.sessionId, rows, total)}</div>`;
+<div class="main-content">${renderSessionDetail(query.sessionId, rows, total, query.subagentId)}</div>`;
 }
 
 export function sendSessionDetailFragment(
