@@ -32,6 +32,7 @@ export type FilterOptions = {
 	sessionId?: string;
 	sessionIdExact?: boolean;
 	sessionIds?: (string | null)[];
+	subagentId?: string;
 	q?: string;
 	limit?: number;
 	offset?: number;

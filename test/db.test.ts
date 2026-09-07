@@ -1350,4 +1350,51 @@ describe("db edge cases", () => {
 			db.close();
 		}
 	});
+
+	it("filters events by subagentId", () => {
+		const db = initDb(":memory:");
+
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "sessionStart",
+			sessionId: "s-1",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			subagentId: "sub-1",
+			toolName: "Shell",
+			payload: JSON.stringify({ tool_use_id: "sub-1" }),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			subagentId: "sub-2",
+			toolName: "Read",
+			payload: JSON.stringify({ tool_use_id: "sub-2" }),
+		});
+
+		try {
+			const rows = getEvents(db, {
+				sessionId: "s-1",
+				sessionIdExact: true,
+				subagentId: "sub-1",
+			});
+			expect(rows.length).toBe(1);
+			expect(rows[0].subagentId).toBe("sub-1");
+			expect(countEvents(db, { sessionId: "s-1", sessionIdExact: true, subagentId: "sub-1" })).toBe(
+				1,
+			);
+			expect(countEvents(db, { sessionId: "s-1", sessionIdExact: true })).toBe(3);
+			expect(getEvents(db, { subagentId: "" }).length).toBe(3);
+		} finally {
+			db.close();
+		}
+	});
 });

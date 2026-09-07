@@ -421,6 +421,10 @@ function buildWhereClause(
 			sessionClauses.length === 1 ? sessionClauses[0] : `(${sessionClauses.join(" OR ")})`,
 		);
 	}
+	if (options.subagentId !== undefined && options.subagentId !== "") {
+		conditions.push("subagent_id = ?");
+		params.push(options.subagentId);
+	}
 	if (options.q !== undefined && options.q !== "") {
 		conditions.push("(payload LIKE ? OR session_id LIKE ?)");
 		params.push(`%${options.q}%`);

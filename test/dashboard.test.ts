@@ -1180,9 +1180,41 @@ describe("dashboard components", () => {
 		expect(activeParent).toContain("session-parent expanded");
 		expect(activeParent).toContain(">▾</button>");
 
-		const childActive = renderSessionsTable([base], now, "other-session", "sub-1");
-		expect(childActive).toContain("session-parent expanded");
-		expect(childActive).toContain(">▾</button>");
+		const other: Session = {
+			...base,
+			sessionId: "other",
+			children: [{ ...base.children[0], sessionId: "other" }],
+		};
+
+		const childActive = renderSessionsTable([base, other], now, "s-1", "sub-1");
+
+		const parentClass = 'class="session-item session-parent';
+		const baseParentOpen = childActive.indexOf(parentClass);
+		const baseParentTagEnd = childActive.indexOf(">", baseParentOpen);
+		const baseParentTag = childActive.slice(baseParentOpen, baseParentTagEnd + 1);
+		expect(baseParentTag).toContain("expanded");
+		expect(baseParentTag).toContain(" active");
+		expect(baseParentTag).toContain('data-session="s-1"');
+
+		const otherParentOpen = childActive.indexOf(parentClass, baseParentTagEnd);
+		const otherParentTagEnd = childActive.indexOf(">", otherParentOpen);
+		const otherParentTag = childActive.slice(otherParentOpen, otherParentTagEnd + 1);
+		expect(otherParentTag).not.toContain("expanded");
+		expect(otherParentTag).not.toContain(" active");
+		expect(otherParentTag).toContain('data-session="other"');
+
+		const subagentClass = 'class="session-item session-subagent';
+		const baseSubOpen = childActive.indexOf(subagentClass);
+		const baseSubTagEnd = childActive.indexOf(">", baseSubOpen);
+		const baseSubTag = childActive.slice(baseSubOpen, baseSubTagEnd + 1);
+		expect(baseSubTag).toContain(" active");
+		expect(baseSubTag).toContain('data-session="s-1"');
+
+		const otherSubOpen = childActive.indexOf(subagentClass, baseSubTagEnd);
+		const otherSubTagEnd = childActive.indexOf(">", otherSubOpen);
+		const otherSubTag = childActive.slice(otherSubOpen, otherSubTagEnd + 1);
+		expect(otherSubTag).not.toContain(" active");
+		expect(otherSubTag).toContain('data-session="other"');
 
 		const inactive = renderSessionsTable([base], now);
 		expect(inactive).toContain('session-parent"');

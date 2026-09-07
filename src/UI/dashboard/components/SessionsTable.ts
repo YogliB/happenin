@@ -39,7 +39,9 @@ function renderSessionRow(
 	const display = escapeHtml(truncate(rawId, 28));
 	const start = escapeHtml(formatTimestamp(s.firstAt ?? s.firstReceivedAt));
 	const duration = escapeHtml(formatDuration(s.durationMs));
-	const isActive = isChild ? s.subagentId === activeSubagentId : s.sessionId === activeSessionId;
+	const isActive = isChild
+		? s.subagentId === activeSubagentId && s.sessionId === activeSessionId
+		: s.sessionId === activeSessionId;
 	const active = isActive ? " active" : "";
 	const linkId = s.sessionId ?? "";
 	const subagentLink = isChild ? s.subagentId : undefined;
@@ -54,12 +56,7 @@ function renderSessionRow(
 			: "";
 	const subagentClass = isChild ? " session-subagent" : "";
 	const expandedClass =
-		!isChild &&
-		(s.sessionId === activeSessionId ||
-			(activeSubagentId !== undefined &&
-				s.children?.some((c) => c.subagentId === activeSubagentId)))
-			? " expanded"
-			: "";
+		!isChild && s.children?.length && s.sessionId === activeSessionId ? " expanded" : "";
 	const parentClass = !isChild && s.children?.length ? " session-parent" : "";
 	const staticClass = !isChild && !s.sessionId ? " session-item-static" : "";
 	const dataAttr = isChild
@@ -99,10 +96,7 @@ export function renderSessionsTable(
 			if (!s.children?.length) {
 				return renderSessionRow(s, now, activeSessionId, activeSubagentId, query);
 			}
-			const expanded =
-				s.sessionId === activeSessionId ||
-				(activeSubagentId !== undefined &&
-					s.children.some((c) => c.subagentId === activeSubagentId));
+			const expanded = s.sessionId === activeSessionId;
 			const arrow = expanded ? "▾" : "▸";
 			const toggle = `<button type="button" class="session-toggle" aria-label="toggle subagents" onclick="event.stopPropagation(); const li = this.closest('.session-item'); li.classList.toggle('expanded'); this.textContent = li.classList.contains('expanded') ? '▾' : '▸'">${arrow}</button>`;
 			const children = s.children
