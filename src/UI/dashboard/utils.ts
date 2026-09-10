@@ -32,6 +32,11 @@ export function commonPathPrefix(paths: string[]): string {
 	return lastSlash > 0 ? prefix.slice(0, lastSlash + 1) : "";
 }
 
+export function lastPathSegments(path: string, count: number): string {
+	const segments = path.split("/").filter((segment) => segment.length > 0);
+	return segments.slice(-count).join("/");
+}
+
 export function formatDuration(ms: number): string {
 	const totalSeconds = Math.max(0, Math.round(ms / 1000));
 	const minutes = Math.floor(totalSeconds / 60);

@@ -123,6 +123,7 @@ button:hover { background: var(--surface-5); }
 .event-chart .grid { stroke: var(--surface-4); stroke-width: 1; }
 .tool-chart { display: flex; flex-direction: column; gap: 0.65rem; }
 .tool-row { display: grid; grid-template-columns: 8rem 1fr 2.5rem; align-items: center; gap: 0.75rem; font-size: 0.8rem; }
+.chart-panel--wide-label .tool-row { grid-template-columns: 60% 1fr 2.5rem; }
 a.tool-row { text-decoration: none; color: inherit; border-radius: 0.3rem; padding: 0.15rem 0.3rem; margin: -0.15rem -0.3rem; transition: background 0.12s; }
 a.tool-row:hover { background: var(--surface-3); }
 a.tool-row:hover .tool-name { color: var(--accent); }

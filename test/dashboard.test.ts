@@ -968,16 +968,24 @@ describe("dashboard components", () => {
 		expect(empty).toContain("No data");
 
 		const single = renderTopFiles([{ file: "/repo/README.md", count: 4 }]);
-		expect(single).toContain("README.md");
+		expect(single).toContain(">repo/README.md<");
 		expect(single).toContain('style="width: 100%"');
 		expect(single).not.toContain("<a ");
 
-		const long = renderTopFiles([{ file: `/${"a".repeat(60)}/README.md`, count: 1 }]);
+		const long = renderTopFiles([{ file: `/repo/${"a".repeat(60)}.md`, count: 1 }]);
 		expect(long).toContain("…");
+		expect(long).toContain(`title="/repo/${"a".repeat(60)}.md"`);
 
 		const linked = renderTopFiles([{ file: "/repo/README.md", count: 4 }], { range: "24h" });
 		expect(linked).toContain('<a class="tool-row"');
 		expect(linked).toContain("file=%2Frepo%2FREADME.md");
+
+		const unrelated = renderTopFiles([
+			{ file: "/Users/dev/Workspace/happenin/docs/USAGE.md", count: 5 },
+			{ file: "/Users/dev/.claude/skills/design/references/style.md", count: 3 },
+		]);
+		expect(unrelated).toContain(">docs/USAGE.md<");
+		expect(unrelated).toContain(">references/style.md<");
 	});
 
 	it("renders sessions table", () => {
