@@ -14,6 +14,7 @@ import {
 	getDbPath,
 	getUserVersion,
 	ensureSubagentColumns,
+	ensureSkillNameColumn,
 	getEventById,
 	getImportMtime,
 	trackImport,
@@ -319,6 +320,100 @@ describe("db edge cases", () => {
 		try {
 			expect(() => ensureSubagentColumns(db)).not.toThrow();
 			expect(getUserVersion(db)).toBe(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("rolls back a race during skill_name column migration", () => {
+		const db = initDb(":memory:");
+
+		let calls = 0;
+		const spy = vi.spyOn(DatabaseSync.prototype, "prepare").mockImplementation(function (
+			this: DatabaseSync,
+			sql: string,
+		) {
+			if (String(sql).trim() === "PRAGMA user_version") {
+				calls += 1;
+				return {
+					get: () => ({ user_version: calls === 1 ? 0 : 3 }),
+				} as ReturnType<DatabaseSync["prepare"]>;
+			}
+			return DatabaseSync.prototype.prepare.call(this, sql);
+		});
+
+		try {
+			expect(() => ensureSkillNameColumn(db)).not.toThrow();
+		} finally {
+			spy.mockRestore();
+			db.close();
+		}
+	});
+
+	it("rethrows and rolls back when adding skill_name column fails", () => {
+		const db = new DatabaseSync(":memory:");
+		db.exec(`
+			CREATE TABLE events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				client TEXT,
+				event TEXT,
+				session_id TEXT,
+				happened_at TEXT,
+				received_at INTEGER NOT NULL,
+				project_path TEXT,
+				file_path TEXT,
+				tool_name TEXT,
+				payload TEXT NOT NULL
+			);
+		`);
+		db.exec("PRAGMA user_version = 2;");
+
+		const originalExec = DatabaseSync.prototype.exec;
+		const spy = vi.spyOn(DatabaseSync.prototype, "exec").mockImplementation(function (
+			this: DatabaseSync,
+			sql: string,
+		) {
+			if (
+				String(sql).includes("ALTER TABLE events ADD COLUMN") ||
+				String(sql).trim() === "ROLLBACK;"
+			) {
+				throw new Error("alter failed");
+			}
+			return originalExec.call(this, sql);
+		});
+
+		try {
+			expect(() => ensureSkillNameColumn(db)).toThrow("alter failed");
+		} finally {
+			spy.mockRestore();
+			db.close();
+		}
+	});
+
+	it("skips existing skill_name column during migration", () => {
+		const db = new DatabaseSync(":memory:");
+		db.exec(`
+			CREATE TABLE events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				client TEXT,
+				event TEXT,
+				session_id TEXT,
+				happened_at TEXT,
+				received_at INTEGER NOT NULL,
+				project_path TEXT,
+				file_path TEXT,
+				tool_name TEXT,
+				skill_name TEXT,
+				payload TEXT NOT NULL
+			);
+		`);
+		db.exec("PRAGMA user_version = 2;");
+
+		try {
+			expect(() => ensureSkillNameColumn(db)).not.toThrow();
+			expect(getUserVersion(db)).toBe(3);
 		} finally {
 			db.close();
 		}

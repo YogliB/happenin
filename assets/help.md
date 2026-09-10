@@ -22,14 +22,18 @@ The hook target. Reads a JSON payload from stdin, writes it to `~/.happenin/happ
 
 This command is normally called by the agent hooks, not directly.
 
-### `happenin import`
+### `happenin import [--force]`
 
 Imports existing transcripts:
 
-- Claude Code JSONL from `~/.claude/projects/<project>/<session>.jsonl`.
+- Claude Code JSONL from `~/.claude/projects/<project>/<session>.jsonl`. Each `tool_use` block in an
+  assistant message becomes its own event with `tool_name` set (and `file_path` for file-editing
+  tools, `skill_name` for `Skill` calls).
 - Cursor `prompt_history.json` and `meta.json` from `~/.cursor/chats/<hash>/<session>/`.
 
 `store.db` is skipped because it is encrypted.
+
+- `--force` — clear import tracking and re-import every discovered file from scratch.
 
 ### `happenin query [options]`
 

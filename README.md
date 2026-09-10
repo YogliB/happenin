@@ -79,14 +79,20 @@ echo '{"hook_event_name":"sessionStart","sessionId":"abc123"}' | happenin record
 echo '{"sessionId":"abc123"}' | happenin record claude SessionStart
 ```
 
-### `happenin import`
+### `happenin import [--force]`
 
 Imports existing transcripts:
 
-- Claude Code JSONL from `~/.claude/projects/<project>/<session>.jsonl`.
+- Claude Code JSONL from `~/.claude/projects/<project>/<session>.jsonl`. Each `tool_use` block in an
+  assistant message becomes its own event with `tool_name` set (and `file_path` for file-editing
+  tools, `skill_name` for `Skill` calls), so tool usage, skills used, and files touched are
+  queryable per session and show up on the dashboard.
 - Cursor `prompt_history.json` and `meta.json` from `~/.cursor/chats/<hash>/<session>/`.
 
 `store.db` is skipped because it is encrypted.
+
+Files are only re-parsed when their modification time changes; pass `--force` to clear that
+tracking and re-import everything from scratch (useful after upgrading `happenin`).
 
 ### `happenin query [options]`
 

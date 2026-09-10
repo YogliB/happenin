@@ -165,6 +165,11 @@ button:hover { background: var(--surface-5); }
 .detail-attrs > div { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .detail-attrs > div span:first-child { color: var(--text-4); font-size: 0.7rem; text-transform: capitalize; }
 .detail-attrs > div span:last-child { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; word-break: break-all; }
+.detail-summary { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.6rem; background: var(--surface-2); border-radius: 0.4rem; }
+.summary-group { display: flex; flex-direction: column; gap: 0.3rem; }
+.summary-label { color: var(--text-4); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.summary-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.chip { font-size: 0.75rem; color: var(--text-2); background: var(--surface-4); border: 1px solid var(--border); padding: 0.1rem 0.45rem; border-radius: 0.25rem; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-json { display: none; }
 .pager { display: flex; justify-content: center; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-top: 1px solid var(--border); background: var(--surface-2); flex: 0 0 auto; }
 .pager a, .pager button { background: var(--surface-4); color: var(--text); border: 1px solid var(--border); border-radius: 0.35rem; padding: 0.4rem 0.75rem; font-size: 0.85rem; text-decoration: none; }

@@ -44,7 +44,9 @@ Common commands:
 - `nub run format` / `nub run format:ci` — run oxfmt; use `format` to apply.
 - `nub run duplicates:ci` — run jscpd to detect duplicated code.
 - `nub run knip:ci` — find unused dependencies and exports with knip.
-- `nub run test` / `nub run test:ci` — run vitest with or without coverage.
+- `nub run test` / `nub run test:ci` — run vitest with or without coverage. `test:ci` also enforces
+  100% coverage per file (see `vitest.config.ts`) — plain `test` does not, so run `test:ci` before
+  opening a PR even if `test` passed.
 
 ### Conventions
 
@@ -54,6 +56,7 @@ Common commands:
 - Fail-open responses. `record` returns the minimum required non-blocking response and no output for observer hooks.
 - Keep docs short, clear, and concise. `AGENTS.md` is a condensed version of the human docs; link to the full doc when detail is needed. Diagrams in docs use mermaid fenced blocks — `lint:ci` flags ASCII diagrams.
 - PRs must be focused, pass `build`, `typecheck`, `format:ci`, `lint:ci`, `duplicates:ci`, `knip:ci`, and `test:ci`, and use a Conventional Commit message.
+- PRs are also gated by `.github/workflows/anti-slop.yml`, which flags vague or AI-generated-sounding filler in commit messages and PR descriptions — write specific, concrete text.
 
 ### Project layout
 
@@ -62,6 +65,8 @@ Common commands:
 - `src/shared/db.ts` — SQLite data layer.
 - `src/shared/constants.ts` — hook event lists and default responses.
 - `src/shared/types.ts` — shared TypeScript types.
+- `src/shared/toolCalls.ts` — extracts `file_path`/`skill_name` from a tool call's name+input; shared
+  by the live hook recorder and the transcript importer.
 - `src/cli/record.ts` — hook target: parse stdin, insert event, respond.
 - `src/cli/install.ts` — install Cursor / Claude Code hooks.
 - `src/cli/import.ts` — import Claude and Cursor transcripts.
