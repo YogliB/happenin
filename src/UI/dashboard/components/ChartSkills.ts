@@ -11,5 +11,6 @@ export function renderSkillChart(usage: SkillUsage[], query?: QueryOptions): str
 			count: u.count,
 			href: query && buildFragmentUrl(query, { skill: u.skill, view: "list", offset: 0 }),
 		})),
+		{ labelLimit: 36, wideLabel: true },
 	);
 }

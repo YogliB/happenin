@@ -27,6 +27,7 @@ import { renderFilters } from "../src/UI/dashboard/components/Filters.js";
 import { renderMetricCards } from "../src/UI/dashboard/components/MetricCards.js";
 import { renderEventFrequencyChart } from "../src/UI/dashboard/components/ChartEvents.js";
 import { renderToolChart } from "../src/UI/dashboard/components/ChartTools.js";
+import { renderBarChart } from "../src/UI/dashboard/components/BarChart.js";
 import { renderSkillChart } from "../src/UI/dashboard/components/ChartSkills.js";
 import { renderTopFiles } from "../src/UI/dashboard/components/TopFiles.js";
 import { renderSessionsTable } from "../src/UI/dashboard/components/SessionsTable.js";
@@ -942,11 +943,17 @@ describe("dashboard components", () => {
 		const multi = renderToolChart([
 			{ tool: "Shell", count: 10 },
 			{ tool: "Edit", count: 5 },
-			{ tool: "a".repeat(30), count: 1 },
+			{ tool: "a".repeat(40), count: 1 },
 		]);
 		expect(multi).toContain("Edit");
 		expect(multi).toContain('style="width: 50%"');
 		expect(multi).toContain("title=");
+		expect(multi).toContain("…");
+	});
+
+	it("renders a bar chart without the wide-label variant by default", () => {
+		const html = renderBarChart("Custom", [{ label: "x", count: 1 }]);
+		expect(html).not.toContain("chart-panel--wide-label");
 	});
 
 	it("renders skill chart", () => {

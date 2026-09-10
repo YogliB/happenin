@@ -11,5 +11,6 @@ export function renderToolChart(usage: ToolUsage[], query?: QueryOptions): strin
 			count: u.count,
 			href: query && buildFragmentUrl(query, { tool: u.tool, view: "list", offset: 0 }),
 		})),
+		{ labelLimit: 36, wideLabel: true },
 	);
 }
