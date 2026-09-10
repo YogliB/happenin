@@ -42,12 +42,14 @@ export type FilterOptions = {
 	minDuration?: number;
 	maxDuration?: number;
 	range?: TimeRange;
+	mdProject?: string;
 };
 
 export type FilterOptionLists = {
 	sources: string[];
 	events: string[];
 	tools: string[];
+	projects: string[];
 };
 
 export type SessionMetrics = {
@@ -55,10 +57,23 @@ export type SessionMetrics = {
 	totalEvents: number;
 	averageDurationMs: number;
 	successRate: number;
+	sessionsLast24h: number;
+	sessionsLast7d: number;
+	sessionsLast30d: number;
 };
 
 export type ToolUsage = {
 	tool: string;
+	count: number;
+};
+
+export type SkillUsage = {
+	skill: string;
+	count: number;
+};
+
+export type FileUsage = {
+	file: string;
 	count: number;
 };
 

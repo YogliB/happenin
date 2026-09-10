@@ -27,11 +27,13 @@ export function renderFilters(options: FilterOptionLists, selected: FilterOption
 	const event = selected.event;
 	const minDuration = selected.minDuration !== undefined ? String(selected.minDuration) : "";
 	const maxDuration = selected.maxDuration !== undefined ? String(selected.maxDuration) : "";
+	const mdProject = selected.mdProject;
 	return `<div class="filter-bar">
 	<label>status ${renderSelect("status", statuses, status)}</label>
 	<label>source ${renderSelect("source", options.sources, source)}</label>
 	<label>tool ${renderSelect("tool", options.tools, tool)}</label>
 	<label>event ${renderSelect("event", options.events, event)}</label>
+	<label>md files repo ${renderSelect("mdProject", options.projects, mdProject, "all repos")}</label>
 	<label>min duration (m) <input type="number" name="minDuration" min="0" step="any" placeholder="min" value="${escapeHtml(minDuration)}"></label>
 	<label>max duration (m) <input type="number" name="maxDuration" min="0" step="any" placeholder="max" value="${escapeHtml(maxDuration)}"></label>
 </div>`;

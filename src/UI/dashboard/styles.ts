@@ -63,8 +63,14 @@ button:hover { background: var(--surface-5); }
 .theme { display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem; padding: 0.35rem 0.6rem; line-height: 1; }
 .dashboard-layout { flex: 1 1 auto; display: grid; grid-template-columns: 22rem 1fr; gap: 1.25rem; min-height: 0; overflow: hidden; }
 .session-sidebar { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; min-height: 0; }
+.session-collapse { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.session-collapse[open] { flex: 1 1 auto; }
+.session-collapse > summary { padding: 0.75rem 1rem; margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--text-2); border-bottom: 1px solid var(--border); background: var(--surface-2); position: sticky; top: 0; z-index: 2; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 0.4rem; }
+.session-collapse > summary::-webkit-details-marker { display: none; }
+.session-collapse > summary::before { content: "▸"; }
+.session-collapse[open] > summary::before { content: "▾"; }
+.session-collapse-count { color: var(--text-4); font-weight: 500; }
 .session-list-wrapper { flex: 1 1 auto; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
-.session-list-title { padding: 0.75rem 1rem; margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--text-2); border-bottom: 1px solid var(--border); background: var(--surface-2); position: sticky; top: 0; z-index: 2; }
 .session-list { flex: 1 1 auto; list-style: none; padding: 0; margin: 0; overflow-y: auto; }
 .status-badge { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.15rem 0.45rem; border-radius: 0.25rem; }
 .status-active { background: rgba(34,197,94,0.15); color: var(--success); }

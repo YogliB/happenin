@@ -25,6 +25,8 @@ import { renderFilters } from "../src/UI/dashboard/components/Filters.js";
 import { renderMetricCards } from "../src/UI/dashboard/components/MetricCards.js";
 import { renderEventFrequencyChart } from "../src/UI/dashboard/components/ChartEvents.js";
 import { renderToolChart } from "../src/UI/dashboard/components/ChartTools.js";
+import { renderSkillChart } from "../src/UI/dashboard/components/ChartSkills.js";
+import { renderTopFiles } from "../src/UI/dashboard/components/TopFiles.js";
 import { renderSessionsTable } from "../src/UI/dashboard/components/SessionsTable.js";
 import { renderSessionDetail } from "../src/UI/dashboard/components/DetailPanel.js";
 import type { EventInsert, Session } from "../src/shared/types.js";
@@ -687,6 +689,7 @@ describe("dashboard page and fragments", () => {
 			range: "24h",
 			status: "active",
 			tool: "Shell",
+			mdProject: "/repo-a",
 			minDuration: 0,
 			maxDuration: 10,
 			limit: 5,
@@ -699,6 +702,7 @@ describe("dashboard page and fragments", () => {
 		expect(first).toContain("limit=5");
 		expect(first).toContain("q=findme");
 		expect(first).toContain("status=active");
+		expect(first).toContain("mdProject=%2Frepo-a");
 
 		const middle = renderSessionsContent(db, {
 			limit: 5,
@@ -758,19 +762,34 @@ describe("dashboard components", () => {
 
 	it("renders filters with selected values", () => {
 		const html = renderFilters(
-			{ sources: ["claude", "cursor"], events: [], tools: ["Shell", "Edit"] },
-			{ status: "active", source: "cursor", tool: "Shell", minDuration: 5, maxDuration: 30 },
+			{
+				sources: ["claude", "cursor"],
+				events: [],
+				tools: ["Shell", "Edit"],
+				projects: ["/repo-a", "/repo-b"],
+			},
+			{
+				status: "active",
+				source: "cursor",
+				tool: "Shell",
+				mdProject: "/repo-a",
+				minDuration: 5,
+				maxDuration: 30,
+			},
 		);
 		expect(html).toContain('name="status"');
 		expect(html).toContain('name="source"');
 		expect(html).toContain('name="tool"');
+		expect(html).toContain('name="mdProject"');
+		expect(html).toContain('value="/repo-a" selected');
 		expect(html).toContain('value="5"');
 		expect(html).toContain('value="30"');
 	});
 
 	it("renders filters with no selection", () => {
-		const html = renderFilters({ sources: [], events: [], tools: [] }, {});
+		const html = renderFilters({ sources: [], events: [], tools: [], projects: [] }, {});
 		expect(html).toContain('<option value="" selected>all</option>');
+		expect(html).toContain('<option value="" selected>all repos</option>');
 	});
 
 	it("renders metric cards", () => {
@@ -779,17 +798,26 @@ describe("dashboard components", () => {
 			totalEvents: 100,
 			averageDurationMs: 125000,
 			successRate: 85.5,
+			sessionsLast24h: 3,
+			sessionsLast7d: 8,
+			sessionsLast30d: 10,
 		});
 		expect(full).toContain("10");
 		expect(full).toContain("100");
 		expect(full).toContain("2m 5s");
 		expect(full).toContain("86%");
+		expect(full).toContain("Sessions (24h)");
+		expect(full).toContain("Sessions (7d)");
+		expect(full).toContain("Sessions (30d)");
 
 		const empty = renderMetricCards({
 			totalSessions: 0,
 			totalEvents: 0,
 			averageDurationMs: 0,
 			successRate: 0,
+			sessionsLast24h: 0,
+			sessionsLast7d: 0,
+			sessionsLast30d: 0,
 		});
 		expect(empty).toContain("-");
 	});
@@ -836,6 +864,27 @@ describe("dashboard components", () => {
 		expect(multi).toContain("Edit");
 		expect(multi).toContain('style="width: 50%"');
 		expect(multi).toContain("title=");
+	});
+
+	it("renders skill chart", () => {
+		const empty = renderSkillChart([]);
+		expect(empty).toContain("No data");
+
+		const single = renderSkillChart([{ skill: "commit-push-pr", count: 3 }]);
+		expect(single).toContain("commit-push-pr");
+		expect(single).toContain('style="width: 100%"');
+	});
+
+	it("renders top markdown files", () => {
+		const empty = renderTopFiles([]);
+		expect(empty).toContain("No data");
+
+		const single = renderTopFiles([{ file: "/repo/README.md", count: 4 }]);
+		expect(single).toContain("README.md");
+		expect(single).toContain('style="width: 100%"');
+
+		const long = renderTopFiles([{ file: `/${"a".repeat(60)}/README.md`, count: 1 }]);
+		expect(long).toContain("…");
 	});
 
 	it("renders sessions table", () => {

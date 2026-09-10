@@ -4,12 +4,17 @@ import {
 	getEvents,
 	getEventFrequency,
 	getToolUsage,
+	getSkillUsage,
+	getTopMdFiles,
+	getSessionCountsByWindow,
 	getFilteredSessions,
 	countEvents,
 } from "../../shared/db.js";
 import { renderMetricCards } from "./components/MetricCards.js";
 import { renderEventFrequencyChart } from "./components/ChartEvents.js";
 import { renderToolChart } from "./components/ChartTools.js";
+import { renderSkillChart } from "./components/ChartSkills.js";
+import { renderTopFiles } from "./components/TopFiles.js";
 import { renderSessionsTable } from "./components/SessionsTable.js";
 import { renderSessionDetail } from "./components/DetailPanel.js";
 import type {
@@ -19,6 +24,8 @@ import type {
 	SessionMetrics,
 	TimeRange,
 	ToolUsage,
+	SkillUsage,
+	FileUsage,
 } from "../../shared/types.js";
 
 export type QueryOptions = FilterOptions;
@@ -51,6 +58,7 @@ export function parseQuery(url: URL): QueryOptions {
 	const q = url.searchParams.get("q") || undefined;
 	const status = url.searchParams.get("status") || undefined;
 	const tool = url.searchParams.get("tool") || undefined;
+	const mdProject = url.searchParams.get("mdProject") || undefined;
 	const minDuration = url.searchParams.get("minDuration");
 	const maxDuration = url.searchParams.get("maxDuration");
 	const rangeRaw = url.searchParams.get("range") || "24h";
@@ -76,6 +84,7 @@ export function parseQuery(url: URL): QueryOptions {
 		status:
 			status === "active" || status === "completed" || status === "failed" ? status : undefined,
 		tool,
+		mdProject,
 		minDuration: parseNumber(minDuration),
 		maxDuration: parseNumber(maxDuration),
 		range,
@@ -94,6 +103,7 @@ function buildPagerLink(query: QueryOptions, offset: number, limit: number): str
 	if (query.range) params.set("range", query.range);
 	if (query.status) params.set("status", query.status);
 	if (query.tool) params.set("tool", query.tool);
+	if (query.mdProject) params.set("mdProject", query.mdProject);
 	if (query.minDuration !== undefined) params.set("minDuration", String(query.minDuration));
 	if (query.maxDuration !== undefined) params.set("maxDuration", String(query.maxDuration));
 	params.set("limit", String(limit));
@@ -130,11 +140,15 @@ function renderSessionsSidebar(
 	const limit = query.limit && query.limit > 0 ? query.limit : 25;
 	const offset = query.offset ?? 0;
 	const pageSessions = allSessions.slice(offset, offset + limit);
+	const open = activeSessionId ? " open" : "";
 	return `<aside class="session-sidebar">
+<details class="session-collapse"${open}>
+<summary>Recent Sessions <span class="session-collapse-count">${allSessions.length}</span></summary>
 <div class="session-list-wrapper">
 ${renderSessionsTable(pageSessions, now, activeSessionId, activeSubagentId, query)}
 ${renderPager(query, allSessions.length)}
 </div>
+</details>
 </aside>`;
 }
 
@@ -149,10 +163,14 @@ export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): st
 	const sessionIds = allSessions.map((s) => s.sessionId);
 	let frequency: EventFrequency[] = [];
 	let toolUsage: ToolUsage[] = [];
+	let skillUsage: SkillUsage[] = [];
+	let topMdFiles: FileUsage[] = [];
 	if (sessionIds.length > 0) {
 		const chartQuery: QueryOptions = { ...query, subagentId: undefined, sessionIds };
 		frequency = getEventFrequency(db, chartQuery, hours, groupBy, now);
 		toolUsage = getToolUsage(db, chartQuery, 10, now);
+		skillUsage = getSkillUsage(db, chartQuery, 10, now);
+		topMdFiles = getTopMdFiles(db, chartQuery, 10, now);
 	}
 	const totalSessions = allSessions.length;
 	const totalEvents = allSessions.reduce((sum, s) => sum + s.eventCount, 0);
@@ -160,12 +178,19 @@ export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): st
 		totalSessions > 0 ? allSessions.reduce((sum, s) => sum + s.durationMs, 0) / totalSessions : 0;
 	const successCount = allSessions.filter((s) => s.failureCount === 0).length;
 	const successRate = totalSessions > 0 ? (successCount / totalSessions) * 100 : 0;
-	const metrics: SessionMetrics = { totalSessions, totalEvents, averageDurationMs, successRate };
+	const windowCounts = getSessionCountsByWindow(db, { ...query, subagentId: undefined }, now);
+	const metrics: SessionMetrics = {
+		totalSessions,
+		totalEvents,
+		averageDurationMs,
+		successRate,
+		...windowCounts,
+	};
 
 	return `${renderSessionsSidebar(allSessions, query, now)}
 <div class="main-content">
 <div class="main-metrics">${renderMetricCards(metrics)}</div>
-<div class="top-charts">${renderEventFrequencyChart(frequency, groupBy)}${renderToolChart(toolUsage)}</div>
+<div class="top-charts">${renderEventFrequencyChart(frequency, groupBy)}${renderToolChart(toolUsage)}${renderSkillChart(skillUsage)}${renderTopFiles(topMdFiles)}</div>
 </div>`;
 }
 

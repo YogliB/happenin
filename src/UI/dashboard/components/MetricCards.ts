@@ -29,5 +29,20 @@ export function renderMetricCards(metrics: SessionMetrics): string {
 		<div class="metric-label">Success Rate</div>
 		<div class="metric-value">${success}</div>
 	</div>
+	<div class="metric-card metric-sessions">
+		<div class="metric-icon">${trendIcon}</div>
+		<div class="metric-label">Sessions (24h)</div>
+		<div class="metric-value">${metrics.sessionsLast24h.toLocaleString()}</div>
+	</div>
+	<div class="metric-card metric-sessions">
+		<div class="metric-icon">${trendIcon}</div>
+		<div class="metric-label">Sessions (7d)</div>
+		<div class="metric-value">${metrics.sessionsLast7d.toLocaleString()}</div>
+	</div>
+	<div class="metric-card metric-sessions">
+		<div class="metric-icon">${trendIcon}</div>
+		<div class="metric-label">Sessions (30d)</div>
+		<div class="metric-value">${metrics.sessionsLast30d.toLocaleString()}</div>
+	</div>
 </div>`;
 }

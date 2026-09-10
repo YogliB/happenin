@@ -126,6 +126,12 @@ Starts a local HTTP server and opens the dashboard.
 - `--no-open` — do not open the browser.
 - `--silent` — alias for `--no-open`; used automatically by `npm start`.
 
+The main screen shows session counts for the last 24h/7d/30d (fixed rolling windows), average
+duration, and success rate, plus charts for the top 10 tools, top 10 skills, and top 10 markdown
+files touched — the markdown files list can be scoped to one repo with the "md files repo" filter.
+The recent sessions list is a collapsible panel that starts closed; it opens automatically when a
+session is selected.
+
 ```bash
 happenin dashboard --port 9000 --silent
 ```
