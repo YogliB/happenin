@@ -21,6 +21,8 @@ import {
 	getLastEventId,
 	getSessions,
 	getToolUsage,
+	getSkillUsage,
+	getTopMdFiles,
 	getEventFrequency,
 	getFilterOptions,
 	getFilteredSessions,
@@ -1004,6 +1006,63 @@ describe("db edge cases", () => {
 		}
 	});
 
+	it("aggregates skill usage and top markdown files", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Skill",
+			skillName: "commit-push-pr",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Read",
+			filePath: "/repo-a/README.md",
+			projectPath: "/repo-a",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-2",
+			toolName: "Read",
+			filePath: "/repo-b/NOTES.md",
+			projectPath: "/repo-b",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-2",
+			toolName: "Bash",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const skills = getSkillUsage(db, {});
+			expect(skills.length).toBe(1);
+			expect(skills[0].skill).toBe("commit-push-pr");
+			expect(skills[0].count).toBe(1);
+
+			const allMdFiles = getTopMdFiles(db, {});
+			expect(allMdFiles.length).toBe(2);
+
+			const scopedMdFiles = getTopMdFiles(db, { mdDir: "/repo-a" });
+			expect(scopedMdFiles.length).toBe(1);
+			expect(scopedMdFiles[0].file).toBe("/repo-a/README.md");
+		} finally {
+			db.close();
+		}
+	});
+
 	it("returns hourly event frequency with backfilled buckets", () => {
 		const db = initDb(":memory:");
 		const now = new Date();
@@ -1110,13 +1169,24 @@ describe("db edge cases", () => {
 			event: "PreToolUse",
 			sessionId: "s-2",
 			toolName: "Edit",
+			projectPath: "/repo-a",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-3",
+			toolName: "Read",
+			projectPath: "/private/tmp/some-session",
 			payload: JSON.stringify({}),
 		});
 
 		try {
 			const options = getFilterOptions(db);
-			expect(options.tools).toEqual(["Edit", "Shell"]);
+			expect(options.tools).toEqual(["Edit", "Read", "Shell"]);
 			expect(options.sources).toEqual(["claude", "cursor"]);
+			expect(options.directories).toEqual(["/repo-a"]);
 		} finally {
 			db.close();
 		}

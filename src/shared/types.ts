@@ -39,15 +39,20 @@ export type FilterOptions = {
 	offset?: number;
 	status?: SessionStatus;
 	tool?: string;
+	skill?: string;
+	file?: string;
 	minDuration?: number;
 	maxDuration?: number;
 	range?: TimeRange;
+	mdDir?: string;
+	view?: "overview" | "list";
 };
 
 export type FilterOptionLists = {
 	sources: string[];
 	events: string[];
 	tools: string[];
+	directories: string[];
 };
 
 export type SessionMetrics = {
@@ -59,6 +64,16 @@ export type SessionMetrics = {
 
 export type ToolUsage = {
 	tool: string;
+	count: number;
+};
+
+export type SkillUsage = {
+	skill: string;
+	count: number;
+};
+
+export type FileUsage = {
+	file: string;
 	count: number;
 };
 

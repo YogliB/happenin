@@ -13,6 +13,8 @@ import type {
 	SessionStatus,
 	TimeRange,
 	ToolUsage,
+	SkillUsage,
+	FileUsage,
 	EventFrequency,
 } from "./types.js";
 
@@ -427,6 +429,14 @@ function buildWhereClause(
 		conditions.push("tool_name = ?");
 		params.push(options.tool);
 	}
+	if (options.skill !== undefined && options.skill !== "") {
+		conditions.push("skill_name = ?");
+		params.push(options.skill);
+	}
+	if (options.file !== undefined && options.file !== "") {
+		conditions.push("file_path = ?");
+		params.push(options.file);
+	}
 	if (options.sessionId !== undefined && options.sessionId !== "") {
 		if (options.sessionIdExact) {
 			conditions.push("session_id = ?");
@@ -633,6 +643,39 @@ export const getToolUsage = (
 	return stmt.all(...params, limit) as ToolUsage[];
 };
 
+export const getSkillUsage = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	limit = 10,
+	now = Date.now(),
+): SkillUsage[] => {
+	const { clause, params } = buildWhereClause(options, now);
+	const skillCondition = "skill_name IS NOT NULL AND skill_name <> ''";
+	const where = clause ? `${clause} AND ${skillCondition}` : `WHERE ${skillCondition}`;
+	const sql = `SELECT skill_name AS skill, COUNT(*) AS count FROM events ${where} GROUP BY skill_name ORDER BY count DESC, skill_name ASC LIMIT ?`;
+	const stmt = db.prepare(sql);
+	return stmt.all(...params, limit) as SkillUsage[];
+};
+
+export const getTopMdFiles = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	limit = 10,
+	now = Date.now(),
+): FileUsage[] => {
+	const { clause, params } = buildWhereClause(options, now);
+	const conditions = ["file_path IS NOT NULL", "file_path <> ''", "LOWER(file_path) LIKE '%.md'"];
+	if (options.mdDir) {
+		conditions.push("project_path = ?");
+	}
+	const fileClause = conditions.join(" AND ");
+	const where = clause ? `${clause} AND ${fileClause}` : `WHERE ${fileClause}`;
+	const sql = `SELECT file_path AS file, COUNT(*) AS count FROM events ${where} GROUP BY file_path ORDER BY count DESC, file_path ASC LIMIT ?`;
+	const stmt = db.prepare(sql);
+	const sqlParams = options.mdDir ? [...params, options.mdDir, limit] : [...params, limit];
+	return stmt.all(...sqlParams) as FileUsage[];
+};
+
 function bucketExpr(groupBy: "hour" | "day"): string {
 	if (groupBy === "day") {
 		return `strftime('%Y-%m-%dT00:00:00.000Z', ${timeExpr})`;
@@ -816,11 +859,17 @@ export const getFilterOptions = (db: DatabaseSync): FilterOptionLists => {
 			"SELECT DISTINCT tool_name AS tool FROM events WHERE tool_name IS NOT NULL AND tool_name <> '' ORDER BY tool_name",
 		)
 		.all() as { tool: string }[];
+	const directoryRows = db
+		.prepare(
+			"SELECT DISTINCT project_path AS dir FROM events WHERE project_path IS NOT NULL AND project_path <> '' AND project_path NOT LIKE '/private/%' ORDER BY project_path",
+		)
+		.all() as { dir: string }[];
 
 	return {
 		sources: sourceRows.map((row) => row.source),
 		events: eventRows.map((row) => row.event),
 		tools: toolRows.map((row) => row.tool),
+		directories: directoryRows.map((row) => row.dir),
 	};
 };
 
