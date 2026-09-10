@@ -19,7 +19,9 @@ import {
 	formatDuration,
 	formatTimestamp,
 	truncate,
+	commonPathPrefix,
 } from "../src/UI/dashboard/utils.js";
+import { buildFragmentUrl } from "../src/UI/dashboard/queryLink.js";
 import { renderHeader } from "../src/UI/dashboard/components/Header.js";
 import { renderFilters } from "../src/UI/dashboard/components/Filters.js";
 import { renderMetricCards } from "../src/UI/dashboard/components/MetricCards.js";
@@ -226,7 +228,7 @@ describe("dashboard", () => {
 		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 		const html = res.end.mock.calls[0]?.[0] as string;
 		expect(html).toContain("metric-grid");
-		expect(html).toContain("sessions-table");
+		expect(html).toContain("top-charts");
 	});
 
 	it("falls back to the default time range for invalid range values", () => {
@@ -542,7 +544,7 @@ describe("dashboard page and fragments", () => {
 
 	it("parses all query parameters", () => {
 		const url = new URL(
-			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5",
+			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&skill=commit-push-pr&file=%2Fa.md&mdDir=%2Frepo&view=list&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5",
 		);
 		const query = parseQuery(url);
 		expect(query.q).toBe("test");
@@ -550,6 +552,10 @@ describe("dashboard page and fragments", () => {
 		expect(query.status).toBe("failed");
 		expect(query.source).toBe("cursor");
 		expect(query.tool).toBe("Shell");
+		expect(query.skill).toBe("commit-push-pr");
+		expect(query.file).toBe("/a.md");
+		expect(query.mdDir).toBe("/repo");
+		expect(query.view).toBe("list");
 		expect(query.minDuration).toBe(1);
 		expect(query.maxDuration).toBe(10);
 		expect(query.sessionId).toBe("s-1");
@@ -560,12 +566,27 @@ describe("dashboard page and fragments", () => {
 		expect(query.offset).toBe(5);
 	});
 
+	it("ignores a view parameter other than list", () => {
+		const query = parseQuery(new URL("http://localhost/?view=overview"));
+		expect(query.view).toBeUndefined();
+	});
+
+	it("omits view and offset from the URL when unset", () => {
+		const url = buildFragmentUrl({});
+		expect(url).toBe("/fragments/sessions?");
+	});
+
 	it("renders sessions and events content", () => {
 		const db = initDb(":memory:");
 		insertEvent(db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
 		const sessionsHtml = renderSessionsContent(db, {});
 		expect(sessionsHtml).toContain("metric-grid");
-		expect(sessionsHtml).toContain("sessions-table");
+		expect(sessionsHtml).not.toContain("sessions-table");
+
+		const listHtml = renderSessionsContent(db, { view: "list" });
+		expect(listHtml).toContain("sessions-list-view");
+		expect(listHtml).toContain("sessions-table");
+		expect(listHtml).not.toContain("metric-grid");
 
 		const eventsHtml = renderSessionDetailFragment(db, { sessionId: "s-1" });
 		expect(eventsHtml).toContain("Session Details - s-1");
@@ -581,7 +602,52 @@ describe("dashboard page and fragments", () => {
 
 		const htmlAll = renderSessionsContent(db, { range: "all" });
 		expect(htmlAll).toContain("metric-grid");
-		expect(htmlAll).toContain("sessions-table");
+		db.close();
+	});
+
+	it("filters the sessions list view by tool, skill, or file and clears the filter", () => {
+		const db = initDb(":memory:");
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				toolName: "Skill",
+				skillName: "commit-push-pr",
+				payload: JSON.stringify({}),
+			}),
+		);
+		insertEvent(
+			db,
+			eventInsert({ sessionId: "s-2", toolName: "Bash", payload: JSON.stringify({}) }),
+		);
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-3",
+				toolName: "Read",
+				filePath: "/repo/README.md",
+				payload: JSON.stringify({}),
+			}),
+		);
+
+		const bySkill = renderSessionsContent(db, { view: "list", skill: "commit-push-pr" });
+		expect(bySkill).toContain("Sessions using skill: <strong>commit-push-pr</strong>");
+		expect(bySkill).toContain("s-1");
+		expect(bySkill).not.toContain("s-2");
+		expect(bySkill).toContain("Clear");
+
+		const byFile = renderSessionsContent(db, { view: "list", file: "/repo/README.md" });
+		expect(byFile).toContain("Sessions using file: <strong>/repo/README.md</strong>");
+		expect(byFile).toContain("s-3");
+		expect(byFile).not.toContain("s-1");
+
+		const byTool = renderSessionsContent(db, { view: "list", tool: "Bash" });
+		expect(byTool).toContain("Sessions using tool: <strong>Bash</strong>");
+		expect(byTool).toContain("s-2");
+		expect(byTool).not.toContain("s-1");
+
+		const unfiltered = renderSessionsContent(db, { view: "list" });
+		expect(unfiltered).not.toContain("sessions-list-filter");
 		db.close();
 	});
 
@@ -681,6 +747,7 @@ describe("dashboard page and fragments", () => {
 			);
 		}
 		const first = renderSessionsContent(db, {
+			view: "list",
 			q: "findme",
 			source: "cursor",
 			event: "preToolUse",
@@ -689,7 +756,7 @@ describe("dashboard page and fragments", () => {
 			range: "24h",
 			status: "active",
 			tool: "Shell",
-			mdProject: "/repo-a",
+			mdDir: "/repo-a",
 			minDuration: 0,
 			maxDuration: 10,
 			limit: 5,
@@ -702,9 +769,10 @@ describe("dashboard page and fragments", () => {
 		expect(first).toContain("limit=5");
 		expect(first).toContain("q=findme");
 		expect(first).toContain("status=active");
-		expect(first).toContain("mdProject=%2Frepo-a");
+		expect(first).toContain("mdDir=%2Frepo-a");
 
 		const middle = renderSessionsContent(db, {
+			view: "list",
 			limit: 5,
 			offset: 5,
 		});
@@ -713,13 +781,14 @@ describe("dashboard page and fragments", () => {
 		expect(middle).toContain('offset=10"');
 
 		const last = renderSessionsContent(db, {
+			view: "list",
 			limit: 5,
 			offset: 10,
 		});
 		expect(last).toContain("Page 3 of 3");
 		expect(last).toContain("Next</button>");
 
-		const noPager = renderSessionsContent(db, { limit: 100 });
+		const noPager = renderSessionsContent(db, { view: "list", limit: 100 });
 		expect(noPager).not.toContain('class="pager"');
 		db.close();
 	});
@@ -752,6 +821,14 @@ describe("dashboard components", () => {
 		expect(formatTimestamp(ts)).toContain("2024");
 	});
 
+	it("finds the longest slash-aligned common path prefix", () => {
+		expect(commonPathPrefix([])).toBe("");
+		expect(commonPathPrefix(["/only/one/path"])).toBe("/only/one/");
+		expect(commonPathPrefix(["/repo-a", "/repo-b"])).toBe("");
+		expect(commonPathPrefix(["/Users/dev/repo-a", "/Users/dev/repo-b"])).toBe("/Users/dev/");
+		expect(commonPathPrefix(["abc", "xyz"])).toBe("");
+	});
+
 	it("renders header with selected values", () => {
 		const html = renderHeader({ q: "test", range: "7d" });
 		expect(html).toContain("happenin");
@@ -766,13 +843,13 @@ describe("dashboard components", () => {
 				sources: ["claude", "cursor"],
 				events: [],
 				tools: ["Shell", "Edit"],
-				projects: ["/repo-a", "/repo-b"],
+				directories: ["/repo-a", "/repo-b"],
 			},
 			{
 				status: "active",
 				source: "cursor",
 				tool: "Shell",
-				mdProject: "/repo-a",
+				mdDir: "/repo-a",
 				minDuration: 5,
 				maxDuration: 30,
 			},
@@ -780,16 +857,31 @@ describe("dashboard components", () => {
 		expect(html).toContain('name="status"');
 		expect(html).toContain('name="source"');
 		expect(html).toContain('name="tool"');
-		expect(html).toContain('name="mdProject"');
+		expect(html).toContain('name="mdDir"');
 		expect(html).toContain('value="/repo-a" selected');
 		expect(html).toContain('value="5"');
 		expect(html).toContain('value="30"');
 	});
 
 	it("renders filters with no selection", () => {
-		const html = renderFilters({ sources: [], events: [], tools: [], projects: [] }, {});
+		const html = renderFilters({ sources: [], events: [], tools: [], directories: [] }, {});
 		expect(html).toContain('<option value="" selected>all</option>');
-		expect(html).toContain('<option value="" selected>all repos</option>');
+		expect(html).toContain('<option value="" selected>all directories</option>');
+	});
+
+	it("strips the common path prefix from directory option labels", () => {
+		const html = renderFilters(
+			{
+				sources: [],
+				events: [],
+				tools: [],
+				directories: ["/Users/dev/Workspace/repo-a", "/Users/dev/Workspace/repo-b"],
+			},
+			{},
+		);
+		expect(html).toContain(">repo-a<");
+		expect(html).toContain(">repo-b<");
+		expect(html).not.toContain(">/Users/dev/Workspace/repo-a<");
 	});
 
 	it("renders metric cards", () => {
@@ -798,26 +890,17 @@ describe("dashboard components", () => {
 			totalEvents: 100,
 			averageDurationMs: 125000,
 			successRate: 85.5,
-			sessionsLast24h: 3,
-			sessionsLast7d: 8,
-			sessionsLast30d: 10,
 		});
 		expect(full).toContain("10");
 		expect(full).toContain("100");
 		expect(full).toContain("2m 5s");
 		expect(full).toContain("86%");
-		expect(full).toContain("Sessions (24h)");
-		expect(full).toContain("Sessions (7d)");
-		expect(full).toContain("Sessions (30d)");
 
 		const empty = renderMetricCards({
 			totalSessions: 0,
 			totalEvents: 0,
 			averageDurationMs: 0,
 			successRate: 0,
-			sessionsLast24h: 0,
-			sessionsLast7d: 0,
-			sessionsLast30d: 0,
 		});
 		expect(empty).toContain("-");
 	});
@@ -873,6 +956,11 @@ describe("dashboard components", () => {
 		const single = renderSkillChart([{ skill: "commit-push-pr", count: 3 }]);
 		expect(single).toContain("commit-push-pr");
 		expect(single).toContain('style="width: 100%"');
+		expect(single).not.toContain("<a ");
+
+		const linked = renderSkillChart([{ skill: "commit-push-pr", count: 3 }], { range: "24h" });
+		expect(linked).toContain('<a class="tool-row"');
+		expect(linked).toContain("skill=commit-push-pr");
 	});
 
 	it("renders top markdown files", () => {
@@ -882,9 +970,14 @@ describe("dashboard components", () => {
 		const single = renderTopFiles([{ file: "/repo/README.md", count: 4 }]);
 		expect(single).toContain("README.md");
 		expect(single).toContain('style="width: 100%"');
+		expect(single).not.toContain("<a ");
 
 		const long = renderTopFiles([{ file: `/${"a".repeat(60)}/README.md`, count: 1 }]);
 		expect(long).toContain("…");
+
+		const linked = renderTopFiles([{ file: "/repo/README.md", count: 4 }], { range: "24h" });
+		expect(linked).toContain('<a class="tool-row"');
+		expect(linked).toContain("file=%2Frepo%2FREADME.md");
 	});
 
 	it("renders sessions table", () => {

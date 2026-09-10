@@ -23,7 +23,6 @@ import {
 	getToolUsage,
 	getSkillUsage,
 	getTopMdFiles,
-	getSessionCountsByWindow,
 	getEventFrequency,
 	getFilterOptions,
 	getFilteredSessions,
@@ -1007,7 +1006,7 @@ describe("db edge cases", () => {
 		}
 	});
 
-	it("aggregates skill usage, top markdown files, and rolling session counts", () => {
+	it("aggregates skill usage and top markdown files", () => {
 		const db = initDb(":memory:");
 		insertEvent(db, {
 			source: "claude",
@@ -1056,39 +1055,10 @@ describe("db edge cases", () => {
 			const allMdFiles = getTopMdFiles(db, {});
 			expect(allMdFiles.length).toBe(2);
 
-			const scopedMdFiles = getTopMdFiles(db, { mdProject: "/repo-a" });
+			const scopedMdFiles = getTopMdFiles(db, { mdDir: "/repo-a" });
 			expect(scopedMdFiles.length).toBe(1);
 			expect(scopedMdFiles[0].file).toBe("/repo-a/README.md");
-
-			const counts = getSessionCountsByWindow(db, {});
-			expect(counts.sessionsLast24h).toBe(2);
-			expect(counts.sessionsLast7d).toBe(2);
-			expect(counts.sessionsLast30d).toBe(2);
 		} finally {
-			db.close();
-		}
-	});
-
-	it("returns 0 when a session-count-window row is missing", () => {
-		const db = initDb(":memory:");
-		const originalPrepare = DatabaseSync.prototype.prepare;
-		const spy = vi.spyOn(DatabaseSync.prototype, "prepare").mockImplementation(function (
-			this: DatabaseSync,
-			sql: string,
-		) {
-			if (String(sql).includes("COUNT(DISTINCT session_id)")) {
-				return { get: () => undefined } as ReturnType<DatabaseSync["prepare"]>;
-			}
-			return originalPrepare.call(this, sql);
-		});
-
-		try {
-			const counts = getSessionCountsByWindow(db, {});
-			expect(counts.sessionsLast24h).toBe(0);
-			expect(counts.sessionsLast7d).toBe(0);
-			expect(counts.sessionsLast30d).toBe(0);
-		} finally {
-			spy.mockRestore();
 			db.close();
 		}
 	});
@@ -1202,12 +1172,21 @@ describe("db edge cases", () => {
 			projectPath: "/repo-a",
 			payload: JSON.stringify({}),
 		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-3",
+			toolName: "Read",
+			projectPath: "/private/tmp/some-session",
+			payload: JSON.stringify({}),
+		});
 
 		try {
 			const options = getFilterOptions(db);
-			expect(options.tools).toEqual(["Edit", "Shell"]);
+			expect(options.tools).toEqual(["Edit", "Read", "Shell"]);
 			expect(options.sources).toEqual(["claude", "cursor"]);
-			expect(options.projects).toEqual(["/repo-a"]);
+			expect(options.directories).toEqual(["/repo-a"]);
 		} finally {
 			db.close();
 		}
