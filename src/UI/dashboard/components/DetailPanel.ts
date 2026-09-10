@@ -1,6 +1,6 @@
 import { escapeHtml, escapeAttr, formatTimestamp, truncate } from "../utils.js";
 import { eventView } from "../../../shared/view.js";
-import type { EventRow } from "../../../shared/types.js";
+import type { EventRow, Session } from "../../../shared/types.js";
 
 const backIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`;
 const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
@@ -55,10 +55,12 @@ function eventAttrs(e: EventRow): string {
 	const subagentType = escapeHtml(e.subagentType ?? "");
 	const project = escapeHtml(e.projectPath ?? "");
 	const file = escapeHtml(e.filePath ?? "");
+	const skill = escapeHtml(e.skillName ?? "");
 	const subagentCell = subagentId
 		? `<div><span>Subagent</span><span>${subagentType || "-"} (${subagentId})</span></div>`
 		: "";
 	const fileCell = file ? `<div><span>File</span><span>${file}</span></div>` : "";
+	const skillCell = skill ? `<div><span>Skill</span><span>${skill}</span></div>` : "";
 	return `<div class="detail-attrs">
 	<div><span>Time</span><span>${ts}</span></div>
 	<div><span>Source</span><span>${source}</span></div>
@@ -68,6 +70,7 @@ function eventAttrs(e: EventRow): string {
 	<div><span>Project</span><span>${project || "-"}</span></div>
 	${subagentCell}
 	${fileCell}
+	${skillCell}
 </div>`;
 }
 
@@ -80,6 +83,25 @@ function renderEventJson(e: EventRow): string {
 	</details>
 	<button type="button" class="json-copy" onclick="copyEventJson(this)" title="Copy JSON" aria-label="Copy JSON">${copyIcon}</button>
 </div>`;
+}
+
+function renderSummaryGroup(label: string, values: string[]): string {
+	if (values.length === 0) return "";
+	const chips = values
+		.map((v) => `<span class="chip" title="${escapeAttr(v)}">${escapeHtml(truncate(v, 40))}</span>`)
+		.join("");
+	return `<div class="summary-group"><span class="summary-label">${label} (${values.length})</span><div class="summary-chips">${chips}</div></div>`;
+}
+
+function renderSessionSummary(session: Session | undefined): string {
+	if (!session) return "";
+	const groups = [
+		renderSummaryGroup("Tools", session.tools),
+		renderSummaryGroup("Skills", session.skills),
+		renderSummaryGroup("Files", session.files),
+	].join("");
+	if (!groups) return "";
+	return `<div class="detail-summary">${groups}</div>`;
 }
 
 function renderEvent(e: EventRow): string {
@@ -123,6 +145,7 @@ export function renderSessionDetail(
 	events: EventRow[],
 	totalEvents?: number,
 	activeSubagentId?: string,
+	summary?: Session,
 ): string {
 	if (!sessionId)
 		return `<div class="detail-header"><h2 class="detail-title">Session Details</h2></div><div class="empty">No events.</div>`;
@@ -145,6 +168,7 @@ export function renderSessionDetail(
 		<h2 class="detail-title">Session Details - ${escapeHtml(title)}</h2>
 		<span class="detail-count">${totalEvents ?? displayEvents.length} events</span>
 	</div>
+	${renderSessionSummary(summary)}
 	${truncated}
 	<div class="detail-toolbar">
 		<input type="search" class="detail-search" placeholder="Search attributes..." oninput="filterSessionDetails(this.value)">

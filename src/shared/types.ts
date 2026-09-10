@@ -9,6 +9,7 @@ export type EventInsert = {
 	projectPath?: string;
 	filePath?: string;
 	toolName?: string;
+	skillName?: string;
 	payload: string;
 	sourcePath?: string;
 	subagentId?: string | null;
@@ -77,6 +78,8 @@ export type Session = {
 	projectPath: string | null;
 	projectPaths: string[];
 	tools: string[];
+	skills: string[];
+	files: string[];
 	failureCount: number;
 	subagentId?: string | null;
 	subagentType?: string | null;

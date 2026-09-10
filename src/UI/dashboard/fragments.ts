@@ -209,8 +209,12 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 		sessionIdExact: true,
 		subagentId: query.subagentId,
 	});
+	const activeSession = allSessions.find((s) => s.sessionId === query.sessionId);
+	const summary = query.subagentId
+		? activeSession?.children?.find((c) => c.subagentId === query.subagentId)
+		: activeSession;
 	return `${sidebar}
-<div class="main-content">${renderSessionDetail(query.sessionId, rows, total, query.subagentId)}</div>`;
+<div class="main-content">${renderSessionDetail(query.sessionId, rows, total, query.subagentId, summary)}</div>`;
 }
 
 export function sendSessionDetailFragment(

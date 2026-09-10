@@ -620,6 +620,16 @@ describe("dashboard page and fragments", () => {
 			eventInsert({
 				sessionId: "s-1",
 				event: "preToolUse",
+				toolName: "Skill",
+				skillName: "commit-push-pr",
+				payload: JSON.stringify({}),
+			}),
+		);
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				event: "preToolUse",
 				subagentId: "sa-2",
 				toolName: "Read",
 				payload: JSON.stringify({}),
@@ -645,6 +655,8 @@ describe("dashboard page and fragments", () => {
 		expect(html).toContain("Read");
 		expect(html).toContain("Write");
 		expect(html).toContain("/some/path");
+		expect(html).toContain("commit-push-pr");
+		expect(html).toContain("detail-summary");
 
 		const filtered = renderSessionDetailFragment(db, { sessionId: "s-1", subagentId: "sa-1" });
 		expect(filtered).toContain("Session Details - s-1 · sa-1");

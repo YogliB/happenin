@@ -53,14 +53,21 @@ The hook target. Reads a JSON payload from stdin, writes it to `~/.happenin/happ
 
 This command is normally called by the agent hooks, not directly.
 
-### `happenin import`
+### `happenin import [--force]`
 
 Imports existing transcripts:
 
-- Claude Code JSONL from `~/.claude/projects/<project>/<session>.jsonl`.
+- Claude Code JSONL from `~/.claude/projects/<project>/<session>.jsonl`. Each `tool_use` block in an
+  assistant message is recorded as its own event with `tool_name` (and `file_path` for
+  `Read`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit`, `skill_name` for `Skill` calls) set, so tool
+  usage, skills used, and files touched are queryable and show up on the dashboard.
 - Cursor `prompt_history.json` and `meta.json` from `~/.cursor/chats/<hash>/<session>/`.
 
 `store.db` is skipped because it is encrypted.
+
+Files are only re-parsed when their modification time changes. `--force` clears that tracking and
+re-imports every discovered file from scratch — use it after upgrading `happenin` to pick up
+extraction changes for transcripts that were already imported.
 
 ### `happenin query [options]`
 
@@ -86,7 +93,7 @@ happenin query --session abc123 --format summary
 
 ### `happenin sessions [options]`
 
-Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes.
+Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes. Each session includes `tools`, `skills`, and `files` — the distinct tool names, skill names (from `Skill` tool calls), and file paths (from `Read`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit` calls) seen in that session. The dashboard's session detail view shows the same three lists.
 
 - `--source <source>` — filter sessions by source.
 - `--event <event>` — filter sessions by event name.

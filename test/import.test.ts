@@ -85,6 +85,89 @@ describe("import", () => {
 		db.close();
 	});
 
+	it("extracts tool_use blocks from assistant messages as tool_name/file_path events", async () => {
+		const home = process.env.HOME as string;
+
+		const claudeDir = path.join(home, ".claude/projects/session");
+		mkdirSync(claudeDir, { recursive: true });
+		writeFileSync(
+			path.join(claudeDir, "session.jsonl"),
+			[
+				JSON.stringify({
+					type: "assistant",
+					sessionId: "session",
+					message: {
+						content: [
+							{ type: "text", text: "reading a file" },
+							{ type: "tool_use", name: "Read", input: { file_path: "/tmp/a.ts" } },
+							{ type: "tool_use", name: "Bash", input: { command: "ls" } },
+						],
+					},
+				}),
+				JSON.stringify({
+					type: "assistant",
+					sessionId: "session",
+					message: { content: [{ type: "text", text: "no tools here" }] },
+				}),
+				JSON.stringify({
+					type: "assistant",
+					sessionId: "session",
+					message: {
+						content: [{ type: "tool_use", name: "Skill", input: { skill: "commit-push-pr" } }],
+					},
+				}),
+				JSON.stringify({
+					type: "assistant",
+					sessionId: "session",
+					message: { content: "not an array" },
+				}),
+			].join("\n"),
+		);
+
+		const db = initDb(":memory:");
+		await importTranscripts(db);
+
+		const all = getEvents(db, { limit: 100 });
+		expect(all.length).toBe(5);
+
+		const read = all.find((r) => r.toolName === "Read");
+		expect(read?.filePath).toBe("/tmp/a.ts");
+
+		const bash = all.find((r) => r.toolName === "Bash");
+		expect(bash?.filePath).toBeNull();
+
+		const skill = all.find((r) => r.toolName === "Skill");
+		expect(skill?.skillName).toBe("commit-push-pr");
+
+		const plain = all.find((r) => r.toolName === null);
+		expect(plain).toBeDefined();
+
+		db.close();
+	});
+
+	it("re-imports unchanged files when --force is passed", async () => {
+		const home = process.env.HOME as string;
+
+		const claudeDir = path.join(home, ".claude/projects/session");
+		mkdirSync(claudeDir, { recursive: true });
+		writeFileSync(path.join(claudeDir, "session.jsonl"), JSON.stringify({ type: "user" }));
+
+		await runImport();
+		const afterFirst = getEvents(initDb(), { limit: 10 });
+		expect(afterFirst.length).toBe(1);
+		const firstId = afterFirst[0].id;
+
+		await runImport();
+		const afterSkip = getEvents(initDb(), { limit: 10 });
+		expect(afterSkip.length).toBe(1);
+		expect(afterSkip[0].id).toBe(firstId);
+
+		await runImport(["--force"]);
+		const afterForce = getEvents(initDb(), { limit: 10 });
+		expect(afterForce.length).toBe(1);
+		expect(afterForce[0].id).toBeGreaterThan(firstId);
+	});
+
 	it("skips unchanged files on the second import", async () => {
 		const home = process.env.HOME as string;
 

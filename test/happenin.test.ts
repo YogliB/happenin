@@ -163,13 +163,14 @@ describe("happenin", () => {
 				const version = db.prepare("PRAGMA user_version").get() as
 					| { user_version: number }
 					| undefined;
-				expect(version?.user_version).toBe(2);
+				expect(version?.user_version).toBe(3);
 
 				const columns = db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
 				const names = columns.map((col) => col.name);
 				expect(names).toContain("subagent_id");
 				expect(names).toContain("subagent_type");
 				expect(names).toContain("transcript_path");
+				expect(names).toContain("skill_name");
 
 				backfillSubagentMetadata(db);
 				const rows = getEvents(db, { event: "subagentStart", limit: 10 });
@@ -199,7 +200,7 @@ describe("happenin", () => {
 				const version = db2.prepare("PRAGMA user_version").get() as
 					| { user_version: number }
 					| undefined;
-				expect(version?.user_version).toBe(2);
+				expect(version?.user_version).toBe(3);
 			} finally {
 				db2.close();
 				cleanup(dir);
