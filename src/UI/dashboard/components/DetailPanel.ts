@@ -1,6 +1,7 @@
 import { escapeHtml, escapeAttr, formatTimestamp, truncate } from "../utils.js";
 import { eventView } from "../../../shared/view.js";
-import type { EventRow, Session } from "../../../shared/types.js";
+import { renderContextBreakdown } from "./ContextBreakdown.js";
+import type { ContextBreakdown, EventRow, Session } from "../../../shared/types.js";
 
 const backIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`;
 const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
@@ -146,6 +147,7 @@ export function renderSessionDetail(
 	totalEvents?: number,
 	activeSubagentId?: string,
 	summary?: Session,
+	breakdown?: ContextBreakdown,
 ): string {
 	if (!sessionId)
 		return `<div class="detail-header"><h2 class="detail-title">Session Details</h2></div><div class="empty">No events.</div>`;
@@ -169,6 +171,7 @@ export function renderSessionDetail(
 		<span class="detail-count">${totalEvents ?? displayEvents.length} events</span>
 	</div>
 	${renderSessionSummary(summary)}
+	${breakdown ? renderContextBreakdown(breakdown) : ""}
 	${truncated}
 	<div class="detail-toolbar">
 		<input type="search" class="detail-search" placeholder="Search attributes..." oninput="filterSessionDetails(this.value)">

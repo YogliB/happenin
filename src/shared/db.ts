@@ -16,6 +16,8 @@ import type {
 	SkillUsage,
 	FileUsage,
 	EventFrequency,
+	ContextBreakdown,
+	ContextBucketKey,
 } from "./types.js";
 
 const eventsColumns = `
@@ -674,6 +676,63 @@ export const getTopMdFiles = (
 	const stmt = db.prepare(sql);
 	const sqlParams = options.mdDir ? [...params, options.mdDir, limit] : [...params, limit];
 	return stmt.all(...sqlParams) as FileUsage[];
+};
+
+const contextBucketCaseSql = `
+	CASE
+		WHEN tool_name LIKE 'mcp\\_\\_%' ESCAPE '\\' THEN 'mcpServers'
+		WHEN file_path IS NOT NULL AND file_path <> '' AND LOWER(file_path) LIKE '%.md' THEN 'mdFiles'
+		WHEN skill_name IS NOT NULL AND skill_name <> '' THEN 'bloatware'
+		WHEN tool_name IS NOT NULL AND tool_name <> '' THEN 'actualValue'
+		WHEN event IN ('user', 'assistant', 'prompt') THEN 'actualValue'
+		ELSE 'bloatware'
+	END
+`;
+
+const contextTokensSql = `
+	CASE WHEN json_valid(payload) THEN
+		COALESCE(json_extract(payload, '$.message.usage.input_tokens'), 0) +
+		COALESCE(json_extract(payload, '$.message.usage.cache_creation_input_tokens'), 0) +
+		COALESCE(json_extract(payload, '$.message.usage.cache_read_input_tokens'), 0)
+	ELSE 0 END
+`;
+
+function emptyContextBreakdown(): ContextBreakdown {
+	return {
+		bytes: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+		tokens: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+	};
+}
+
+export const getContextBreakdown = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	now = Date.now(),
+): ContextBreakdown => {
+	const { clause, params } = buildWhereClause(options, now);
+	const sql = `
+		SELECT
+			${contextBucketCaseSql} AS bucket,
+			SUM(LENGTH(payload)) AS bytes,
+			SUM(${contextTokensSql}) AS tokens
+		FROM events
+		${clause}
+		GROUP BY ${contextBucketCaseSql}
+	`;
+	const rows = db.prepare(sql).all(...params) as {
+		bucket: ContextBucketKey;
+		bytes: number | bigint;
+		tokens: number | bigint;
+	}[];
+
+	const breakdown = emptyContextBreakdown();
+	for (const row of rows) {
+		// oxlint-disable-next-line security/detect-object-injection -- row.bucket comes from the hard-coded CASE expression above
+		breakdown.bytes[row.bucket] = Number(row.bytes);
+		// oxlint-disable-next-line security/detect-object-injection -- row.bucket comes from the hard-coded CASE expression above
+		breakdown.tokens[row.bucket] = Number(row.tokens);
+	}
+	return breakdown;
 };
 
 function bucketExpr(groupBy: "hour" | "day"): string {
