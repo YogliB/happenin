@@ -23,6 +23,7 @@ import {
 	getToolUsage,
 	getSkillUsage,
 	getTopMdFiles,
+	getContextBreakdown,
 	getEventFrequency,
 	getFilterOptions,
 	getFilteredSessions,
@@ -1058,6 +1059,125 @@ describe("db edge cases", () => {
 			const scopedMdFiles = getTopMdFiles(db, { mdDir: "/repo-a" });
 			expect(scopedMdFiles.length).toBe(1);
 			expect(scopedMdFiles[0].file).toBe("/repo-a/README.md");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("returns an all-zero context breakdown for an empty database", () => {
+		const db = initDb(":memory:");
+		try {
+			const breakdown = getContextBreakdown(db, {});
+			expect(breakdown.bytes).toEqual({
+				mcpServers: 0,
+				mdFiles: 0,
+				bloatware: 0,
+				actualValue: 0,
+			});
+			expect(breakdown.tokens).toEqual({
+				mcpServers: 0,
+				mdFiles: 0,
+				bloatware: 0,
+				actualValue: 0,
+			});
+		} finally {
+			db.close();
+		}
+	});
+
+	it("buckets events into mcp servers, markdown files, bloatware, and actual value", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "claude-transcript",
+			client: "claude_code",
+			event: "assistant",
+			sessionId: "s-1",
+			toolName: "mcp__mcp-broker__jira_search",
+			payload: JSON.stringify({ tool: "mcp" }),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Read",
+			filePath: "/repo/AGENTS.md",
+			payload: JSON.stringify({ tool: "Read" }),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Skill",
+			skillName: "ponytail",
+			payload: JSON.stringify({ tool: "Skill" }),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "SessionStart",
+			sessionId: "s-1",
+			payload: JSON.stringify({ hook: "SessionStart" }),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Bash",
+			payload: JSON.stringify({ tool: "Bash" }),
+		});
+		insertEvent(db, {
+			source: "claude-transcript",
+			client: "claude_code",
+			event: "assistant",
+			sessionId: "s-1",
+			payload: JSON.stringify({
+				message: {
+					usage: {
+						input_tokens: 2,
+						cache_creation_input_tokens: 100,
+						cache_read_input_tokens: 8,
+					},
+				},
+			}),
+		});
+		insertEvent(db, {
+			source: "cursor-transcript",
+			client: "cursor",
+			event: "other-metadata",
+			sessionId: "s-2",
+			payload: JSON.stringify({ meta: true }),
+		});
+
+		try {
+			const breakdown = getContextBreakdown(db, { sessionId: "s-1", sessionIdExact: true });
+			expect(breakdown.bytes.mcpServers).toBe(JSON.stringify({ tool: "mcp" }).length);
+			expect(breakdown.bytes.mdFiles).toBe(JSON.stringify({ tool: "Read" }).length);
+			expect(breakdown.bytes.bloatware).toBe(
+				JSON.stringify({ tool: "Skill" }).length + JSON.stringify({ hook: "SessionStart" }).length,
+			);
+			expect(breakdown.bytes.actualValue).toBe(
+				JSON.stringify({ tool: "Bash" }).length +
+					JSON.stringify({
+						message: {
+							usage: {
+								input_tokens: 2,
+								cache_creation_input_tokens: 100,
+								cache_read_input_tokens: 8,
+							},
+						},
+					}).length,
+			);
+			expect(breakdown.tokens.actualValue).toBe(110);
+			expect(breakdown.tokens.mcpServers).toBe(0);
+			expect(breakdown.tokens.mdFiles).toBe(0);
+			expect(breakdown.tokens.bloatware).toBe(0);
+
+			const other = getContextBreakdown(db, { sessionId: "s-2", sessionIdExact: true });
+			expect(other.bytes.bloatware).toBe(JSON.stringify({ meta: true }).length);
+			expect(other.bytes.actualValue).toBe(0);
 		} finally {
 			db.close();
 		}

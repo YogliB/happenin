@@ -194,7 +194,18 @@ a.tool-row:hover .tool-name { color: var(--accent); }
 .metric-icon { position: absolute; top: 0.75rem; right: 0.75rem; opacity: 0.8; }
 .metric-label { font-size: 0.72rem; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
 .metric-value { font-size: 1.75rem; font-weight: 800; color: var(--text); margin-top: 0.25rem; letter-spacing: -0.02em; }
+.context-breakdown { min-height: 0; }
+.context-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.context-bar-block { display: flex; flex-direction: column; gap: 0.5rem; }
+.context-bar-title { font-size: 0.78rem; font-weight: 600; color: var(--text-3); margin: 0; }
+.context-bar { display: flex; height: 0.85rem; border-radius: 0.4rem; overflow: hidden; background: var(--surface-4); }
+.context-segment { height: 100%; }
+.context-legend { display: flex; flex-direction: column; gap: 0.3rem; }
+.context-legend-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--text-2); }
+.context-legend-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; flex: 0 0 auto; }
+.context-legend-label { flex: 1 1 auto; }
+.context-legend-value { color: var(--text-3); font-weight: 600; }
 .empty { color: var(--text-4); text-align: center; padding: 2rem; }
-@media (max-width: 960px) { .top-charts { grid-template-columns: 1fr; } .metric-grid { grid-template-columns: repeat(2, 1fr); } .main-metrics .metric-grid { grid-template-columns: repeat(2, 1fr); } .detail-attrs { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 960px) { .top-charts { grid-template-columns: 1fr; } .metric-grid { grid-template-columns: repeat(2, 1fr); } .main-metrics .metric-grid { grid-template-columns: repeat(2, 1fr); } .detail-attrs { grid-template-columns: repeat(2, 1fr); } .context-bars { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .app { padding: 0.75rem; } .app-header { flex-direction: column; align-items: flex-start; } .header-controls, .filter-bar { width: 100%; } input.search { min-width: 0; width: 100%; } .search-wrap { width: 100%; } .metric-grid { grid-template-columns: 1fr; } .main-metrics .metric-grid { grid-template-columns: 1fr; } .detail-attrs { grid-template-columns: 1fr; } .detail-toolbar input[type="search"] { min-width: 0; width: 100%; } }
 `;

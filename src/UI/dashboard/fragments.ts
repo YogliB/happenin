@@ -6,6 +6,7 @@ import {
 	getToolUsage,
 	getSkillUsage,
 	getTopMdFiles,
+	getContextBreakdown,
 	getFilteredSessions,
 	countEvents,
 } from "../../shared/db.js";
@@ -16,6 +17,7 @@ import { renderEventFrequencyChart } from "./components/ChartEvents.js";
 import { renderToolChart } from "./components/ChartTools.js";
 import { renderSkillChart } from "./components/ChartSkills.js";
 import { renderTopFiles } from "./components/TopFiles.js";
+import { renderContextBreakdown } from "./components/ContextBreakdown.js";
 import { renderSessionsTable } from "./components/SessionsTable.js";
 import { renderSessionDetail } from "./components/DetailPanel.js";
 import type {
@@ -26,7 +28,13 @@ import type {
 	ToolUsage,
 	SkillUsage,
 	FileUsage,
+	ContextBreakdown,
 } from "../../shared/types.js";
+
+const EMPTY_CONTEXT_BREAKDOWN: ContextBreakdown = {
+	bytes: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+	tokens: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+};
 
 export type QueryOptions = FilterOptions;
 
@@ -173,12 +181,14 @@ export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): st
 	let toolUsage: ToolUsage[] = [];
 	let skillUsage: SkillUsage[] = [];
 	let topMdFiles: FileUsage[] = [];
+	let contextBreakdown: ContextBreakdown = EMPTY_CONTEXT_BREAKDOWN;
 	if (sessionIds.length > 0) {
 		const chartQuery: QueryOptions = { ...query, subagentId: undefined, sessionIds };
 		frequency = getEventFrequency(db, chartQuery, hours, groupBy, now);
 		toolUsage = getToolUsage(db, chartQuery, 10, now);
 		skillUsage = getSkillUsage(db, chartQuery, 10, now);
 		topMdFiles = getTopMdFiles(db, chartQuery, 10, now);
+		contextBreakdown = getContextBreakdown(db, chartQuery, now);
 	}
 	const totalSessions = allSessions.length;
 	const totalEvents = allSessions.reduce((sum, s) => sum + s.eventCount, 0);
@@ -191,6 +201,7 @@ export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): st
 	return `<div class="main-content">
 <div class="main-metrics">${renderMetricCards(metrics)}</div>
 <div class="top-charts">${renderEventFrequencyChart(frequency, groupBy)}${renderToolChart(toolUsage, query)}${renderSkillChart(skillUsage, query)}${renderTopFiles(topMdFiles, query)}</div>
+${renderContextBreakdown(contextBreakdown)}
 </div>`;
 }
 
@@ -232,11 +243,18 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 		sessionIdExact: true,
 		subagentId: query.subagentId,
 	});
+	const breakdown = getContextBreakdown(db, {
+		...query,
+		range: undefined,
+		sessionId: query.sessionId,
+		sessionIdExact: true,
+		subagentId: query.subagentId,
+	});
 	const activeSession = allSessions.find((s) => s.sessionId === query.sessionId);
 	const summary = query.subagentId
 		? activeSession?.children?.find((c) => c.subagentId === query.subagentId)
 		: activeSession;
-	return `<div class="main-content">${renderSessionDetail(query.sessionId, rows, total, query.subagentId, summary)}</div>`;
+	return `<div class="main-content">${renderSessionDetail(query.sessionId, rows, total, query.subagentId, summary, breakdown)}</div>`;
 }
 
 export function sendSessionDetailFragment(

@@ -76,7 +76,7 @@ Common commands:
 - `src/UI/dashboard/index.ts` — HTTP server, SSE, and routing.
 - `src/UI/dashboard/page.ts` — full-page HTML shell and client script.
 - `src/UI/dashboard/fragments.ts` — HTMX fragment rendering and query parsing.
-- `src/UI/dashboard/components/*.ts` — header, filters, metric cards, charts, sessions table, detail panel.
+- `src/UI/dashboard/components/*.ts` — header, filters, metric cards, charts, context breakdown, sessions table, detail panel.
 - `assets/help.md` — help text shown by `--help`.
 - `dist/` — build output.
 - `test/` — vitest test files.

@@ -82,6 +82,13 @@ export type EventFrequency = {
 	count: number;
 };
 
+export type ContextBucketKey = "mcpServers" | "mdFiles" | "bloatware" | "actualValue";
+
+export type ContextBreakdown = {
+	bytes: Record<ContextBucketKey, number>;
+	tokens: Record<ContextBucketKey, number>;
+};
+
 export type Session = {
 	sessionId: string | null;
 	firstAt: string | null;

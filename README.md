@@ -132,6 +132,13 @@ Clicking a tool, skill, or file jumps to a list of every session that used it. T
 chart can be scoped to one directory with the "md files directory" filter (the common path prefix
 is stripped from the dropdown labels, and paths under `/private` are excluded).
 
+A context breakdown widget splits recorded payload size (and, for imported Claude sessions, token
+usage) into four buckets: MCP server calls, markdown file reads, bloatware (skill loads and
+lifecycle/hook noise), and actual value (real tool calls and conversation turns). It appears on the
+main dashboard for the current filter/date range, and again inside a session's detail view scoped
+to that session. This is a heuristic, not an exact accounting — Claude Code does not log its system
+prompt or tool schemas to the transcript, so there is no ground truth to bucket against.
+
 The "Recent Sessions" bar above the charts is collapsed by default — clicking it replaces the
 metrics/charts with the full session list; clicking it again (or picking a session) returns to the
 previous view.

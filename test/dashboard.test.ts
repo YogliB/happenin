@@ -32,7 +32,12 @@ import { renderSkillChart } from "../src/UI/dashboard/components/ChartSkills.js"
 import { renderTopFiles } from "../src/UI/dashboard/components/TopFiles.js";
 import { renderSessionsTable } from "../src/UI/dashboard/components/SessionsTable.js";
 import { renderSessionDetail } from "../src/UI/dashboard/components/DetailPanel.js";
-import type { EventInsert, Session } from "../src/shared/types.js";
+import {
+	renderContextBreakdown,
+	formatBytes,
+	formatTokens,
+} from "../src/UI/dashboard/components/ContextBreakdown.js";
+import type { ContextBreakdown, EventInsert, Session } from "../src/shared/types.js";
 
 vi.mock("node:http", () => ({ default: { createServer: vi.fn() } }));
 vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
@@ -810,6 +815,48 @@ describe("dashboard page and fragments", () => {
 });
 
 describe("dashboard components", () => {
+	it("formats bytes and tokens at each magnitude", () => {
+		expect(formatBytes(0)).toBe("0B");
+		expect(formatBytes(500)).toBe("500B");
+		expect(formatBytes(2500)).toBe("2.5KB");
+		expect(formatBytes(2_500_000)).toBe("2.5MB");
+		expect(formatTokens(0)).toBe("0");
+		expect(formatTokens(500)).toBe("500");
+		expect(formatTokens(2500)).toBe("2.5K");
+		expect(formatTokens(2_500_000)).toBe("2.5M");
+	});
+
+	it("renders an empty context breakdown for a database with no matching data", () => {
+		const empty: ContextBreakdown = {
+			bytes: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+			tokens: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+		};
+		const html = renderContextBreakdown(empty);
+		expect(html).toContain("Context Breakdown");
+		expect(html.match(/chart-empty/g)?.length).toBe(2);
+		expect(html).toContain("No data");
+		expect(html).toContain("happenin import");
+	});
+
+	it("renders a context breakdown bar and legend for each bucket", () => {
+		const breakdown: ContextBreakdown = {
+			bytes: { mcpServers: 500, mdFiles: 2500, bloatware: 0, actualValue: 2_500_000 },
+			tokens: { mcpServers: 0, mdFiles: 0, bloatware: 12, actualValue: 88 },
+		};
+		const html = renderContextBreakdown(breakdown);
+		expect(html).toContain("MCP servers");
+		expect(html).toContain("Markdown files");
+		expect(html).toContain("Bloatware");
+		expect(html).toContain("Actual value");
+		expect(html).toContain("500B");
+		expect(html).toContain("2.5KB");
+		expect(html).toContain("2.5MB");
+		expect(html).toContain("12 · 12.0%");
+		expect(html).toContain("88 · 88.0%");
+		expect(html.match(/context-segment/g)?.length).toBe(5);
+		expect(html).not.toContain("No data");
+	});
+
 	it("escapes and formats helpers", () => {
 		expect(escapeHtml("<script>")).toBe("&lt;script&gt;");
 		expect(escapeAttr('a"b')).toBe("a&quot;b");
