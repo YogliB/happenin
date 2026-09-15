@@ -46,6 +46,11 @@ describe("install", () => {
 		expect(resolveBin()).toBe("/usr/local/bin/happenin");
 	});
 
+	it("resolveBin returns an npx command inside an npx cache", () => {
+		process.argv[1] = path.join(tmpdir(), "_npx", "abc123", "node_modules", ".bin", "happenin");
+		expect(resolveBin()).toBe("npx -y happenin");
+	});
+
 	it("formatError extracts messages from Error and strings", () => {
 		expect(formatError(new Error("boom"))).toBe("boom");
 		expect(formatError("plain string")).toBe("plain string");
@@ -88,6 +93,92 @@ describe("install", () => {
 		expect(
 			claude.hooks.UserPromptSubmit[claude.hooks.UserPromptSubmit.length - 1].hooks[0].command,
 		).toMatch(/ record claude UserPromptSubmit$/);
+	});
+
+	it("replaces previous happenin hooks instead of duplicating them", async () => {
+		process.argv[1] = "happenin";
+		await runInstall([]);
+		await runInstall([]);
+
+		const home = process.env.HOME as string;
+		const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
+		expect(cursor.hooks.beforeSubmitPrompt.length).toBe(1);
+		expect(cursor.hooks.beforeSubmitPrompt[0].command).toMatch(/happenin record cursor$/);
+
+		const claude = JSON.parse(readFileSync(path.join(home, ".claude/settings.json"), "utf8"));
+		expect(claude.hooks.UserPromptSubmit.length).toBe(1);
+		expect(claude.hooks.UserPromptSubmit[0].hooks[0].command).toMatch(
+			/ record claude UserPromptSubmit$/,
+		);
+	});
+
+	it("keeps user hooks and odd entries while replacing happenin hooks", async () => {
+		process.argv[1] = "happenin";
+		const home = process.env.HOME as string;
+		mkdirSync(path.join(home, ".cursor"), { recursive: true });
+		writeFileSync(
+			path.join(home, ".cursor/hooks.json"),
+			JSON.stringify({
+				version: 1,
+				hooks: {
+					beforeSubmitPrompt: [
+						{ command: "happenin record cursor" },
+						{ command: "user-hook" },
+						{ command: 123 },
+						"not-an-object",
+					],
+				},
+			}),
+		);
+		mkdirSync(path.join(home, ".claude"), { recursive: true });
+		writeFileSync(
+			path.join(home, ".claude/settings.json"),
+			JSON.stringify({
+				hooks: {
+					UserPromptSubmit: [
+						"not-an-object",
+						{ matcher: "no-hooks-array" },
+						{
+							matcher: "",
+							hooks: [
+								{ type: "command", command: "npx -y happenin record claude UserPromptSubmit" },
+								{ type: "command", command: "user-hook" },
+								{ type: "command", command: 123 },
+								"not-an-object",
+							],
+						},
+					],
+				},
+			}),
+		);
+
+		await runInstall([]);
+
+		const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
+		expect(cursor.hooks.beforeSubmitPrompt).toEqual([
+			{ command: "user-hook" },
+			{ command: 123 },
+			"not-an-object",
+			{ command: "happenin record cursor" },
+		]);
+
+		const claude = JSON.parse(readFileSync(path.join(home, ".claude/settings.json"), "utf8"));
+		expect(claude.hooks.UserPromptSubmit).toEqual([
+			"not-an-object",
+			{ matcher: "no-hooks-array" },
+			{
+				matcher: "",
+				hooks: [
+					{ type: "command", command: "user-hook" },
+					{ type: "command", command: 123 },
+					"not-an-object",
+				],
+			},
+			{
+				matcher: "",
+				hooks: [{ type: "command", command: "happenin record claude UserPromptSubmit" }],
+			},
+		]);
 	});
 
 	it("rejects invalid JSON with a formatted error", async () => {
