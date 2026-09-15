@@ -4,22 +4,37 @@ import {
 	getEvents,
 	getEventFrequency,
 	getToolUsage,
+	getSkillUsage,
+	getTopMdFiles,
+	getContextBreakdown,
 	getFilteredSessions,
 	countEvents,
 } from "../../shared/db.js";
+import { escapeHtml } from "./utils.js";
+import { buildFragmentUrl } from "./queryLink.js";
 import { renderMetricCards } from "./components/MetricCards.js";
 import { renderEventFrequencyChart } from "./components/ChartEvents.js";
 import { renderToolChart } from "./components/ChartTools.js";
+import { renderSkillChart } from "./components/ChartSkills.js";
+import { renderTopFiles } from "./components/TopFiles.js";
+import { renderContextBreakdown } from "./components/ContextBreakdown.js";
 import { renderSessionsTable } from "./components/SessionsTable.js";
 import { renderSessionDetail } from "./components/DetailPanel.js";
 import type {
 	EventFrequency,
 	FilterOptions,
-	Session,
 	SessionMetrics,
 	TimeRange,
 	ToolUsage,
+	SkillUsage,
+	FileUsage,
+	ContextBreakdown,
 } from "../../shared/types.js";
+
+const EMPTY_CONTEXT_BREAKDOWN: ContextBreakdown = {
+	bytes: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+	tokens: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+};
 
 export type QueryOptions = FilterOptions;
 
@@ -51,6 +66,11 @@ export function parseQuery(url: URL): QueryOptions {
 	const q = url.searchParams.get("q") || undefined;
 	const status = url.searchParams.get("status") || undefined;
 	const tool = url.searchParams.get("tool") || undefined;
+	const skill = url.searchParams.get("skill") || undefined;
+	const file = url.searchParams.get("file") || undefined;
+	const mdDir = url.searchParams.get("mdDir") || undefined;
+	const viewRaw = url.searchParams.get("view") || undefined;
+	const view = viewRaw === "list" ? "list" : undefined;
 	const minDuration = url.searchParams.get("minDuration");
 	const maxDuration = url.searchParams.get("maxDuration");
 	const rangeRaw = url.searchParams.get("range") || "24h";
@@ -76,29 +96,16 @@ export function parseQuery(url: URL): QueryOptions {
 		status:
 			status === "active" || status === "completed" || status === "failed" ? status : undefined,
 		tool,
+		skill,
+		file,
+		mdDir,
+		view,
 		minDuration: parseNumber(minDuration),
 		maxDuration: parseNumber(maxDuration),
 		range,
 		limit: parseInteger(limit),
 		offset: parseInteger(offset),
 	};
-}
-
-function buildPagerLink(query: QueryOptions, offset: number, limit: number): string {
-	const params = new URLSearchParams();
-	if (query.source) params.set("source", query.source);
-	if (query.event) params.set("event", query.event);
-	if (query.sessionId) params.set("session", query.sessionId);
-	if (query.q) params.set("q", query.q);
-	if (query.since !== undefined) params.set("since", String(query.since));
-	if (query.range) params.set("range", query.range);
-	if (query.status) params.set("status", query.status);
-	if (query.tool) params.set("tool", query.tool);
-	if (query.minDuration !== undefined) params.set("minDuration", String(query.minDuration));
-	if (query.maxDuration !== undefined) params.set("maxDuration", String(query.maxDuration));
-	params.set("limit", String(limit));
-	params.set("offset", String(offset));
-	return `/fragments/sessions?${params.toString()}`;
 }
 
 function renderPager(query: QueryOptions, total: number): string {
@@ -109,37 +116,60 @@ function renderPager(query: QueryOptions, total: number): string {
 	const totalPages = Math.ceil(total / limit);
 	const prevOffset = offset - limit;
 	const nextOffset = offset + limit;
+	const prevUrl = buildFragmentUrl(query, { offset: Math.max(prevOffset, 0), limit });
+	const nextUrl = buildFragmentUrl(query, { offset: nextOffset, limit });
 	const prev =
 		prevOffset >= 0
-			? `<a href="${buildPagerLink(query, prevOffset, limit)}" hx-get="${buildPagerLink(query, prevOffset, limit)}" hx-target="#dashboard-content" hx-swap="innerHTML">Previous</a>`
+			? `<a href="${prevUrl}" hx-get="${prevUrl}" hx-target="#dashboard-content" hx-swap="innerHTML">Previous</a>`
 			: `<button type="button" disabled>Previous</button>`;
 	const next =
 		nextOffset < total
-			? `<a href="${buildPagerLink(query, nextOffset, limit)}" hx-get="${buildPagerLink(query, nextOffset, limit)}" hx-target="#dashboard-content" hx-swap="innerHTML">Next</a>`
+			? `<a href="${nextUrl}" hx-get="${nextUrl}" hx-target="#dashboard-content" hx-swap="innerHTML">Next</a>`
 			: `<button type="button" disabled>Next</button>`;
 	return `<div class="pager">${prev}<span class="pager-info">Page ${currentPage} of ${totalPages}</span>${next}</div>`;
 }
 
-function renderSessionsSidebar(
-	allSessions: Session[],
-	query: QueryOptions,
-	now: number,
-	activeSessionId?: string,
-	activeSubagentId?: string,
-): string {
+function activeFilterLabel(query: QueryOptions): { kind: string; value: string } | undefined {
+	if (query.skill) return { kind: "skill", value: query.skill };
+	if (query.file) return { kind: "file", value: query.file };
+	if (query.tool) return { kind: "tool", value: query.tool };
+	return undefined;
+}
+
+function renderSessionsListView(db: DatabaseSync, query: QueryOptions, now: number): string {
+	const allSessions = getFilteredSessions(
+		db,
+		{ ...query, subagentId: undefined, limit: undefined, offset: undefined },
+		now,
+	);
 	const limit = query.limit && query.limit > 0 ? query.limit : 25;
 	const offset = query.offset ?? 0;
 	const pageSessions = allSessions.slice(offset, offset + limit);
-	return `<aside class="session-sidebar">
+	const active = activeFilterLabel(query);
+	const clearUrl = buildFragmentUrl(query, {
+		tool: undefined,
+		skill: undefined,
+		file: undefined,
+		offset: 0,
+	});
+	const filterBar = active
+		? `<div class="sessions-list-filter">Sessions using ${escapeHtml(active.kind)}: <strong>${escapeHtml(active.value)}</strong> <a href="${clearUrl}" hx-get="${clearUrl}" hx-target="#dashboard-content" hx-swap="innerHTML">Clear</a></div>`
+		: "";
+	return `<div class="main-content sessions-list-view">
+<h2 class="session-list-title">Recent Sessions <span class="session-collapse-count">${allSessions.length}</span></h2>
+${filterBar}
 <div class="session-list-wrapper">
-${renderSessionsTable(pageSessions, now, activeSessionId, activeSubagentId, query)}
+${renderSessionsTable(pageSessions, now, undefined, undefined, query)}
 ${renderPager(query, allSessions.length)}
 </div>
-</aside>`;
+</div>`;
 }
 
 export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): string {
 	const now = Date.now();
+	if (query.view === "list") {
+		return renderSessionsListView(db, query, now);
+	}
 	const { hours, groupBy } = rangeToParams(query.range);
 	const allSessions = getFilteredSessions(
 		db,
@@ -149,10 +179,16 @@ export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): st
 	const sessionIds = allSessions.map((s) => s.sessionId);
 	let frequency: EventFrequency[] = [];
 	let toolUsage: ToolUsage[] = [];
+	let skillUsage: SkillUsage[] = [];
+	let topMdFiles: FileUsage[] = [];
+	let contextBreakdown: ContextBreakdown = EMPTY_CONTEXT_BREAKDOWN;
 	if (sessionIds.length > 0) {
 		const chartQuery: QueryOptions = { ...query, subagentId: undefined, sessionIds };
 		frequency = getEventFrequency(db, chartQuery, hours, groupBy, now);
 		toolUsage = getToolUsage(db, chartQuery, 10, now);
+		skillUsage = getSkillUsage(db, chartQuery, 10, now);
+		topMdFiles = getTopMdFiles(db, chartQuery, 10, now);
+		contextBreakdown = getContextBreakdown(db, chartQuery, now);
 	}
 	const totalSessions = allSessions.length;
 	const totalEvents = allSessions.reduce((sum, s) => sum + s.eventCount, 0);
@@ -162,10 +198,10 @@ export function renderSessionsContent(db: DatabaseSync, query: QueryOptions): st
 	const successRate = totalSessions > 0 ? (successCount / totalSessions) * 100 : 0;
 	const metrics: SessionMetrics = { totalSessions, totalEvents, averageDurationMs, successRate };
 
-	return `${renderSessionsSidebar(allSessions, query, now)}
-<div class="main-content">
+	return `<div class="main-content">
 <div class="main-metrics">${renderMetricCards(metrics)}</div>
-<div class="top-charts">${renderEventFrequencyChart(frequency, groupBy)}${renderToolChart(toolUsage)}</div>
+<div class="top-charts">${renderEventFrequencyChart(frequency, groupBy)}${renderToolChart(toolUsage, query)}${renderSkillChart(skillUsage, query)}${renderTopFiles(topMdFiles, query)}</div>
+${renderContextBreakdown(contextBreakdown)}
 </div>`;
 }
 
@@ -183,16 +219,14 @@ export function sendSessionsFragment(
 
 export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOptions): string {
 	const now = Date.now();
+	if (!query.sessionId) {
+		return `<div class="main-content"><div class="detail-area"><div class="empty">No events.</div></div></div>`;
+	}
 	const allSessions = getFilteredSessions(
 		db,
 		{ ...query, sessionId: undefined, subagentId: undefined, limit: undefined, offset: undefined },
 		now,
 	);
-	const sidebar = renderSessionsSidebar(allSessions, query, now, query.sessionId, query.subagentId);
-	if (!query.sessionId) {
-		return `${sidebar}
-<div class="main-content"><div class="detail-area"><div class="empty">No events.</div></div></div>`;
-	}
 	const rows = getEvents(db, {
 		...query,
 		range: undefined,
@@ -209,8 +243,18 @@ export function renderSessionDetailFragment(db: DatabaseSync, query: QueryOption
 		sessionIdExact: true,
 		subagentId: query.subagentId,
 	});
-	return `${sidebar}
-<div class="main-content">${renderSessionDetail(query.sessionId, rows, total, query.subagentId)}</div>`;
+	const breakdown = getContextBreakdown(db, {
+		...query,
+		range: undefined,
+		sessionId: query.sessionId,
+		sessionIdExact: true,
+		subagentId: query.subagentId,
+	});
+	const activeSession = allSessions.find((s) => s.sessionId === query.sessionId);
+	const summary = query.subagentId
+		? activeSession?.children?.find((c) => c.subagentId === query.subagentId)
+		: activeSession;
+	return `<div class="main-content">${renderSessionDetail(query.sessionId, rows, total, query.subagentId, summary, breakdown)}</div>`;
 }
 
 export function sendSessionDetailFragment(

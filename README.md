@@ -79,14 +79,20 @@ echo '{"hook_event_name":"sessionStart","sessionId":"abc123"}' | happenin record
 echo '{"sessionId":"abc123"}' | happenin record claude SessionStart
 ```
 
-### `happenin import`
+### `happenin import [--force]`
 
 Imports existing transcripts:
 
-- Claude Code JSONL from `~/.claude/projects/<project>/<session>.jsonl`.
+- Claude Code JSONL from `~/.claude/projects/<project>/<session>.jsonl`. Each `tool_use` block in an
+  assistant message becomes its own event with `tool_name` set (and `file_path` for file-editing
+  tools, `skill_name` for `Skill` calls), so tool usage, skills used, and files touched are
+  queryable per session and show up on the dashboard.
 - Cursor `prompt_history.json` and `meta.json` from `~/.cursor/chats/<hash>/<session>/`.
 
 `store.db` is skipped because it is encrypted.
+
+Files are only re-parsed when their modification time changes; pass `--force` to clear that
+tracking and re-import everything from scratch (useful after upgrading `happenin`).
 
 ### `happenin query [options]`
 
@@ -119,6 +125,23 @@ Starts a local HTTP server and opens the dashboard.
 - `--port` — port to listen on (default: `8765`).
 - `--no-open` — do not open the browser.
 - `--silent` — alias for `--no-open`; used automatically by `npm start`.
+
+The main screen shows total sessions/events, average duration, and success rate for the selected
+date range, plus charts for the top 10 tools, top 10 skills, and top 10 markdown files touched.
+Clicking a tool, skill, or file jumps to a list of every session that used it. The markdown files
+chart can be scoped to one directory with the "md files directory" filter (the common path prefix
+is stripped from the dropdown labels, and paths under `/private` are excluded).
+
+A context breakdown widget splits recorded payload size (and, for imported Claude sessions, token
+usage) into four buckets: MCP server calls, markdown file reads, bloatware (skill loads and
+lifecycle/hook noise), and actual value (real tool calls and conversation turns). It appears on the
+main dashboard for the current filter/date range, and again inside a session's detail view scoped
+to that session. This is a heuristic, not an exact accounting — Claude Code does not log its system
+prompt or tool schemas to the transcript, so there is no ground truth to bucket against.
+
+The "Recent Sessions" bar above the charts is collapsed by default — clicking it replaces the
+metrics/charts with the full session list; clicking it again (or picking a session) returns to the
+previous view.
 
 ```bash
 happenin dashboard --port 9000 --silent

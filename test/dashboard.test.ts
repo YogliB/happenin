@@ -19,15 +19,25 @@ import {
 	formatDuration,
 	formatTimestamp,
 	truncate,
+	commonPathPrefix,
 } from "../src/UI/dashboard/utils.js";
+import { buildFragmentUrl } from "../src/UI/dashboard/queryLink.js";
 import { renderHeader } from "../src/UI/dashboard/components/Header.js";
 import { renderFilters } from "../src/UI/dashboard/components/Filters.js";
 import { renderMetricCards } from "../src/UI/dashboard/components/MetricCards.js";
 import { renderEventFrequencyChart } from "../src/UI/dashboard/components/ChartEvents.js";
 import { renderToolChart } from "../src/UI/dashboard/components/ChartTools.js";
+import { renderBarChart } from "../src/UI/dashboard/components/BarChart.js";
+import { renderSkillChart } from "../src/UI/dashboard/components/ChartSkills.js";
+import { renderTopFiles } from "../src/UI/dashboard/components/TopFiles.js";
 import { renderSessionsTable } from "../src/UI/dashboard/components/SessionsTable.js";
 import { renderSessionDetail } from "../src/UI/dashboard/components/DetailPanel.js";
-import type { EventInsert, Session } from "../src/shared/types.js";
+import {
+	renderContextBreakdown,
+	formatBytes,
+	formatTokens,
+} from "../src/UI/dashboard/components/ContextBreakdown.js";
+import type { ContextBreakdown, EventInsert, Session } from "../src/shared/types.js";
 
 vi.mock("node:http", () => ({ default: { createServer: vi.fn() } }));
 vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
@@ -224,7 +234,7 @@ describe("dashboard", () => {
 		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 		const html = res.end.mock.calls[0]?.[0] as string;
 		expect(html).toContain("metric-grid");
-		expect(html).toContain("sessions-table");
+		expect(html).toContain("top-charts");
 	});
 
 	it("falls back to the default time range for invalid range values", () => {
@@ -540,7 +550,7 @@ describe("dashboard page and fragments", () => {
 
 	it("parses all query parameters", () => {
 		const url = new URL(
-			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5",
+			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&skill=commit-push-pr&file=%2Fa.md&mdDir=%2Frepo&view=list&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5",
 		);
 		const query = parseQuery(url);
 		expect(query.q).toBe("test");
@@ -548,6 +558,10 @@ describe("dashboard page and fragments", () => {
 		expect(query.status).toBe("failed");
 		expect(query.source).toBe("cursor");
 		expect(query.tool).toBe("Shell");
+		expect(query.skill).toBe("commit-push-pr");
+		expect(query.file).toBe("/a.md");
+		expect(query.mdDir).toBe("/repo");
+		expect(query.view).toBe("list");
 		expect(query.minDuration).toBe(1);
 		expect(query.maxDuration).toBe(10);
 		expect(query.sessionId).toBe("s-1");
@@ -558,12 +572,27 @@ describe("dashboard page and fragments", () => {
 		expect(query.offset).toBe(5);
 	});
 
+	it("ignores a view parameter other than list", () => {
+		const query = parseQuery(new URL("http://localhost/?view=overview"));
+		expect(query.view).toBeUndefined();
+	});
+
+	it("omits view and offset from the URL when unset", () => {
+		const url = buildFragmentUrl({});
+		expect(url).toBe("/fragments/sessions?");
+	});
+
 	it("renders sessions and events content", () => {
 		const db = initDb(":memory:");
 		insertEvent(db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
 		const sessionsHtml = renderSessionsContent(db, {});
 		expect(sessionsHtml).toContain("metric-grid");
-		expect(sessionsHtml).toContain("sessions-table");
+		expect(sessionsHtml).not.toContain("sessions-table");
+
+		const listHtml = renderSessionsContent(db, { view: "list" });
+		expect(listHtml).toContain("sessions-list-view");
+		expect(listHtml).toContain("sessions-table");
+		expect(listHtml).not.toContain("metric-grid");
 
 		const eventsHtml = renderSessionDetailFragment(db, { sessionId: "s-1" });
 		expect(eventsHtml).toContain("Session Details - s-1");
@@ -579,7 +608,52 @@ describe("dashboard page and fragments", () => {
 
 		const htmlAll = renderSessionsContent(db, { range: "all" });
 		expect(htmlAll).toContain("metric-grid");
-		expect(htmlAll).toContain("sessions-table");
+		db.close();
+	});
+
+	it("filters the sessions list view by tool, skill, or file and clears the filter", () => {
+		const db = initDb(":memory:");
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				toolName: "Skill",
+				skillName: "commit-push-pr",
+				payload: JSON.stringify({}),
+			}),
+		);
+		insertEvent(
+			db,
+			eventInsert({ sessionId: "s-2", toolName: "Bash", payload: JSON.stringify({}) }),
+		);
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-3",
+				toolName: "Read",
+				filePath: "/repo/README.md",
+				payload: JSON.stringify({}),
+			}),
+		);
+
+		const bySkill = renderSessionsContent(db, { view: "list", skill: "commit-push-pr" });
+		expect(bySkill).toContain("Sessions using skill: <strong>commit-push-pr</strong>");
+		expect(bySkill).toContain("s-1");
+		expect(bySkill).not.toContain("s-2");
+		expect(bySkill).toContain("Clear");
+
+		const byFile = renderSessionsContent(db, { view: "list", file: "/repo/README.md" });
+		expect(byFile).toContain("Sessions using file: <strong>/repo/README.md</strong>");
+		expect(byFile).toContain("s-3");
+		expect(byFile).not.toContain("s-1");
+
+		const byTool = renderSessionsContent(db, { view: "list", tool: "Bash" });
+		expect(byTool).toContain("Sessions using tool: <strong>Bash</strong>");
+		expect(byTool).toContain("s-2");
+		expect(byTool).not.toContain("s-1");
+
+		const unfiltered = renderSessionsContent(db, { view: "list" });
+		expect(unfiltered).not.toContain("sessions-list-filter");
 		db.close();
 	});
 
@@ -620,6 +694,16 @@ describe("dashboard page and fragments", () => {
 			eventInsert({
 				sessionId: "s-1",
 				event: "preToolUse",
+				toolName: "Skill",
+				skillName: "commit-push-pr",
+				payload: JSON.stringify({}),
+			}),
+		);
+		insertEvent(
+			db,
+			eventInsert({
+				sessionId: "s-1",
+				event: "preToolUse",
 				subagentId: "sa-2",
 				toolName: "Read",
 				payload: JSON.stringify({}),
@@ -645,6 +729,8 @@ describe("dashboard page and fragments", () => {
 		expect(html).toContain("Read");
 		expect(html).toContain("Write");
 		expect(html).toContain("/some/path");
+		expect(html).toContain("commit-push-pr");
+		expect(html).toContain("detail-summary");
 
 		const filtered = renderSessionDetailFragment(db, { sessionId: "s-1", subagentId: "sa-1" });
 		expect(filtered).toContain("Session Details - s-1 · sa-1");
@@ -667,6 +753,7 @@ describe("dashboard page and fragments", () => {
 			);
 		}
 		const first = renderSessionsContent(db, {
+			view: "list",
 			q: "findme",
 			source: "cursor",
 			event: "preToolUse",
@@ -675,6 +762,7 @@ describe("dashboard page and fragments", () => {
 			range: "24h",
 			status: "active",
 			tool: "Shell",
+			mdDir: "/repo-a",
 			minDuration: 0,
 			maxDuration: 10,
 			limit: 5,
@@ -687,8 +775,10 @@ describe("dashboard page and fragments", () => {
 		expect(first).toContain("limit=5");
 		expect(first).toContain("q=findme");
 		expect(first).toContain("status=active");
+		expect(first).toContain("mdDir=%2Frepo-a");
 
 		const middle = renderSessionsContent(db, {
+			view: "list",
 			limit: 5,
 			offset: 5,
 		});
@@ -697,13 +787,14 @@ describe("dashboard page and fragments", () => {
 		expect(middle).toContain('offset=10"');
 
 		const last = renderSessionsContent(db, {
+			view: "list",
 			limit: 5,
 			offset: 10,
 		});
 		expect(last).toContain("Page 3 of 3");
 		expect(last).toContain("Next</button>");
 
-		const noPager = renderSessionsContent(db, { limit: 100 });
+		const noPager = renderSessionsContent(db, { view: "list", limit: 100 });
 		expect(noPager).not.toContain('class="pager"');
 		db.close();
 	});
@@ -724,6 +815,48 @@ describe("dashboard page and fragments", () => {
 });
 
 describe("dashboard components", () => {
+	it("formats bytes and tokens at each magnitude", () => {
+		expect(formatBytes(0)).toBe("0B");
+		expect(formatBytes(500)).toBe("500B");
+		expect(formatBytes(2500)).toBe("2.5KB");
+		expect(formatBytes(2_500_000)).toBe("2.5MB");
+		expect(formatTokens(0)).toBe("0");
+		expect(formatTokens(500)).toBe("500");
+		expect(formatTokens(2500)).toBe("2.5K");
+		expect(formatTokens(2_500_000)).toBe("2.5M");
+	});
+
+	it("renders an empty context breakdown for a database with no matching data", () => {
+		const empty: ContextBreakdown = {
+			bytes: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+			tokens: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+		};
+		const html = renderContextBreakdown(empty);
+		expect(html).toContain("Context Breakdown");
+		expect(html.match(/chart-empty/g)?.length).toBe(2);
+		expect(html).toContain("No data");
+		expect(html).toContain("happenin import");
+	});
+
+	it("renders a context breakdown bar and legend for each bucket", () => {
+		const breakdown: ContextBreakdown = {
+			bytes: { mcpServers: 500, mdFiles: 2500, bloatware: 0, actualValue: 2_500_000 },
+			tokens: { mcpServers: 0, mdFiles: 0, bloatware: 12, actualValue: 88 },
+		};
+		const html = renderContextBreakdown(breakdown);
+		expect(html).toContain("MCP servers");
+		expect(html).toContain("Markdown files");
+		expect(html).toContain("Bloatware");
+		expect(html).toContain("Actual value");
+		expect(html).toContain("500B");
+		expect(html).toContain("2.5KB");
+		expect(html).toContain("2.5MB");
+		expect(html).toContain("12 · 12.0%");
+		expect(html).toContain("88 · 88.0%");
+		expect(html.match(/context-segment/g)?.length).toBe(5);
+		expect(html).not.toContain("No data");
+	});
+
 	it("escapes and formats helpers", () => {
 		expect(escapeHtml("<script>")).toBe("&lt;script&gt;");
 		expect(escapeAttr('a"b')).toBe("a&quot;b");
@@ -736,6 +869,14 @@ describe("dashboard components", () => {
 		expect(formatTimestamp(ts)).toContain("2024");
 	});
 
+	it("finds the longest slash-aligned common path prefix", () => {
+		expect(commonPathPrefix([])).toBe("");
+		expect(commonPathPrefix(["/only/one/path"])).toBe("/only/one/");
+		expect(commonPathPrefix(["/repo-a", "/repo-b"])).toBe("");
+		expect(commonPathPrefix(["/Users/dev/repo-a", "/Users/dev/repo-b"])).toBe("/Users/dev/");
+		expect(commonPathPrefix(["abc", "xyz"])).toBe("");
+	});
+
 	it("renders header with selected values", () => {
 		const html = renderHeader({ q: "test", range: "7d" });
 		expect(html).toContain("happenin");
@@ -746,19 +887,49 @@ describe("dashboard components", () => {
 
 	it("renders filters with selected values", () => {
 		const html = renderFilters(
-			{ sources: ["claude", "cursor"], events: [], tools: ["Shell", "Edit"] },
-			{ status: "active", source: "cursor", tool: "Shell", minDuration: 5, maxDuration: 30 },
+			{
+				sources: ["claude", "cursor"],
+				events: [],
+				tools: ["Shell", "Edit"],
+				directories: ["/repo-a", "/repo-b"],
+			},
+			{
+				status: "active",
+				source: "cursor",
+				tool: "Shell",
+				mdDir: "/repo-a",
+				minDuration: 5,
+				maxDuration: 30,
+			},
 		);
 		expect(html).toContain('name="status"');
 		expect(html).toContain('name="source"');
 		expect(html).toContain('name="tool"');
+		expect(html).toContain('name="mdDir"');
+		expect(html).toContain('value="/repo-a" selected');
 		expect(html).toContain('value="5"');
 		expect(html).toContain('value="30"');
 	});
 
 	it("renders filters with no selection", () => {
-		const html = renderFilters({ sources: [], events: [], tools: [] }, {});
+		const html = renderFilters({ sources: [], events: [], tools: [], directories: [] }, {});
 		expect(html).toContain('<option value="" selected>all</option>');
+		expect(html).toContain('<option value="" selected>all directories</option>');
+	});
+
+	it("strips the common path prefix from directory option labels", () => {
+		const html = renderFilters(
+			{
+				sources: [],
+				events: [],
+				tools: [],
+				directories: ["/Users/dev/Workspace/repo-a", "/Users/dev/Workspace/repo-b"],
+			},
+			{},
+		);
+		expect(html).toContain(">repo-a<");
+		expect(html).toContain(">repo-b<");
+		expect(html).not.toContain(">/Users/dev/Workspace/repo-a<");
 	});
 
 	it("renders metric cards", () => {
@@ -819,11 +990,56 @@ describe("dashboard components", () => {
 		const multi = renderToolChart([
 			{ tool: "Shell", count: 10 },
 			{ tool: "Edit", count: 5 },
-			{ tool: "a".repeat(30), count: 1 },
+			{ tool: "a".repeat(40), count: 1 },
 		]);
 		expect(multi).toContain("Edit");
 		expect(multi).toContain('style="width: 50%"');
 		expect(multi).toContain("title=");
+		expect(multi).toContain("…");
+	});
+
+	it("renders a bar chart without the wide-label variant by default", () => {
+		const html = renderBarChart("Custom", [{ label: "x", count: 1 }]);
+		expect(html).not.toContain("chart-panel--wide-label");
+	});
+
+	it("renders skill chart", () => {
+		const empty = renderSkillChart([]);
+		expect(empty).toContain("No data");
+
+		const single = renderSkillChart([{ skill: "commit-push-pr", count: 3 }]);
+		expect(single).toContain("commit-push-pr");
+		expect(single).toContain('style="width: 100%"');
+		expect(single).not.toContain("<a ");
+
+		const linked = renderSkillChart([{ skill: "commit-push-pr", count: 3 }], { range: "24h" });
+		expect(linked).toContain('<a class="tool-row"');
+		expect(linked).toContain("skill=commit-push-pr");
+	});
+
+	it("renders top markdown files", () => {
+		const empty = renderTopFiles([]);
+		expect(empty).toContain("No data");
+
+		const single = renderTopFiles([{ file: "/repo/README.md", count: 4 }]);
+		expect(single).toContain(">repo/README.md<");
+		expect(single).toContain('style="width: 100%"');
+		expect(single).not.toContain("<a ");
+
+		const long = renderTopFiles([{ file: `/repo/${"a".repeat(60)}.md`, count: 1 }]);
+		expect(long).toContain("…");
+		expect(long).toContain(`title="/repo/${"a".repeat(60)}.md"`);
+
+		const linked = renderTopFiles([{ file: "/repo/README.md", count: 4 }], { range: "24h" });
+		expect(linked).toContain('<a class="tool-row"');
+		expect(linked).toContain("file=%2Frepo%2FREADME.md");
+
+		const unrelated = renderTopFiles([
+			{ file: "/Users/dev/Workspace/happenin/docs/USAGE.md", count: 5 },
+			{ file: "/Users/dev/.claude/skills/design/references/style.md", count: 3 },
+		]);
+		expect(unrelated).toContain(">docs/USAGE.md<");
+		expect(unrelated).toContain(">references/style.md<");
 	});
 
 	it("renders sessions table", () => {

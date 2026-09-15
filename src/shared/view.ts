@@ -21,6 +21,7 @@ export function eventView(row: EventRow): Record<string, unknown> {
 		projectPath: row.projectPath,
 		filePath: row.filePath,
 		toolName: row.toolName,
+		skillName: row.skillName,
 		sourcePath: row.sourcePath,
 		subagentId: row.subagentId,
 		subagentType: row.subagentType,

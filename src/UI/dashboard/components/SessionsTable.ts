@@ -88,7 +88,7 @@ export function renderSessionsTable(
 	query?: FilterOptions,
 ): string {
 	if (sessions.length === 0) {
-		return `<h2 class="session-list-title">Recent Sessions</h2><ul class="session-list sessions-table"><li class="empty">No sessions found.</li></ul>`;
+		return `<ul class="session-list sessions-table"><li class="empty">No sessions found.</li></ul>`;
 	}
 
 	const rows = sessions
@@ -115,6 +115,5 @@ export function renderSessionsTable(
 		})
 		.join("");
 
-	return `<h2 class="session-list-title">Recent Sessions</h2>
-<ul class="session-list sessions-table">${rows}</ul>`;
+	return `<ul class="session-list sessions-table">${rows}</ul>`;
 }

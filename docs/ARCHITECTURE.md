@@ -15,24 +15,24 @@ flowchart LR
 
 ## Components
 
-| File                               | Responsibility                                                                                                                         |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/cli/bin.ts`                   | Executable entry point.                                                                                                                |
-| `src/cli/index.ts`                 | CLI dispatch: `install`, `record`, `import`, `query`, `dashboard`, `--help`, `--version`.                                              |
-| `src/shared/db.ts`                 | SQLite data layer using `node:sqlite`.                                                                                                 |
-| `src/shared/constants.ts`          | Default DB path, hook event lists, default hook responses.                                                                             |
-| `src/shared/types.ts`              | Shared TypeScript types.                                                                                                               |
-| `src/cli/record.ts`                | Reads hook JSON from stdin, inserts an event, prints the non-blocking agent response.                                                  |
-| `src/cli/install.ts`               | Backs up and appends hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`.                                                    |
-| `src/cli/import.ts`                | Imports Claude and Cursor transcript files into SQLite.                                                                                |
-| `src/cli/query.ts`                 | Filter and format events for the `query` command.                                                                                      |
-| `src/shared/view.ts`               | Shared event view used by `query` and `dashboard`.                                                                                     |
-| `src/UI/dashboard/index.ts`        | HTTP server with `/`, `/fragments/sessions`, `/fragments/detail`, `/events`, and `/events/stream` SSE.                                 |
-| `src/UI/dashboard/page.ts`         | Full-page HTML shell and client script for the session overview dashboard.                                                             |
-| `src/UI/dashboard/fragments.ts`    | HTMX fragment rendering and query parsing for the sessions table and session detail panel.                                             |
-| `src/UI/dashboard/components/*.ts` | Focused renderers for header, filters, metric cards, event-frequency SVG chart, tool-usage CSS bars, sessions table, and detail panel. |
-| `assets/help.md`                   | Help text shown by `--help`.                                                                                                           |
-| `skills/happenin/SKILL.md`         | Cross-agent skill that teaches agents how to use happenin.                                                                             |
+| File                               | Responsibility                                                                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/cli/bin.ts`                   | Executable entry point.                                                                                                                                        |
+| `src/cli/index.ts`                 | CLI dispatch: `install`, `record`, `import`, `query`, `dashboard`, `--help`, `--version`.                                                                      |
+| `src/shared/db.ts`                 | SQLite data layer using `node:sqlite`.                                                                                                                         |
+| `src/shared/constants.ts`          | Default DB path, hook event lists, default hook responses.                                                                                                     |
+| `src/shared/types.ts`              | Shared TypeScript types.                                                                                                                                       |
+| `src/cli/record.ts`                | Reads hook JSON from stdin, inserts an event, prints the non-blocking agent response.                                                                          |
+| `src/cli/install.ts`               | Backs up and appends hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`.                                                                            |
+| `src/cli/import.ts`                | Imports Claude and Cursor transcript files into SQLite.                                                                                                        |
+| `src/cli/query.ts`                 | Filter and format events for the `query` command.                                                                                                              |
+| `src/shared/view.ts`               | Shared event view used by `query` and `dashboard`.                                                                                                             |
+| `src/UI/dashboard/index.ts`        | HTTP server with `/`, `/fragments/sessions`, `/fragments/detail`, `/events`, and `/events/stream` SSE.                                                         |
+| `src/UI/dashboard/page.ts`         | Full-page HTML shell and client script for the session overview dashboard.                                                                                     |
+| `src/UI/dashboard/fragments.ts`    | HTMX fragment rendering and query parsing for the sessions table and session detail panel.                                                                     |
+| `src/UI/dashboard/components/*.ts` | Focused renderers for header, filters, metric cards, event-frequency SVG chart, tool-usage CSS bars, context breakdown bars, sessions table, and detail panel. |
+| `assets/help.md`                   | Help text shown by `--help`.                                                                                                                                   |
+| `skills/happenin/SKILL.md`         | Cross-agent skill that teaches agents how to use happenin.                                                                                                     |
 
 ## Design choices
 

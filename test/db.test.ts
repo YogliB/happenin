@@ -14,12 +14,16 @@ import {
 	getDbPath,
 	getUserVersion,
 	ensureSubagentColumns,
+	ensureSkillNameColumn,
 	getEventById,
 	getImportMtime,
 	trackImport,
 	getLastEventId,
 	getSessions,
 	getToolUsage,
+	getSkillUsage,
+	getTopMdFiles,
+	getContextBreakdown,
 	getEventFrequency,
 	getFilterOptions,
 	getFilteredSessions,
@@ -319,6 +323,100 @@ describe("db edge cases", () => {
 		try {
 			expect(() => ensureSubagentColumns(db)).not.toThrow();
 			expect(getUserVersion(db)).toBe(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("rolls back a race during skill_name column migration", () => {
+		const db = initDb(":memory:");
+
+		let calls = 0;
+		const spy = vi.spyOn(DatabaseSync.prototype, "prepare").mockImplementation(function (
+			this: DatabaseSync,
+			sql: string,
+		) {
+			if (String(sql).trim() === "PRAGMA user_version") {
+				calls += 1;
+				return {
+					get: () => ({ user_version: calls === 1 ? 0 : 3 }),
+				} as ReturnType<DatabaseSync["prepare"]>;
+			}
+			return DatabaseSync.prototype.prepare.call(this, sql);
+		});
+
+		try {
+			expect(() => ensureSkillNameColumn(db)).not.toThrow();
+		} finally {
+			spy.mockRestore();
+			db.close();
+		}
+	});
+
+	it("rethrows and rolls back when adding skill_name column fails", () => {
+		const db = new DatabaseSync(":memory:");
+		db.exec(`
+			CREATE TABLE events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				client TEXT,
+				event TEXT,
+				session_id TEXT,
+				happened_at TEXT,
+				received_at INTEGER NOT NULL,
+				project_path TEXT,
+				file_path TEXT,
+				tool_name TEXT,
+				payload TEXT NOT NULL
+			);
+		`);
+		db.exec("PRAGMA user_version = 2;");
+
+		const originalExec = DatabaseSync.prototype.exec;
+		const spy = vi.spyOn(DatabaseSync.prototype, "exec").mockImplementation(function (
+			this: DatabaseSync,
+			sql: string,
+		) {
+			if (
+				String(sql).includes("ALTER TABLE events ADD COLUMN") ||
+				String(sql).trim() === "ROLLBACK;"
+			) {
+				throw new Error("alter failed");
+			}
+			return originalExec.call(this, sql);
+		});
+
+		try {
+			expect(() => ensureSkillNameColumn(db)).toThrow("alter failed");
+		} finally {
+			spy.mockRestore();
+			db.close();
+		}
+	});
+
+	it("skips existing skill_name column during migration", () => {
+		const db = new DatabaseSync(":memory:");
+		db.exec(`
+			CREATE TABLE events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source TEXT NOT NULL,
+				client TEXT,
+				event TEXT,
+				session_id TEXT,
+				happened_at TEXT,
+				received_at INTEGER NOT NULL,
+				project_path TEXT,
+				file_path TEXT,
+				tool_name TEXT,
+				skill_name TEXT,
+				payload TEXT NOT NULL
+			);
+		`);
+		db.exec("PRAGMA user_version = 2;");
+
+		try {
+			expect(() => ensureSkillNameColumn(db)).not.toThrow();
+			expect(getUserVersion(db)).toBe(3);
 		} finally {
 			db.close();
 		}
@@ -909,6 +1007,182 @@ describe("db edge cases", () => {
 		}
 	});
 
+	it("aggregates skill usage and top markdown files", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Skill",
+			skillName: "commit-push-pr",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Read",
+			filePath: "/repo-a/README.md",
+			projectPath: "/repo-a",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-2",
+			toolName: "Read",
+			filePath: "/repo-b/NOTES.md",
+			projectPath: "/repo-b",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-2",
+			toolName: "Bash",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const skills = getSkillUsage(db, {});
+			expect(skills.length).toBe(1);
+			expect(skills[0].skill).toBe("commit-push-pr");
+			expect(skills[0].count).toBe(1);
+
+			const allMdFiles = getTopMdFiles(db, {});
+			expect(allMdFiles.length).toBe(2);
+
+			const scopedMdFiles = getTopMdFiles(db, { mdDir: "/repo-a" });
+			expect(scopedMdFiles.length).toBe(1);
+			expect(scopedMdFiles[0].file).toBe("/repo-a/README.md");
+		} finally {
+			db.close();
+		}
+	});
+
+	it("returns an all-zero context breakdown for an empty database", () => {
+		const db = initDb(":memory:");
+		try {
+			const breakdown = getContextBreakdown(db, {});
+			expect(breakdown.bytes).toEqual({
+				mcpServers: 0,
+				mdFiles: 0,
+				bloatware: 0,
+				actualValue: 0,
+			});
+			expect(breakdown.tokens).toEqual({
+				mcpServers: 0,
+				mdFiles: 0,
+				bloatware: 0,
+				actualValue: 0,
+			});
+		} finally {
+			db.close();
+		}
+	});
+
+	it("buckets events into mcp servers, markdown files, bloatware, and actual value", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "claude-transcript",
+			client: "claude_code",
+			event: "assistant",
+			sessionId: "s-1",
+			toolName: "mcp__mcp-broker__jira_search",
+			payload: JSON.stringify({ tool: "mcp" }),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Read",
+			filePath: "/repo/AGENTS.md",
+			payload: JSON.stringify({ tool: "Read" }),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Skill",
+			skillName: "ponytail",
+			payload: JSON.stringify({ tool: "Skill" }),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "SessionStart",
+			sessionId: "s-1",
+			payload: JSON.stringify({ hook: "SessionStart" }),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-1",
+			toolName: "Bash",
+			payload: JSON.stringify({ tool: "Bash" }),
+		});
+		insertEvent(db, {
+			source: "claude-transcript",
+			client: "claude_code",
+			event: "assistant",
+			sessionId: "s-1",
+			payload: JSON.stringify({
+				message: {
+					usage: {
+						input_tokens: 2,
+						cache_creation_input_tokens: 100,
+						cache_read_input_tokens: 8,
+					},
+				},
+			}),
+		});
+		insertEvent(db, {
+			source: "cursor-transcript",
+			client: "cursor",
+			event: "other-metadata",
+			sessionId: "s-2",
+			payload: JSON.stringify({ meta: true }),
+		});
+
+		try {
+			const breakdown = getContextBreakdown(db, { sessionId: "s-1", sessionIdExact: true });
+			expect(breakdown.bytes.mcpServers).toBe(JSON.stringify({ tool: "mcp" }).length);
+			expect(breakdown.bytes.mdFiles).toBe(JSON.stringify({ tool: "Read" }).length);
+			expect(breakdown.bytes.bloatware).toBe(
+				JSON.stringify({ tool: "Skill" }).length + JSON.stringify({ hook: "SessionStart" }).length,
+			);
+			expect(breakdown.bytes.actualValue).toBe(
+				JSON.stringify({ tool: "Bash" }).length +
+					JSON.stringify({
+						message: {
+							usage: {
+								input_tokens: 2,
+								cache_creation_input_tokens: 100,
+								cache_read_input_tokens: 8,
+							},
+						},
+					}).length,
+			);
+			expect(breakdown.tokens.actualValue).toBe(110);
+			expect(breakdown.tokens.mcpServers).toBe(0);
+			expect(breakdown.tokens.mdFiles).toBe(0);
+			expect(breakdown.tokens.bloatware).toBe(0);
+
+			const other = getContextBreakdown(db, { sessionId: "s-2", sessionIdExact: true });
+			expect(other.bytes.bloatware).toBe(JSON.stringify({ meta: true }).length);
+			expect(other.bytes.actualValue).toBe(0);
+		} finally {
+			db.close();
+		}
+	});
+
 	it("returns hourly event frequency with backfilled buckets", () => {
 		const db = initDb(":memory:");
 		const now = new Date();
@@ -1015,13 +1289,24 @@ describe("db edge cases", () => {
 			event: "PreToolUse",
 			sessionId: "s-2",
 			toolName: "Edit",
+			projectPath: "/repo-a",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "claude",
+			client: "claude_code",
+			event: "PreToolUse",
+			sessionId: "s-3",
+			toolName: "Read",
+			projectPath: "/private/tmp/some-session",
 			payload: JSON.stringify({}),
 		});
 
 		try {
 			const options = getFilterOptions(db);
-			expect(options.tools).toEqual(["Edit", "Shell"]);
+			expect(options.tools).toEqual(["Edit", "Read", "Shell"]);
 			expect(options.sources).toEqual(["claude", "cursor"]);
+			expect(options.directories).toEqual(["/repo-a"]);
 		} finally {
 			db.close();
 		}

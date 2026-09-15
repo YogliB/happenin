@@ -185,28 +185,42 @@ const clientScript = `
 		if (!content) return;
 		const detail = content.querySelector('.session-detail-view');
 		document.body.classList.toggle('session-detail-open', !!detail);
-		const sessionId = detail ? detail.getAttribute('data-session') : null;
-		const subagentId = detail ? detail.getAttribute('data-subagent') || null : null;
-		for (const item of content.querySelectorAll('.session-item')) {
-			const sessionMatch = !!sessionId && item.dataset.session === sessionId;
-			const itemSubagent = item.dataset.subagent || null;
-			const subagentMatch = itemSubagent === null || itemSubagent === subagentId;
-			item.classList.toggle('active', sessionMatch && subagentMatch);
+	}
+
+	function syncSessionsToggle() {
+		const content = document.getElementById('dashboard-content');
+		const btn = document.getElementById('sessions-toggle');
+		if (!content || !btn) return;
+		const isList = !!content.querySelector('.sessions-list-view');
+		btn.setAttribute('aria-expanded', isList ? 'true' : 'false');
+		document.body.classList.toggle('sessions-list-open', isList);
+	}
+
+	function toggleSessionsList() {
+		const btn = document.getElementById('sessions-toggle');
+		const form = document.querySelector('[data-filter-form]');
+		if (!btn) return;
+		const isOpen = btn.getAttribute('aria-expanded') === 'true';
+		const params = new URLSearchParams();
+		if (form) {
+			const data = new FormData(form);
+			for (const [key, value] of data.entries()) {
+				if (value) params.set(key, String(value));
+			}
 		}
-		const list = content.querySelector('.session-list');
-		if (list) {
-			list.scrollTop = sidebarScroll;
-			const active = content.querySelector('.session-item.active');
-			if (active) active.scrollIntoView({ block: 'nearest' });
+		if (!isOpen) params.set('view', 'list');
+		const url = '/fragments/sessions' + (params.size > 0 ? '?' + params.toString() : '');
+		if (typeof htmx !== 'undefined') {
+			htmx.ajax('GET', url, { target: '#dashboard-content', swap: 'innerHTML', source: btn });
 		}
 	}
 
-	let sidebarScroll = 0;
 	document.addEventListener('htmx:beforeSwap', (e) => {
-		const list = document.querySelector('.session-list');
-		if (list) sidebarScroll = list.scrollTop;
 		const elt = e.detail.requestConfig ? e.detail.requestConfig.elt : null;
-		if (elt && elt.id === 'dashboard-content' && document.body.classList.contains('session-detail-open')) {
+		const blocked =
+			document.body.classList.contains('session-detail-open') ||
+			document.body.classList.contains('sessions-list-open');
+		if (elt && elt.id === 'dashboard-content' && blocked) {
 			e.detail.shouldSwap = false;
 		}
 	});
@@ -216,10 +230,12 @@ const clientScript = `
 	window.copySessionJson = copySessionJson;
 	window.copyEventJson = copyEventJson;
 	window.backToDashboard = backToDashboard;
+	window.toggleSessionsList = toggleSessionsList;
 
 	document.addEventListener('htmx:afterSettle', () => {
 		updateContentUrl();
 		syncDetailState();
+		syncSessionsToggle();
 	});
 
 	applyTheme(getTheme());
@@ -258,7 +274,10 @@ export function dashboardHtml(db: DatabaseSync, query: QueryOptions): string {
 ${header}${filters}
 </form>
 </div>
-<div id="dashboard-content" class="dashboard-layout" sse-connect="/events/stream" hx-get="/fragments/sessions" hx-target="#dashboard-content" hx-swap="innerHTML" hx-trigger="sse:message">
+<button type="button" id="sessions-toggle" class="sessions-toggle-bar" aria-expanded="false" onclick="toggleSessionsList()">
+<span class="sessions-toggle-arrow" aria-hidden="true">▸</span> Recent Sessions
+</button>
+<div id="dashboard-content" class="dashboard-content-area" sse-connect="/events/stream" hx-get="/fragments/sessions" hx-target="#dashboard-content" hx-swap="innerHTML" hx-trigger="sse:message">
 ${content}
 </div>
 </div>

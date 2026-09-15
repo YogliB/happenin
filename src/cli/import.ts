@@ -9,13 +9,44 @@ import {
 	getImportMtime,
 	insertEvent,
 	backfillSubagentMetadata,
+	clearImportTracking,
 } from "../shared/db.js";
+import { toolCallFilePath, toolCallSkillName } from "../shared/toolCalls.js";
 import type { Source } from "../shared/types.js";
 
 const CLAUDE_SOURCE: Source = "claude-transcript";
 const CURSOR_SOURCE: Source = "cursor-transcript";
 const CLAUDE_CLIENT = "claude_code";
 const CURSOR_CLIENT = "cursor";
+
+type ToolCall = { name: string; filePath: string | undefined; skillName: string | undefined };
+
+function extractToolCalls(obj: Record<string, unknown>): ToolCall[] {
+	if (obj.type !== "assistant" || typeof obj.message !== "object" || obj.message === null) {
+		return [];
+	}
+	const content = (obj.message as Record<string, unknown>).content;
+	if (!Array.isArray(content)) return [];
+
+	const calls: ToolCall[] = [];
+	for (const block of content) {
+		if (
+			typeof block === "object" &&
+			block !== null &&
+			(block as Record<string, unknown>).type === "tool_use" &&
+			typeof (block as Record<string, unknown>).name === "string"
+		) {
+			const name = (block as Record<string, unknown>).name as string;
+			const input = (block as Record<string, unknown>).input;
+			calls.push({
+				name,
+				filePath: toolCallFilePath(name, input),
+				skillName: toolCallSkillName(name, input),
+			});
+		}
+	}
+	return calls;
+}
 
 const readDir = (dir: string) => {
 	try {
@@ -112,7 +143,7 @@ async function importClaudeJsonl(db: DatabaseSync, filePath: string): Promise<vo
 	);
 
 	for (const { obj, line } of records) {
-		insertEvent(db, {
+		const base = {
 			source: CLAUDE_SOURCE,
 			client: CLAUDE_CLIENT,
 			event: typeof obj.type === "string" ? obj.type : "transcript",
@@ -126,7 +157,21 @@ async function importClaudeJsonl(db: DatabaseSync, filePath: string): Promise<vo
 			projectPath: typeof obj.cwd === "string" ? obj.cwd : undefined,
 			payload: line,
 			sourcePath: filePath,
-		});
+		};
+
+		const toolCalls = extractToolCalls(obj);
+		if (toolCalls.length === 0) {
+			insertEvent(db, base);
+			continue;
+		}
+		for (const call of toolCalls) {
+			insertEvent(db, {
+				...base,
+				toolName: call.name,
+				filePath: call.filePath,
+				skillName: call.skillName,
+			});
+		}
 	}
 
 	trackImport(db, filePath, mtime);
@@ -216,11 +261,14 @@ async function importCursorTranscripts(db: DatabaseSync): Promise<void> {
 	}
 }
 
-export async function runImport(_argv?: string[]): Promise<void> {
+export async function runImport(argv?: string[]): Promise<void> {
 	const dbPath = getDbPath();
 	const db = initDb(dbPath);
 	try {
 		backfillSubagentMetadata(db);
+		if (argv?.includes("--force")) {
+			clearImportTracking(db);
+		}
 		await importTranscripts(db);
 	} finally {
 		db.close();

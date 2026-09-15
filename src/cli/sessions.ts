@@ -34,7 +34,9 @@ function formatSummary(sessions: Session[]): string {
 			const lastAt = s.lastAt ?? "?";
 			const project = s.projectPath ?? "-";
 			const tools = s.tools.join(",") || "-";
-			return `${id}\t${firstAt}\t${lastAt}\t${duration}\t${s.eventCount} events\tproject:${project}\ttools:${tools}\tfailures:${s.failureCount}`;
+			const skills = s.skills.join(",") || "-";
+			const files = s.files.join(",") || "-";
+			return `${id}\t${firstAt}\t${lastAt}\t${duration}\t${s.eventCount} events\tproject:${project}\ttools:${tools}\tskills:${skills}\tfiles:${files}\tfailures:${s.failureCount}`;
 		})
 		.join("\n");
 }

@@ -1,6 +1,7 @@
 import process from "node:process";
 import { initDb, insertEvent, firstHappenedAtPayload } from "../shared/db.js";
 import { DEFAULT_RESPONSES } from "../shared/constants.js";
+import { toolCallFilePath, toolCallSkillName } from "../shared/toolCalls.js";
 import type { EventInsert, Source } from "../shared/types.js";
 
 function asString(value: unknown): string | undefined {
@@ -75,8 +76,11 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 		firstString(payload.workspace_roots) ??
 		firstString(payload.workspace_root) ??
 		asString(payload.workspace_path);
-	const filePath = asString(payload.filePath ?? payload.file_path ?? payload.path);
 	const toolName = asString(payload.toolName ?? payload.tool_name ?? payload.tool);
+	const filePath =
+		asString(payload.filePath ?? payload.file_path ?? payload.path) ??
+		toolCallFilePath(toolName, payload.tool_input);
+	const skillName = toolCallSkillName(toolName, payload.tool_input);
 	const client = asString(payload.client) ?? (source === "cursor" ? "cursor" : "claude_code");
 
 	const subagentId = asString(payload.subagent_id) ?? undefined;
@@ -92,6 +96,7 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 		projectPath,
 		filePath,
 		toolName,
+		skillName,
 		payload: raw,
 		subagentId,
 		subagentType,

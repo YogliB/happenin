@@ -13,7 +13,11 @@ import type {
 	SessionStatus,
 	TimeRange,
 	ToolUsage,
+	SkillUsage,
+	FileUsage,
 	EventFrequency,
+	ContextBreakdown,
+	ContextBucketKey,
 } from "./types.js";
 
 const eventsColumns = `
@@ -27,6 +31,7 @@ const eventsColumns = `
 	project_path TEXT,
 	file_path TEXT,
 	tool_name TEXT,
+	skill_name TEXT,
 	payload TEXT NOT NULL,
 	source_path TEXT,
 	subagent_id TEXT,
@@ -55,12 +60,13 @@ const insertEventSql = `
 		project_path,
 		file_path,
 		tool_name,
+		skill_name,
 		payload,
 		source_path,
 		subagent_id,
 		subagent_type,
 		transcript_path
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const selectEventSql = `
@@ -75,6 +81,7 @@ const selectEventSql = `
 		project_path AS projectPath,
 		file_path AS filePath,
 		tool_name AS toolName,
+		skill_name AS skillName,
 		payload,
 		source_path AS sourcePath,
 		subagent_id AS subagentId,
@@ -111,6 +118,32 @@ export function ensureSubagentColumns(db: DatabaseSync): void {
 		addColumn("subagent_type");
 		addColumn("transcript_path");
 		db.exec("PRAGMA user_version = 1;");
+		db.exec("COMMIT;");
+	} catch (err) {
+		try {
+			db.exec("ROLLBACK;");
+		} catch {}
+		throw err;
+	}
+}
+
+export function ensureSkillNameColumn(db: DatabaseSync): void {
+	let version = getUserVersion(db);
+	if (version >= 3) return;
+
+	db.exec("BEGIN IMMEDIATE;");
+	version = getUserVersion(db);
+	if (version >= 3) {
+		db.exec("ROLLBACK;");
+		return;
+	}
+
+	try {
+		const columns = db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
+		if (!columns.some((col) => col.name === "skill_name")) {
+			db.exec("ALTER TABLE events ADD COLUMN skill_name TEXT;");
+		}
+		db.exec("PRAGMA user_version = 3;");
 		db.exec("COMMIT;");
 	} catch (err) {
 		try {
@@ -273,6 +306,7 @@ export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 		`);
 		ensureSubagentColumns(db);
 		backfillDerivedFields(db);
+		ensureSkillNameColumn(db);
 		for (const indexSql of indexes) {
 			db.exec(indexSql);
 		}
@@ -354,6 +388,7 @@ export const insertEvent = (db: DatabaseSync, event: EventInsert): void => {
 		event.projectPath ?? null,
 		event.filePath ?? null,
 		event.toolName ?? null,
+		event.skillName ?? null,
 		event.payload,
 		event.sourcePath ?? null,
 		event.subagentId ?? null,
@@ -395,6 +430,14 @@ function buildWhereClause(
 	if (options.tool !== undefined && options.tool !== "") {
 		conditions.push("tool_name = ?");
 		params.push(options.tool);
+	}
+	if (options.skill !== undefined && options.skill !== "") {
+		conditions.push("skill_name = ?");
+		params.push(options.skill);
+	}
+	if (options.file !== undefined && options.file !== "") {
+		conditions.push("file_path = ?");
+		params.push(options.file);
 	}
 	if (options.sessionId !== undefined && options.sessionId !== "") {
 		if (options.sessionIdExact) {
@@ -514,6 +557,8 @@ type SessionAggregateRow = {
 	lastAt: string | null;
 	projectPaths: string | null;
 	toolNames: string | null;
+	skillNames: string | null;
+	filePaths: string | null;
 	failureCount: number | bigint;
 };
 
@@ -522,6 +567,8 @@ function toSession(row: SessionAggregateRow): Session {
 	const lastReceivedAt = Number(row.lastReceivedAt);
 	const projectPaths = JSON.parse(row.projectPaths as string) as string[];
 	const tools = JSON.parse(row.toolNames as string) as string[];
+	const skills = JSON.parse(row.skillNames as string) as string[];
+	const files = JSON.parse(row.filePaths as string) as string[];
 	const firstAtMs = row.firstAt ? Date.parse(row.firstAt) : NaN;
 	const lastAtMs = row.lastAt ? Date.parse(row.lastAt) : NaN;
 	const durationMs =
@@ -541,6 +588,8 @@ function toSession(row: SessionAggregateRow): Session {
 		projectPath: projectPaths[0] ?? null,
 		projectPaths,
 		tools,
+		skills,
+		files,
 		failureCount: Number(row.failureCount),
 	};
 }
@@ -563,6 +612,8 @@ export const getSessions = (
 			MAX(happened_at) AS lastAt,
 			COALESCE(json_group_array(DISTINCT project_path ORDER BY project_path) FILTER (WHERE project_path IS NOT NULL AND project_path <> ''), '[]') AS projectPaths,
 			COALESCE(json_group_array(DISTINCT tool_name ORDER BY tool_name) FILTER (WHERE tool_name IS NOT NULL AND tool_name <> ''), '[]') AS toolNames,
+			COALESCE(json_group_array(DISTINCT skill_name ORDER BY skill_name) FILTER (WHERE skill_name IS NOT NULL AND skill_name <> ''), '[]') AS skillNames,
+			COALESCE(json_group_array(DISTINCT file_path ORDER BY file_path) FILTER (WHERE file_path IS NOT NULL AND file_path <> ''), '[]') AS filePaths,
 			SUM(CASE WHEN event LIKE '%Failure%' THEN 1 ELSE 0 END) AS failureCount
 		FROM events
 		${clause}
@@ -592,6 +643,96 @@ export const getToolUsage = (
 	const sql = `SELECT tool_name AS tool, COUNT(*) AS count FROM events ${where} GROUP BY tool_name ORDER BY count DESC, tool_name ASC LIMIT ?`;
 	const stmt = db.prepare(sql);
 	return stmt.all(...params, limit) as ToolUsage[];
+};
+
+export const getSkillUsage = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	limit = 10,
+	now = Date.now(),
+): SkillUsage[] => {
+	const { clause, params } = buildWhereClause(options, now);
+	const skillCondition = "skill_name IS NOT NULL AND skill_name <> ''";
+	const where = clause ? `${clause} AND ${skillCondition}` : `WHERE ${skillCondition}`;
+	const sql = `SELECT skill_name AS skill, COUNT(*) AS count FROM events ${where} GROUP BY skill_name ORDER BY count DESC, skill_name ASC LIMIT ?`;
+	const stmt = db.prepare(sql);
+	return stmt.all(...params, limit) as SkillUsage[];
+};
+
+export const getTopMdFiles = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	limit = 10,
+	now = Date.now(),
+): FileUsage[] => {
+	const { clause, params } = buildWhereClause(options, now);
+	const conditions = ["file_path IS NOT NULL", "file_path <> ''", "LOWER(file_path) LIKE '%.md'"];
+	if (options.mdDir) {
+		conditions.push("project_path = ?");
+	}
+	const fileClause = conditions.join(" AND ");
+	const where = clause ? `${clause} AND ${fileClause}` : `WHERE ${fileClause}`;
+	const sql = `SELECT file_path AS file, COUNT(*) AS count FROM events ${where} GROUP BY file_path ORDER BY count DESC, file_path ASC LIMIT ?`;
+	const stmt = db.prepare(sql);
+	const sqlParams = options.mdDir ? [...params, options.mdDir, limit] : [...params, limit];
+	return stmt.all(...sqlParams) as FileUsage[];
+};
+
+const contextBucketCaseSql = `
+	CASE
+		WHEN tool_name LIKE 'mcp\\_\\_%' ESCAPE '\\' THEN 'mcpServers'
+		WHEN file_path IS NOT NULL AND file_path <> '' AND LOWER(file_path) LIKE '%.md' THEN 'mdFiles'
+		WHEN skill_name IS NOT NULL AND skill_name <> '' THEN 'bloatware'
+		WHEN tool_name IS NOT NULL AND tool_name <> '' THEN 'actualValue'
+		WHEN event IN ('user', 'assistant', 'prompt') THEN 'actualValue'
+		ELSE 'bloatware'
+	END
+`;
+
+const contextTokensSql = `
+	CASE WHEN json_valid(payload) THEN
+		COALESCE(json_extract(payload, '$.message.usage.input_tokens'), 0) +
+		COALESCE(json_extract(payload, '$.message.usage.cache_creation_input_tokens'), 0) +
+		COALESCE(json_extract(payload, '$.message.usage.cache_read_input_tokens'), 0)
+	ELSE 0 END
+`;
+
+function emptyContextBreakdown(): ContextBreakdown {
+	return {
+		bytes: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+		tokens: { mcpServers: 0, mdFiles: 0, bloatware: 0, actualValue: 0 },
+	};
+}
+
+export const getContextBreakdown = (
+	db: DatabaseSync,
+	options: FilterOptions = {},
+	now = Date.now(),
+): ContextBreakdown => {
+	const { clause, params } = buildWhereClause(options, now);
+	const sql = `
+		SELECT
+			${contextBucketCaseSql} AS bucket,
+			SUM(LENGTH(payload)) AS bytes,
+			SUM(${contextTokensSql}) AS tokens
+		FROM events
+		${clause}
+		GROUP BY ${contextBucketCaseSql}
+	`;
+	const rows = db.prepare(sql).all(...params) as {
+		bucket: ContextBucketKey;
+		bytes: number | bigint;
+		tokens: number | bigint;
+	}[];
+
+	const breakdown = emptyContextBreakdown();
+	for (const row of rows) {
+		// oxlint-disable-next-line security/detect-object-injection -- row.bucket comes from the hard-coded CASE expression above
+		breakdown.bytes[row.bucket] = Number(row.bytes);
+		// oxlint-disable-next-line security/detect-object-injection -- row.bucket comes from the hard-coded CASE expression above
+		breakdown.tokens[row.bucket] = Number(row.tokens);
+	}
+	return breakdown;
 };
 
 function bucketExpr(groupBy: "hour" | "day"): string {
@@ -721,6 +862,8 @@ export const getSubagentsBySession = (
       MAX(happened_at) AS lastAt,
       COALESCE(json_group_array(DISTINCT project_path ORDER BY project_path) FILTER (WHERE project_path IS NOT NULL AND project_path <> ''), '[]') AS projectPaths,
       COALESCE(json_group_array(DISTINCT tool_name ORDER BY tool_name) FILTER (WHERE tool_name IS NOT NULL AND tool_name <> ''), '[]') AS toolNames,
+      COALESCE(json_group_array(DISTINCT skill_name ORDER BY skill_name) FILTER (WHERE skill_name IS NOT NULL AND skill_name <> ''), '[]') AS skillNames,
+      COALESCE(json_group_array(DISTINCT file_path ORDER BY file_path) FILTER (WHERE file_path IS NOT NULL AND file_path <> ''), '[]') AS filePaths,
       SUM(CASE WHEN event LIKE '%Failure%' THEN 1 ELSE 0 END) AS failureCount
     FROM events
     WHERE subagent_id IS NOT NULL AND subagent_id <> '' AND session_id IN (${placeholders})${filterSql}
@@ -775,11 +918,17 @@ export const getFilterOptions = (db: DatabaseSync): FilterOptionLists => {
 			"SELECT DISTINCT tool_name AS tool FROM events WHERE tool_name IS NOT NULL AND tool_name <> '' ORDER BY tool_name",
 		)
 		.all() as { tool: string }[];
+	const directoryRows = db
+		.prepare(
+			"SELECT DISTINCT project_path AS dir FROM events WHERE project_path IS NOT NULL AND project_path <> '' AND project_path NOT LIKE '/private/%' ORDER BY project_path",
+		)
+		.all() as { dir: string }[];
 
 	return {
 		sources: sourceRows.map((row) => row.source),
 		events: eventRows.map((row) => row.event),
 		tools: toolRows.map((row) => row.tool),
+		directories: directoryRows.map((row) => row.dir),
 	};
 };
 
@@ -803,4 +952,8 @@ export const getImportMtime = (db: DatabaseSync, filePath: string): number | und
 	const stmt = db.prepare("SELECT mtime FROM imports WHERE path = ?");
 	const row = stmt.get(filePath) as { mtime: number | bigint } | undefined;
 	return row ? Number(row.mtime) : undefined;
+};
+
+export const clearImportTracking = (db: DatabaseSync): void => {
+	db.exec("DELETE FROM imports");
 };
