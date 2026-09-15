@@ -405,6 +405,14 @@ function rangeToMs(range: TimeRange): number {
 	return hours * 60 * 60 * 1000;
 }
 
+function escapeLikeLiteral(value: string): string {
+	return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+function mcpServerLikePattern(server: string): string {
+	return `mcp\\_\\_${escapeLikeLiteral(server)}\\_\\_%`;
+}
+
 function buildWhereClause(
 	options: FilterOptions,
 	now = Date.now(),
@@ -438,6 +446,23 @@ function buildWhereClause(
 	if (options.file !== undefined && options.file !== "") {
 		conditions.push("file_path = ?");
 		params.push(options.file);
+	}
+	if (options.skills !== undefined && options.skills.length > 0) {
+		const placeholders = options.skills.map(() => "?").join(",");
+		conditions.push(`skill_name IN (${placeholders})`);
+		for (const skill of options.skills) params.push(skill);
+	}
+	if (options.projectPaths !== undefined && options.projectPaths.length > 0) {
+		const placeholders = options.projectPaths.map(() => "?").join(",");
+		conditions.push(`project_path IN (${placeholders})`);
+		for (const dir of options.projectPaths) params.push(dir);
+	}
+	if (options.mcpServers !== undefined && options.mcpServers.length > 0) {
+		const serverConditions = options.mcpServers.map(() => "tool_name LIKE ? ESCAPE '\\'");
+		conditions.push(
+			serverConditions.length === 1 ? serverConditions[0] : `(${serverConditions.join(" OR ")})`,
+		);
+		for (const server of options.mcpServers) params.push(mcpServerLikePattern(server));
 	}
 	if (options.sessionId !== undefined && options.sessionId !== "") {
 		if (options.sessionIdExact) {
@@ -923,12 +948,33 @@ export const getFilterOptions = (db: DatabaseSync): FilterOptionLists => {
 			"SELECT DISTINCT project_path AS dir FROM events WHERE project_path IS NOT NULL AND project_path <> '' AND project_path NOT LIKE '/private/%' ORDER BY project_path",
 		)
 		.all() as { dir: string }[];
+	const skillRows = db
+		.prepare(
+			"SELECT DISTINCT skill_name AS skill FROM events WHERE skill_name IS NOT NULL AND skill_name <> '' ORDER BY skill_name",
+		)
+		.all() as { skill: string }[];
+	const mcpServerRows = db
+		.prepare(
+			`
+			SELECT DISTINCT server FROM (
+				SELECT substr(tool_name, 6, instr(substr(tool_name, 6), '__') - 1) AS server
+				FROM events
+				WHERE tool_name LIKE 'mcp\\_\\_%' ESCAPE '\\'
+					AND instr(substr(tool_name, 6), '__') > 0
+			)
+			WHERE server <> ''
+			ORDER BY server
+		`,
+		)
+		.all() as { server: string }[];
 
 	return {
 		sources: sourceRows.map((row) => row.source),
 		events: eventRows.map((row) => row.event),
 		tools: toolRows.map((row) => row.tool),
 		directories: directoryRows.map((row) => row.dir),
+		skills: skillRows.map((row) => row.skill),
+		mcpServers: mcpServerRows.map((row) => row.server),
 	};
 };
 

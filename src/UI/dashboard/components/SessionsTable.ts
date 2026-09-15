@@ -17,6 +17,15 @@ function detailLink(
 	if (query?.range) params.set("range", query.range);
 	if (query?.status) params.set("status", query.status);
 	if (query?.tool) params.set("tool", query.tool);
+	if (query?.projectPaths && query.projectPaths.length > 0) {
+		for (const dir of query.projectPaths) params.append("dirs", dir);
+	}
+	if (query?.skills && query.skills.length > 0) {
+		for (const skill of query.skills) params.append("skills", skill);
+	}
+	if (query?.mcpServers && query.mcpServers.length > 0) {
+		for (const server of query.mcpServers) params.append("mcp", server);
+	}
 	if (query?.minDuration !== undefined) params.set("minDuration", String(query.minDuration));
 	if (query?.maxDuration !== undefined) params.set("maxDuration", String(query.maxDuration));
 	if (query?.limit !== undefined) params.set("limit", String(query.limit));

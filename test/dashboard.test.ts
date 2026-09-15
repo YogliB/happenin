@@ -550,7 +550,7 @@ describe("dashboard page and fragments", () => {
 
 	it("parses all query parameters", () => {
 		const url = new URL(
-			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&skill=commit-push-pr&file=%2Fa.md&mdDir=%2Frepo&view=list&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5",
+			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&skill=commit-push-pr&file=%2Fa.md&mdDir=%2Frepo&view=list&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5&dirs=%2Frepo-a&dirs=%2Frepo-b&skills=design&skills=commit-push-pr&mcp=confluence&mcp=figma",
 		);
 		const query = parseQuery(url);
 		expect(query.q).toBe("test");
@@ -570,6 +570,9 @@ describe("dashboard page and fragments", () => {
 		expect(query.event).toBe("preToolUse");
 		expect(query.limit).toBe(10);
 		expect(query.offset).toBe(5);
+		expect(query.projectPaths).toEqual(["/repo-a", "/repo-b"]);
+		expect(query.skills).toEqual(["design", "commit-push-pr"]);
+		expect(query.mcpServers).toEqual(["confluence", "figma"]);
 	});
 
 	it("ignores a view parameter other than list", () => {
@@ -580,6 +583,20 @@ describe("dashboard page and fragments", () => {
 	it("omits view and offset from the URL when unset", () => {
 		const url = buildFragmentUrl({});
 		expect(url).toBe("/fragments/sessions?");
+	});
+
+	it("serializes multi-select filter arrays as repeated params and omits empty ones", () => {
+		const withValues = buildFragmentUrl({
+			projectPaths: ["/repo-a", "/repo-b"],
+			skills: ["design"],
+			mcpServers: ["confluence", "figma"],
+		});
+		expect(withValues).toBe(
+			"/fragments/sessions?dirs=%2Frepo-a&dirs=%2Frepo-b&skills=design&mcp=confluence&mcp=figma",
+		);
+
+		const withEmptyArrays = buildFragmentUrl({ projectPaths: [], skills: [], mcpServers: [] });
+		expect(withEmptyArrays).toBe("/fragments/sessions?");
 	});
 
 	it("renders sessions and events content", () => {
@@ -811,6 +828,9 @@ describe("dashboard page and fragments", () => {
 		expect(query.maxDuration).toBeUndefined();
 		expect(query.limit).toBeUndefined();
 		expect(query.offset).toBeUndefined();
+		expect(query.projectPaths).toBeUndefined();
+		expect(query.skills).toBeUndefined();
+		expect(query.mcpServers).toBeUndefined();
 	});
 });
 
@@ -892,6 +912,8 @@ describe("dashboard components", () => {
 				events: [],
 				tools: ["Shell", "Edit"],
 				directories: ["/repo-a", "/repo-b"],
+				skills: ["commit-push-pr", "design"],
+				mcpServers: ["confluence", "figma"],
 			},
 			{
 				status: "active",
@@ -900,21 +922,38 @@ describe("dashboard components", () => {
 				mdDir: "/repo-a",
 				minDuration: 5,
 				maxDuration: 30,
+				projectPaths: ["/repo-b"],
+				skills: ["design"],
+				mcpServers: ["figma"],
 			},
 		);
 		expect(html).toContain('name="status"');
 		expect(html).toContain('name="source"');
 		expect(html).toContain('name="tool"');
 		expect(html).toContain('name="mdDir"');
+		expect(html).toContain('name="dirs" multiple');
+		expect(html).toContain('name="skills" multiple');
+		expect(html).toContain('name="mcp" multiple');
 		expect(html).toContain('value="/repo-a" selected');
+		expect(html).toContain('value="/repo-b" selected');
+		expect(html).toContain('value="design" selected');
+		expect(html).not.toContain('value="commit-push-pr" selected');
+		expect(html).toContain('value="figma" selected');
+		expect(html).not.toContain('value="confluence" selected');
 		expect(html).toContain('value="5"');
 		expect(html).toContain('value="30"');
 	});
 
 	it("renders filters with no selection", () => {
-		const html = renderFilters({ sources: [], events: [], tools: [], directories: [] }, {});
+		const html = renderFilters(
+			{ sources: [], events: [], tools: [], directories: [], skills: [], mcpServers: [] },
+			{},
+		);
 		expect(html).toContain('<option value="" selected>all</option>');
 		expect(html).toContain('<option value="" selected>all directories</option>');
+		expect(html).toContain('name="dirs" multiple');
+		expect(html).toContain('name="skills" multiple');
+		expect(html).toContain('name="mcp" multiple');
 	});
 
 	it("strips the common path prefix from directory option labels", () => {
@@ -924,11 +963,13 @@ describe("dashboard components", () => {
 				events: [],
 				tools: [],
 				directories: ["/Users/dev/Workspace/repo-a", "/Users/dev/Workspace/repo-b"],
+				skills: [],
+				mcpServers: [],
 			},
 			{},
 		);
-		expect(html).toContain(">repo-a<");
-		expect(html).toContain(">repo-b<");
+		expect(html.match(/>repo-a</g)?.length).toBe(2);
+		expect(html.match(/>repo-b</g)?.length).toBe(2);
 		expect(html).not.toContain(">/Users/dev/Workspace/repo-a<");
 	});
 
@@ -1103,6 +1144,31 @@ describe("dashboard components", () => {
 		const noSessionHtml = renderSessionsTable([noSession], now);
 		expect(noSessionHtml).toContain("session-item-static");
 		expect(noSessionHtml).not.toContain("hx-get=");
+	});
+
+	it("includes multi-select filters in the session detail link", () => {
+		const now = Date.now();
+		const base: Session = {
+			sessionId: "s-1",
+			firstAt: new Date(now - 10000).toISOString(),
+			lastAt: new Date(now).toISOString(),
+			firstReceivedAt: now - 10000,
+			lastReceivedAt: now,
+			durationMs: 10000,
+			eventCount: 2,
+			projectPath: null,
+			projectPaths: [],
+			tools: ["Shell"],
+			failureCount: 0,
+		};
+		const withMultiSelect = renderSessionsTable([base], now, undefined, undefined, {
+			projectPaths: ["/repo-a", "/repo-b"],
+			skills: ["design"],
+			mcpServers: ["confluence", "figma"],
+		});
+		expect(withMultiSelect).toContain("dirs=%2Frepo-a&amp;dirs=%2Frepo-b");
+		expect(withMultiSelect).toContain("skills=design");
+		expect(withMultiSelect).toContain("mcp=confluence&amp;mcp=figma");
 	});
 
 	it("renders session detail", () => {

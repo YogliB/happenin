@@ -132,6 +132,13 @@ Clicking a tool, skill, or file jumps to a list of every session that used it. T
 chart can be scoped to one directory with the "md files directory" filter (the common path prefix
 is stripped from the dropdown labels, and paths under `/private` are excluded).
 
+The persistent filter bar also has multi-select "directories", "skills", and "integrations (MCP)"
+controls. Each lets you pick several values at once — matching sessions with _any_ of the selected
+values in that category (OR) — and the categories combine with every other filter, including each
+other, with AND (e.g. directory X or Y, AND skill A or B). The "integrations (MCP)" list is derived
+from the data itself: it parses the `mcp__<server>__<tool>` naming convention on recorded tool
+calls and lists every distinct MCP server actually seen, with no hardcoded set of servers.
+
 A context breakdown widget splits recorded payload size (and, for imported Claude sessions, token
 usage) into four buckets: MCP server calls, markdown file reads, bloatware (skill loads and
 lifecycle/hook noise), and actual value (real tool calls and conversation turns). It appears on the

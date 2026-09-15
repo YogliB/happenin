@@ -69,6 +69,9 @@ export function parseQuery(url: URL): QueryOptions {
 	const skill = url.searchParams.get("skill") || undefined;
 	const file = url.searchParams.get("file") || undefined;
 	const mdDir = url.searchParams.get("mdDir") || undefined;
+	const dirs = url.searchParams.getAll("dirs").filter((value) => value !== "");
+	const skills = url.searchParams.getAll("skills").filter((value) => value !== "");
+	const mcpServers = url.searchParams.getAll("mcp").filter((value) => value !== "");
 	const viewRaw = url.searchParams.get("view") || undefined;
 	const view = viewRaw === "list" ? "list" : undefined;
 	const minDuration = url.searchParams.get("minDuration");
@@ -100,6 +103,9 @@ export function parseQuery(url: URL): QueryOptions {
 		file,
 		mdDir,
 		view,
+		projectPaths: dirs.length > 0 ? dirs : undefined,
+		skills: skills.length > 0 ? skills : undefined,
+		mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
 		minDuration: parseNumber(minDuration),
 		maxDuration: parseNumber(maxDuration),
 		range,

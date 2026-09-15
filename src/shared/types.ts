@@ -46,6 +46,9 @@ export type FilterOptions = {
 	range?: TimeRange;
 	mdDir?: string;
 	view?: "overview" | "list";
+	projectPaths?: string[];
+	skills?: string[];
+	mcpServers?: string[];
 };
 
 export type FilterOptionLists = {
@@ -53,6 +56,8 @@ export type FilterOptionLists = {
 	events: string[];
 	tools: string[];
 	directories: string[];
+	skills: string[];
+	mcpServers: string[];
 };
 
 export type SessionMetrics = {

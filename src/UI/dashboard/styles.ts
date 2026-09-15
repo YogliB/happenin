@@ -58,6 +58,9 @@ label { display: flex; flex-direction: column; font-size: 0.75rem; gap: 0.25rem;
 input, select, button { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 0.4rem; padding: 0.45rem 0.7rem; font-size: 0.85rem; transition: border-color 0.15s, background 0.15s; }
 input:focus, select:focus, button:focus { outline: none; border-color: var(--accent); }
 select { min-width: 7.5rem; cursor: pointer; }
+select[multiple] { min-width: 10rem; padding: 0.3rem; cursor: default; }
+select[multiple] option { padding: 0.15rem 0.4rem; border-radius: 0.25rem; }
+select[multiple] option:checked { background: var(--accent); color: var(--bg); }
 button { cursor: pointer; background: var(--surface-4); font-weight: 500; }
 button:hover { background: var(--surface-5); }
 .theme { display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem; padding: 0.35rem 0.6rem; line-height: 1; }

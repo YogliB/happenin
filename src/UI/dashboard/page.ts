@@ -99,7 +99,14 @@ const clientScript = `
 			if (!form) return false;
 			for (const [name, value] of Object.entries(values)) {
 				const field = form.elements[name];
-				if (field && value != null && value !== '') {
+				if (!field) continue;
+				if (Array.isArray(value)) {
+					if (field.multiple && field.options) {
+						for (const option of field.options) {
+							option.selected = value.includes(option.value);
+						}
+					}
+				} else if (value != null && value !== '') {
 					field.value = String(value);
 				}
 			}
@@ -108,23 +115,34 @@ const clientScript = `
 		return false;
 	}
 
+	function collectFormEntries(form) {
+		const data = new FormData(form);
+		const entries = [];
+		for (const [key, value] of data.entries()) {
+			if (value) entries.push([key, String(value)]);
+		}
+		return entries;
+	}
+
 	function updateContentUrl() {
 		const form = document.querySelector('[data-filter-form]');
 		const content = document.getElementById('dashboard-content');
 		if (!form || !content) return;
-		const data = new FormData(form);
 		const params = new URLSearchParams();
-		for (const [key, value] of data.entries()) {
-			if (value) params.set(key, String(value));
+		for (const [key, value] of collectFormEntries(form)) {
+			params.append(key, value);
 		}
 		content.setAttribute('hx-get', '/fragments/sessions' + (params.size > 0 ? '?' + params.toString() : ''));
 	}
 
 	function saveFilters(form) {
-		const data = new FormData(form);
 		const filters = {};
-		for (const [key, value] of data.entries()) {
-			if (value) filters[key] = String(value);
+		for (const [key, value] of collectFormEntries(form)) {
+			if (key in filters) {
+				filters[key] = Array.isArray(filters[key]) ? [...filters[key], value] : [filters[key], value];
+			} else {
+				filters[key] = value;
+			}
 		}
 		setItem(FILTER_KEY, JSON.stringify(filters));
 	}
@@ -203,9 +221,8 @@ const clientScript = `
 		const isOpen = btn.getAttribute('aria-expanded') === 'true';
 		const params = new URLSearchParams();
 		if (form) {
-			const data = new FormData(form);
-			for (const [key, value] of data.entries()) {
-				if (value) params.set(key, String(value));
+			for (const [key, value] of collectFormEntries(form)) {
+				params.append(key, value);
 			}
 		}
 		if (!isOpen) params.set('view', 'list');
