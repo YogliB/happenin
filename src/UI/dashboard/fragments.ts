@@ -165,7 +165,7 @@ function renderSessionsListView(db: DatabaseSync, query: QueryOptions, now: numb
 	return `<div class="main-content sessions-list-view">
 <div class="detail-header">
 ${renderBackButton()}
-<h2 class="session-list-title">Recent Sessions <span class="session-collapse-count">${allSessions.length}</span></h2>
+<h2 class="session-list-title">Sessions <span class="session-collapse-count">${allSessions.length}</span></h2>
 </div>
 ${filterBar}
 <div class="session-list-wrapper">

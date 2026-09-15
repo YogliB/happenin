@@ -513,7 +513,9 @@ describe("happenin", () => {
 			expect(html).toContain('<select name="source">');
 			expect(html).toContain('<select name="tool">');
 			expect(html).toContain("metric-grid");
-			expect(html).toContain("sessions-toggle-bar");
+			expect(html).toContain("toggle-pill");
+			expect(html).toContain('id="tab-overview"');
+			expect(html).toContain('id="tab-sessions"');
 			expect(html).toContain("input changed delay:300ms");
 			db.close();
 		});

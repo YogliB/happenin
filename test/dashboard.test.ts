@@ -591,6 +591,14 @@ describe("dashboard page and fragments", () => {
 		db.close();
 	});
 
+	it("renders the sessions view with the view input set to list", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, eventInsert({ payload: JSON.stringify({}) }));
+		const html = dashboardHtml(db, { range: "24h", view: "list" });
+		expect(html).toContain('<input type="hidden" name="view" value="list">');
+		db.close();
+	});
+
 	it("renders session detail on the full page when a session is selected", () => {
 		const db = initDb(":memory:");
 		insertEvent(db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
@@ -999,13 +1007,22 @@ describe("dashboard components", () => {
 		expect(html).toContain('name="skills" multiple');
 		expect(html).toContain('name="mcp" multiple');
 		expect(html).toContain('value="/repo-a" selected');
-		expect(html).toContain('value="/repo-b" selected');
-		expect(html).toContain('value="design" selected');
-		expect(html).not.toContain('value="commit-push-pr" selected');
-		expect(html).toContain('value="figma" selected');
-		expect(html).not.toContain('value="confluence" selected');
+		expect(html).toContain('value="/repo-b" data-label="/repo-b" selected');
+		expect(html).toContain('value="design" data-label="design" selected');
+		expect(html).not.toContain('value="commit-push-pr" data-label="commit-push-pr" selected');
+		expect(html).toContain('value="figma" data-label="figma" selected');
+		expect(html).not.toContain('value="confluence" data-label="confluence" selected');
 		expect(html).toContain('value="5"');
 		expect(html).toContain('value="30"');
+	});
+
+	it("marks the sessions tab active when the view is list", () => {
+		const html = renderFilters(
+			{ sources: [], events: [], tools: [], directories: [], skills: [], mcpServers: [] },
+			{ view: "list" },
+		);
+		expect(html).toContain('id="tab-overview" class="view-tab" role="tab" aria-selected="false"');
+		expect(html).toContain('id="tab-sessions" class="view-tab" role="tab" aria-selected="true"');
 	});
 
 	it("renders filters with no selection", () => {

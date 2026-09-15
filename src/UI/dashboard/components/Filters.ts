@@ -2,6 +2,8 @@ import { escapeHtml, escapeAttr, commonPathPrefix } from "../utils.js";
 import type { FilterOptions, FilterOptionLists } from "../../../shared/types.js";
 
 const statuses = ["active", "completed", "failed"];
+const chevronIcon = `<svg class="toggle-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+const filterIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
 
 function renderSelect(
 	name: string,
@@ -39,21 +41,23 @@ function renderDirectorySelect(
 	return `<select name="${name}"><option value=""${selectedValue === "" ? " selected" : ""}>all directories</option>${options}</select>`;
 }
 
-function renderMultiSelect(
+function renderPillMultiSelect(
 	name: string,
 	options: { value: string; label: string }[],
 	selected: string[],
+	allLabel: string,
 ): string {
 	const selectedSet = new Set(selected);
 	const optionsHtml = options
 		.map(({ value, label }) => {
 			const v = escapeAttr(value);
 			const s = selectedSet.has(value) ? " selected" : "";
-			return `<option value="${v}"${s}>${escapeHtml(label)}</option>`;
+			return `<option value="${v}" data-label="${escapeAttr(label)}"${s}>${escapeHtml(label)}</option>`;
 		})
 		.join("");
-	const size = Math.max(1, Math.min(options.length, 6));
-	return `<select name="${name}" multiple size="${size}">${optionsHtml}</select>`;
+	return `<div class="ms" data-ms-all="${escapeAttr(allLabel)}">
+	<select name="${name}" multiple class="ms-native">${optionsHtml}</select>
+</div>`;
 }
 
 function renderDirectoryMultiSelect(
@@ -62,18 +66,25 @@ function renderDirectoryMultiSelect(
 	selected: string[],
 ): string {
 	const prefix = commonPathPrefix(directories);
-	return renderMultiSelect(
+	return renderPillMultiSelect(
 		name,
 		directories.map((dir) => ({ value: dir, label: dir.slice(prefix.length) })),
 		selected,
+		"All directories",
 	);
 }
 
-function renderPlainMultiSelect(name: string, values: string[], selected: string[]): string {
-	return renderMultiSelect(
+function renderPlainMultiSelect(
+	name: string,
+	values: string[],
+	selected: string[],
+	allLabel: string,
+): string {
+	return renderPillMultiSelect(
 		name,
 		values.map((value) => ({ value, label: value })),
 		selected,
+		allLabel,
 	);
 }
 
@@ -88,16 +99,26 @@ export function renderFilters(options: FilterOptionLists, selected: FilterOption
 	const selectedDirs = selected.projectPaths ?? [];
 	const selectedSkills = selected.skills ?? [];
 	const selectedMcpServers = selected.mcpServers ?? [];
-	return `<div class="filter-bar">
-	<label>status ${renderSelect("status", statuses, status)}</label>
-	<label>source ${renderSelect("source", options.sources, source)}</label>
-	<label>tool ${renderSelect("tool", options.tools, tool)}</label>
-	<label>event ${renderSelect("event", options.events, event)}</label>
-	<label>directories ${renderDirectoryMultiSelect("dirs", options.directories, selectedDirs)}</label>
-	<label>skills ${renderPlainMultiSelect("skills", options.skills, selectedSkills)}</label>
-	<label>integrations (MCP) ${renderPlainMultiSelect("mcp", options.mcpServers, selectedMcpServers)}</label>
-	<label>md files directory ${renderDirectorySelect("mdDir", options.directories, mdDir)}</label>
-	<label>min duration (m) <input type="number" name="minDuration" min="0" step="any" placeholder="min" value="${escapeHtml(minDuration)}"></label>
-	<label>max duration (m) <input type="number" name="maxDuration" min="0" step="any" placeholder="max" value="${escapeHtml(maxDuration)}"></label>
+	const isSessionsView = selected.view === "list";
+	return `<div class="toolbar-row">
+	<button type="button" id="filters-toggle" class="toggle-pill" aria-expanded="false" aria-controls="filter-panel" onclick="toggleFilters()">
+		${chevronIcon}${filterIcon}<span>Filters</span><span class="toggle-badge" id="filters-badge" hidden></span>
+	</button>
+	<div class="view-tabs" role="tablist">
+		<button type="button" id="tab-overview" class="view-tab" role="tab" aria-selected="${isSessionsView ? "false" : "true"}" onclick="switchView('overview')">Overview</button>
+		<button type="button" id="tab-sessions" class="view-tab" role="tab" aria-selected="${isSessionsView ? "true" : "false"}" onclick="switchView('list')">Sessions<span class="toggle-badge" id="sessions-tab-count" hidden></span></button>
+	</div>
+</div>
+<div class="filter-panel" id="filter-panel">
+	<div class="field"><label>Status</label>${renderSelect("status", statuses, status)}</div>
+	<div class="field"><label>Source</label>${renderSelect("source", options.sources, source)}</div>
+	<div class="field"><label>Tool</label>${renderSelect("tool", options.tools, tool)}</div>
+	<div class="field"><label>Event</label>${renderSelect("event", options.events, event)}</div>
+	<div class="field field-wide"><label>Directories</label>${renderDirectoryMultiSelect("dirs", options.directories, selectedDirs)}</div>
+	<div class="field field-wide"><label>Skills</label>${renderPlainMultiSelect("skills", options.skills, selectedSkills, "All skills")}</div>
+	<div class="field field-wide"><label>Integrations (MCP)</label>${renderPlainMultiSelect("mcp", options.mcpServers, selectedMcpServers, "All integrations")}</div>
+	<div class="field"><label>Md files directory</label>${renderDirectorySelect("mdDir", options.directories, mdDir)}</div>
+	<div class="field"><label>Min duration (m)</label><input type="number" name="minDuration" min="0" step="any" placeholder="min" value="${escapeHtml(minDuration)}"></div>
+	<div class="field"><label>Max duration (m)</label><input type="number" name="maxDuration" min="0" step="any" placeholder="max" value="${escapeHtml(maxDuration)}"></div>
 </div>`;
 }
