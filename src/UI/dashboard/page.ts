@@ -270,12 +270,29 @@ const clientScript = `
 		if (sessionsTab) sessionsTab.setAttribute('aria-selected', String(view === 'list'));
 	}
 
+	function requestSessionsFragment() {
+		const form = document.querySelector('[data-filter-form]');
+		const content = document.getElementById('dashboard-content');
+		if (!form || !content || typeof htmx === 'undefined') return;
+		const params = new URLSearchParams();
+		for (const [key, value] of collectFormEntries(form)) {
+			params.append(key, value);
+		}
+		const url = '/fragments/sessions' + (params.size > 0 ? '?' + params.toString() : '');
+		content.setAttribute('hx-get', url);
+		htmx.ajax('GET', url, { target: content, swap: 'innerHTML' });
+	}
+
 	function switchView(view) {
+		const form = document.querySelector('[data-filter-form]');
 		const field = getViewField();
 		if (field) field.value = view === 'list' ? 'list' : '';
 		updateViewTabs();
-		const form = document.querySelector('[data-filter-form]');
-		if (form && typeof htmx !== 'undefined') htmx.trigger(form, 'change');
+		if (form) {
+			saveFilters(form);
+			updateFiltersBadge();
+		}
+		requestSessionsFragment();
 	}
 
 	function syncViewCounts() {
@@ -386,7 +403,7 @@ const clientScript = `
 		initFilterPanel();
 		if (hadSaved) {
 			setTimeout(() => {
-				if (typeof htmx !== 'undefined') htmx.trigger(form, 'change');
+				requestSessionsFragment();
 			}, 0);
 		}
 	}
@@ -421,8 +438,7 @@ const clientScript = `
 	}
 
 	function backToDashboard() {
-		const form = document.querySelector('[data-filter-form]');
-		if (form && typeof htmx !== 'undefined') htmx.trigger(form, 'change');
+		requestSessionsFragment();
 	}
 
 	function syncDetailState() {
