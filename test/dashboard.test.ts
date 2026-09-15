@@ -32,6 +32,7 @@ import { renderSkillChart } from "../src/UI/dashboard/components/ChartSkills.js"
 import { renderTopFiles } from "../src/UI/dashboard/components/TopFiles.js";
 import { renderSessionsTable } from "../src/UI/dashboard/components/SessionsTable.js";
 import { renderSessionDetail } from "../src/UI/dashboard/components/DetailPanel.js";
+import { renderBackButton } from "../src/UI/dashboard/components/BackButton.js";
 import {
 	renderContextBreakdown,
 	formatBytes,
@@ -231,10 +232,35 @@ describe("dashboard", () => {
 		const req = createMockReq({ url: "/fragments/sessions" });
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
-		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
+		expect(res.writeHead).toHaveBeenCalledWith(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"HX-Push-Url": "/",
+		});
 		const html = res.end.mock.calls[0]?.[0] as string;
 		expect(html).toContain("metric-grid");
 		expect(html).toContain("top-charts");
+	});
+
+	it("pushes a full-page URL for user-initiated sessions fragment requests", () => {
+		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		const req = createMockReq({ url: "/fragments/sessions?tool=Shell&view=list" });
+		const res = createMockRes();
+		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"HX-Push-Url": "/?tool=Shell&view=list",
+		});
+	});
+
+	it("omits HX-Push-Url for the background SSE-triggered sessions refresh", () => {
+		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		const req = createMockReq({
+			url: "/fragments/sessions",
+			headers: { "hx-trigger": "dashboard-content" },
+		});
+		const res = createMockRes();
+		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 	});
 
 	it("falls back to the default time range for invalid range values", () => {
@@ -242,7 +268,10 @@ describe("dashboard", () => {
 		const req = createMockReq({ url: "/fragments/sessions?range=999d" });
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
-		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
+		expect(res.writeHead).toHaveBeenCalledWith(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"HX-Push-Url": "/?range=999d",
+		});
 	});
 
 	it("serves the session detail fragment", () => {
@@ -250,9 +279,23 @@ describe("dashboard", () => {
 		const req = createMockReq({ url: "/fragments/detail?session=s-1" });
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"HX-Push-Url": "/?session=s-1",
+		});
+		const html = res.end.mock.calls[0]?.[0] as string;
+		expect(html).toContain("Session Details - s-1");
+	});
+
+	it("renders the session detail view for GET / when a session is requested", () => {
+		insertEvent(dashboard.db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
+		const req = createMockReq({ url: "/?session=s-1" });
+		const res = createMockRes();
+		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
 		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 		const html = res.end.mock.calls[0]?.[0] as string;
 		expect(html).toContain("Session Details - s-1");
+		expect(html).not.toContain('class="main-metrics"');
 	});
 
 	it("serves events as json", () => {
@@ -548,6 +591,15 @@ describe("dashboard page and fragments", () => {
 		db.close();
 	});
 
+	it("renders session detail on the full page when a session is selected", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
+		const html = dashboardHtml(db, { range: "24h", sessionId: "s-1" });
+		expect(html).toContain("Session Details - s-1");
+		expect(html).not.toContain('class="main-metrics"');
+		db.close();
+	});
+
 	it("parses all query parameters", () => {
 		const url = new URL(
 			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&skill=commit-push-pr&file=%2Fa.md&mdDir=%2Frepo&view=list&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5&dirs=%2Frepo-a&dirs=%2Frepo-b&skills=design&skills=commit-push-pr&mcp=confluence&mcp=figma",
@@ -610,6 +662,8 @@ describe("dashboard page and fragments", () => {
 		expect(listHtml).toContain("sessions-list-view");
 		expect(listHtml).toContain("sessions-table");
 		expect(listHtml).not.toContain("metric-grid");
+		expect(listHtml).toContain('class="detail-back"');
+		expect(listHtml).toContain("backToDashboard()");
 
 		const eventsHtml = renderSessionDetailFragment(db, { sessionId: "s-1" });
 		expect(eventsHtml).toContain("Session Details - s-1");
@@ -887,6 +941,16 @@ describe("dashboard components", () => {
 		expect(formatTimestamp(null)).toBe("-");
 		const ts = new Date("2024-09-01T12:00:00.000Z").toISOString();
 		expect(formatTimestamp(ts)).toContain("2024");
+	});
+
+	it("renders a back button with a default and custom label", () => {
+		const defaultButton = renderBackButton();
+		expect(defaultButton).toContain('class="detail-back"');
+		expect(defaultButton).toContain('onclick="backToDashboard()"');
+		expect(defaultButton).toContain(">Back<");
+
+		const customButton = renderBackButton("Return to overview");
+		expect(customButton).toContain(">Return to overview<");
 	});
 
 	it("finds the longest slash-aligned common path prefix", () => {

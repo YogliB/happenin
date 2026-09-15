@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import { getFilterOptions } from "../../shared/db.js";
 import { dashboardStyles } from "./styles.js";
-import { parseQuery, renderSessionsContent } from "./fragments.js";
+import { parseQuery, renderSessionsContent, renderSessionDetailFragment } from "./fragments.js";
 import { renderHeader } from "./components/Header.js";
 import { renderFilters } from "./components/Filters.js";
 import type { QueryOptions } from "./fragments.js";
@@ -151,7 +151,7 @@ const clientScript = `
 		const form = document.querySelector('[data-filter-form]');
 		const content = document.getElementById('dashboard-content');
 		if (!form || !content) return;
-		const hadSaved = loadFilters();
+		const hadSaved = window.location.search ? false : loadFilters();
 		form.addEventListener('change', () => saveFilters(form));
 		form.addEventListener('input', (event) => {
 			if (event.target.classList.contains('search')) saveFilters(form);
@@ -255,21 +255,30 @@ const clientScript = `
 		syncSessionsToggle();
 	});
 
+	function initHistoryState() {
+		syncDetailState();
+		syncSessionsToggle();
+	}
+
 	applyTheme(getTheme());
 
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', initTheme);
 		document.addEventListener('DOMContentLoaded', initFilters);
+		document.addEventListener('DOMContentLoaded', initHistoryState);
 	} else {
 		initTheme();
 		initFilters();
+		initHistoryState();
 	}
 })();
 `;
 
 export function dashboardHtml(db: DatabaseSync, query: QueryOptions): string {
 	const filterOptions = getFilterOptions(db);
-	const content = renderSessionsContent(db, query);
+	const content = query.sessionId
+		? renderSessionDetailFragment(db, query)
+		: renderSessionsContent(db, query);
 	const header = renderHeader(query);
 	const filters = renderFilters(filterOptions, query);
 
