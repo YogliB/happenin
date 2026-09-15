@@ -1,9 +1,9 @@
 import { escapeHtml, escapeAttr, formatTimestamp, truncate } from "../utils.js";
 import { eventView } from "../../../shared/view.js";
 import { renderContextBreakdown } from "./ContextBreakdown.js";
+import { renderBackButton } from "./BackButton.js";
 import type { ContextBreakdown, EventRow, Session } from "../../../shared/types.js";
 
-const backIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`;
 const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 
 type EventGroup = {
@@ -166,7 +166,7 @@ export function renderSessionDetail(
 			: "";
 	return `<section class="session-detail-view" data-session="${escapeAttr(sessionId)}" data-subagent="${escapeAttr(activeSubagentId ?? "")}">
 	<div class="detail-header">
-		<button type="button" class="detail-back" onclick="backToDashboard()" aria-label="back to dashboard">${backIcon}<span>Back</span></button>
+		${renderBackButton()}
 		<h2 class="detail-title">Session Details - ${escapeHtml(title)}</h2>
 		<span class="detail-count">${totalEvents ?? displayEvents.length} events</span>
 	</div>
