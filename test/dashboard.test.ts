@@ -532,6 +532,7 @@ describe("dashboard", () => {
 		await dashboard.runDashboard(["--no-open", "--port=1234"]);
 		const server = dashboard.getDashboardServer();
 		expect(server?.listening).toBe(true);
+		dashboard.db.close();
 
 		await dashboard.runDashboard(["--no-open"]);
 		const defaultServer = dashboard.getDashboardServer();
@@ -549,6 +550,7 @@ describe("dashboard", () => {
 		await dashboard.runDashboard(["--silent", "--port", "1234"]);
 		const server = dashboard.getDashboardServer();
 		expect(server?.listening).toBe(true);
+		dashboard.db.close();
 
 		await dashboard.runDashboard(["--port", "1235"]);
 		expect(execFile).toHaveBeenCalledWith(
