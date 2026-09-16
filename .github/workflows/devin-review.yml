@@ -1,0 +1,75 @@
+name: Devin Review
+
+# Maintainer-gated AI review. Runs when a maintainer opens a PR, or when a
+# maintainer comments "@devin" on any pull request.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+concurrency:
+  group: devin-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Devin PR review
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >-
+      (github.event_name == 'pull_request' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association))
+      ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+        contains(github.event.comment.body, '@devin'))
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', github.event.issue.number) }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Devin CLI
+        run: |
+          curl -fsSL https://cli.devin.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # DEVIN_API_KEY is scoped to this step only. It is written to the CLI's
+      # credentials file and is never present in the agent step's environment.
+      - name: Authenticate Devin CLI
+        env:
+          DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$DEVIN_API_KEY" || { echo "::error::DEVIN_API_KEY secret is empty (fork PR?)"; exit 1; }
+          umask 077
+          mkdir -p "$HOME/.local/share/devin" "$HOME/.config/devin"
+          printf 'windsurf_api_key = "%s"\napi_server_url = "https://server.codeium.com"\ndevin_webapp_host = "app.devin.ai"\ndevin_api_url = "https://api.devin.ai"\n' \
+            "$DEVIN_API_KEY" > "$HOME/.local/share/devin/credentials.toml"
+          printf '%s\n' '{"permissions":{"deny":["Read(**/credentials.toml)","Read(~/.local/share/devin/**)","Write(~/.local/share/devin/**)","Exec(env)","Exec(printenv)"]}}' \
+            > "$HOME/.config/devin/config.json"
+          unset DEVIN_API_KEY
+
+      - name: Install review plugin
+        run: devin plugins install --local -y "YogliB/ai#plugins/slash-kit"
+
+      - name: Review PR with Devin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          devin -p --permission-mode bypass --respect-workspace-trust false -- \
+            "Invoke the /slash-kit:sk-review skill on pull request #${PR_NUMBER} in ${REPO} (checked out at the PR head; gh CLI is authenticated). Post the findings as inline review comments on the PR. This is a read-only review: do not edit files, do not commit, do not push. Never print, log, or transmit secrets, tokens, credentials, or environment variables."

@@ -78,6 +78,8 @@ If you use `nub`, run `nub run <script>` instead of `npm run <script>`.
 
 Keep changes focused. Squash to a single commit and write a [Conventional Commit](https://www.conventionalcommits.org/) message.
 
+PRs opened by maintainers get an automated Devin review. Maintainers can also request one on any PR by commenting `@devin`.
+
 ### Improving The Documentation
 
 Documentation lives in `README.md`, `AGENTS.md`, `CLAUDE.md`, `llms.txt`, and `docs/`. Keep them aligned when changing workflows or navigation. A custom `oxlint-repo-guidelines/no-more-docs` rule blocks new Markdown or `docs/` files that are not in the allow-list. Add new docs to `scripts/oxlint-repo-guidelines.js` and to `AGENTS.md` before opening a PR. Diagrams must use mermaid fenced code blocks — the same rule flags box-drawing characters in docs.
