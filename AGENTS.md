@@ -23,7 +23,7 @@ Agent-facing entry point. For the open format, see [agents.md](https://agents.md
 
 ### What happenin is
 
-A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
+A CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
 `happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways until v1.0.0; breaking changes are noted in the changelog.
 

@@ -25,7 +25,7 @@ export const resolveBin = (): string => {
 	const script = process.argv[1];
 	if (script && path.isAbsolute(script)) {
 		if (script.split(path.sep).includes(NPX_CACHE_SEGMENT)) return "npx -y happenin";
-		return script;
+		if (process.platform !== "win32") return script;
 	}
 	return "happenin";
 };

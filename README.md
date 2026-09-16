@@ -5,7 +5,7 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v3.0%20adopted-ff69b4.svg)](docs/CODE_OF_CONDUCT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
+A CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
 ![happenin dashboard](docs/dashboard.gif)
 
@@ -29,7 +29,7 @@ Cursor and Claude Code can emit local hooks for each session, tool use, prompt, 
 
 ## Requirements
 
-- macOS
+- macOS, Linux, or Windows
 - Node.js `>= 22.13.0` (uses the built-in `node:sqlite` module, available since Node 22.13)
 - Zero runtime dependencies
 - The dashboard loads htmx and htmx-ext-sse from a CDN

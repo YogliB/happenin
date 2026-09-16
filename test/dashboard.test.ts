@@ -446,11 +446,15 @@ describe("dashboard", () => {
 		await expect(dashboard.startServer(65535, false)).rejects.toThrow("EACCES");
 	});
 
-	it("opens the browser on darwin and reports open failures", async () => {
+	it.each([
+		["darwin", "open"],
+		["linux", "xdg-open"],
+		["win32", "cmd"],
+	])("opens the browser on %s and reports open failures", async (platform, cmd) => {
 		const originalPlatform = process.platform;
-		Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+		Object.defineProperty(process, "platform", { value: platform, configurable: true });
 
-		const openSpy = vi.fn((cmd: string, args: string[], cb?: (err: Error | null) => void) => {
+		const openSpy = vi.fn((command: string, args: string[], cb?: (err: Error | null) => void) => {
 			if (cb) cb(new Error("open failed"));
 		});
 		vi.mocked(execFile).mockImplementation(openSpy as any);
@@ -459,11 +463,11 @@ describe("dashboard", () => {
 		await dashboard.startServer(1234, true);
 		const server = dashboard.getDashboardServer();
 
-		expect(openSpy).toHaveBeenCalledWith(
-			"open",
-			[expect.stringContaining(`:${1234}`)],
-			expect.any(Function),
-		);
+		const expectedArgs =
+			platform === "win32"
+				? ["/c", "start", "", expect.stringContaining(`:${1234}`)]
+				: [expect.stringContaining(`:${1234}`)];
+		expect(openSpy).toHaveBeenCalledWith(cmd, expectedArgs, expect.any(Function));
 		if (server) await closeServer(server);
 
 		Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
