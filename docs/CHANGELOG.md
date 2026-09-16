@@ -6,6 +6,11 @@
 - Added a context breakdown widget to the dashboard (and session detail view) that buckets recorded payload size and imported-transcript token usage into MCP servers, markdown files, bloatware, and actual value.
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
 
+## [0.3.0]
+
+- `npx -y happenin install` now writes hooks that run through `npx` instead of pointing at the ephemeral npx cache path, so a zero-install trial keeps working; re-running `install` replaces previous `happenin` hooks instead of duplicating them.
+- Added a context breakdown widget to the dashboard (and session detail view) that buckets recorded payload size and imported-transcript token usage into MCP servers, markdown files, bloatware, and actual value.
+
 ## [0.2.0]
 
 - Sessions sidebar nests subagent rows under their parent with a selectable, filterable detail view.
@@ -28,7 +33,8 @@
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
 
-[Unreleased]: https://github.com/YogliB/happenin/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/YogliB/happenin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/YogliB/happenin/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/YogliB/happenin/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/YogliB/happenin/compare/v0.0.1...v0.1.0

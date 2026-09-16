@@ -7,6 +7,9 @@ A macOS CLI that records Cursor and Claude Code agent events to a local SQLite d
 ### `happenin install [--cursor] [--claude]`
 
 Backs up and appends `happenin record` hooks to your Cursor and Claude Code configuration files.
+Re-running install replaces previous happenin hooks instead of duplicating them. When happenin
+runs through npx, hooks are written as `npx -y happenin` commands so they keep working without a
+global install.
 
 - `--cursor` — install Cursor hooks only.
 - `--claude` — install Claude Code hooks only.

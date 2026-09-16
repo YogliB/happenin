@@ -19,11 +19,18 @@ export const formatError = (error: unknown): string =>
 
 export const homeDir = (): string => process.env.HOME || homedir();
 
+const NPX_CACHE_SEGMENT = "_npx";
+
 export const resolveBin = (): string => {
 	const script = process.argv[1];
-	if (script && path.isAbsolute(script)) return script;
+	if (script && path.isAbsolute(script)) {
+		if (script.split(path.sep).includes(NPX_CACHE_SEGMENT)) return "npx -y happenin";
+		return script;
+	}
 	return "happenin";
 };
+
+const isHappeninCommand = (command: string, marker: string): boolean => command.includes(marker);
 
 const ensureDir = (dir: string): void => {
 	// oxlint-disable-next-line security/detect-non-literal-fs-filename -- path is a derived config directory, not user input
@@ -88,9 +95,15 @@ const appendCursorHook = (
 	bin: string,
 ): void => {
 	// oxlint-disable-next-line security/detect-object-injection -- event comes from the hard-coded CURSOR_EVENTS list
+	const existing = Array.isArray(hooks[event]) ? hooks[event] : [];
+	// oxlint-disable-next-line security/detect-object-injection -- event comes from the hard-coded CURSOR_EVENTS list
 	hooks[event] = [
-		// oxlint-disable-next-line security/detect-object-injection -- event comes from the hard-coded CURSOR_EVENTS list
-		...(Array.isArray(hooks[event]) ? hooks[event] : []),
+		...existing.filter(
+			(hook) =>
+				!isObject(hook) ||
+				typeof hook.command !== "string" ||
+				!isHappeninCommand(hook.command, "happenin record cursor"),
+		),
 		{ command: `${bin} record cursor` },
 	];
 };
@@ -100,10 +113,29 @@ const appendClaudeHook = (
 	event: string,
 	bin: string,
 ): void => {
+	const marker = `happenin record claude ${event}`;
+	// oxlint-disable-next-line security/detect-object-injection -- event comes from the hard-coded CLAUDE_EVENTS list
+	const existing = Array.isArray(hooks[event]) ? hooks[event] : [];
+	const withoutPreviousHappeninHooks = existing
+		.map((entry) =>
+			isObject(entry) && Array.isArray(entry.hooks)
+				? {
+						...entry,
+						hooks: entry.hooks.filter(
+							(hook) =>
+								!isObject(hook) ||
+								typeof hook.command !== "string" ||
+								!isHappeninCommand(hook.command, marker),
+						),
+					}
+				: entry,
+		)
+		.filter(
+			(entry) => !(isObject(entry) && Array.isArray(entry.hooks) && entry.hooks.length === 0),
+		);
 	// oxlint-disable-next-line security/detect-object-injection -- event comes from the hard-coded CLAUDE_EVENTS list
 	hooks[event] = [
-		// oxlint-disable-next-line security/detect-object-injection -- event comes from the hard-coded CLAUDE_EVENTS list
-		...(Array.isArray(hooks[event]) ? hooks[event] : []),
+		...(withoutPreviousHappeninHooks as ClaudeMatcher[]),
 		{
 			matcher: "",
 			hooks: [{ type: "command", command: `${bin} record claude ${event}` }],

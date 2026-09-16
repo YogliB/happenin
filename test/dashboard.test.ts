@@ -359,6 +359,7 @@ describe("dashboard", () => {
 
 	it("sends an event stream and pings on new events", () => {
 		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		vi.stubGlobal("Temporal", undefined);
 		vi.useFakeTimers();
 
 		const req = createMockReq({
@@ -384,6 +385,7 @@ describe("dashboard", () => {
 		if (close) close();
 
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
 
 	it("sends an event stream directly with header variants", () => {
@@ -403,6 +405,7 @@ describe("dashboard", () => {
 
 	it("stops the event stream on errors", () => {
 		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		vi.stubGlobal("Temporal", undefined);
 		vi.useFakeTimers();
 
 		const res = createMockRes();
@@ -416,11 +419,13 @@ describe("dashboard", () => {
 
 		expect(res.write).toHaveBeenCalledWith("retry: 500\n\n");
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
 
 	it("uses last event id as zero when the database is empty", () => {
 		const db = initDb(":memory:");
 		dashboard.setDb(db);
+		vi.stubGlobal("Temporal", undefined);
 		vi.useFakeTimers();
 
 		const res = createMockRes();
@@ -434,6 +439,7 @@ describe("dashboard", () => {
 		expect(res.write).not.toHaveBeenCalledWith("event: message\ndata: ping\n\n");
 
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
 
 	it("handles requests with an undefined url", () => {

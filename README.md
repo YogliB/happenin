@@ -9,6 +9,16 @@ A macOS CLI that records Cursor and Claude Code agent events to a local SQLite d
 
 ![happenin dashboard](docs/dashboard.gif)
 
+## Try it
+
+```bash
+npx -y happenin install   # add record hooks to Cursor and Claude Code
+npx -y happenin import    # import existing transcripts
+npx -y happenin dashboard # open the live dashboard
+```
+
+No global install needed: hooks installed this way run through `npx`. For a permanent setup, use the [global install](#install).
+
 ## Why
 
 Cursor and Claude Code can emit local hooks for each session, tool use, prompt, file edit, and lifecycle event. `happenin` adds `record` hooks to those agents, writes the payloads to a local SQLite database, and serves a live browser dashboard. Data never leaves your machine.
@@ -58,7 +68,7 @@ The dashboard opens at `http://localhost:8765`. New events appear automatically.
 
 ### `happenin install [--cursor] [--claude]`
 
-Backs up and appends `happenin record` hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`. Backups are written to `~/.happenin/backups/`.
+Backs up and appends `happenin record` hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`. Backups are written to `~/.happenin/backups/`. Re-running `install` replaces the previous `happenin` hooks instead of duplicating them, and hooks installed through `npx -y happenin install` are written as `npx -y happenin` commands so they keep working without a global install.
 
 ```bash
 happenin install --cursor

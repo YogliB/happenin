@@ -8,6 +8,12 @@ Install from npm:
 npm install -g happenin
 ```
 
+Or try it without installing (hooks installed this way run through `npx`):
+
+```bash
+npx -y happenin install
+```
+
 Or run from source:
 
 ```bash
@@ -42,7 +48,7 @@ The dashboard opens at `http://localhost:8765`. New events stream in automatical
 
 ### `happenin install [--cursor] [--claude]`
 
-Backs up and appends `happenin record` hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`. Backups are written to `~/.happenin/backups/`.
+Backs up and appends `happenin record` hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`. Backups are written to `~/.happenin/backups/`. Re-running `install` replaces the previous `happenin` hooks instead of duplicating them, and hooks installed through `npx -y happenin install` are written as `npx -y happenin` commands so they keep working without a global install.
 
 ### `happenin record <source> [event]`
 
