@@ -976,6 +976,7 @@ describe("dashboard components", () => {
 		expect(commonPathPrefix(["/only/one/path"])).toBe("/only/one/");
 		expect(commonPathPrefix(["/repo-a", "/repo-b"])).toBe("");
 		expect(commonPathPrefix(["/Users/dev/repo-a", "/Users/dev/repo-b"])).toBe("/Users/dev/");
+		expect(commonPathPrefix(["C:\\dev\\repo-a", "C:\\dev\\repo-b"])).toBe("C:\\dev\\");
 		expect(commonPathPrefix(["abc", "xyz"])).toBe("");
 	});
 

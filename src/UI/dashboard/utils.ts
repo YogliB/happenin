@@ -28,12 +28,12 @@ export function commonPathPrefix(paths: string[]): string {
 		prefix = prefix.slice(0, i);
 		if (prefix === "") return "";
 	}
-	const lastSlash = prefix.lastIndexOf("/");
+	const lastSlash = Math.max(prefix.lastIndexOf("/"), prefix.lastIndexOf("\\"));
 	return lastSlash > 0 ? prefix.slice(0, lastSlash + 1) : "";
 }
 
 export function lastPathSegments(path: string, count: number): string {
-	const segments = path.split("/").filter((segment) => segment.length > 0);
+	const segments = path.split(/[\\/]/).filter((segment) => segment.length > 0);
 	return segments.slice(-count).join("/");
 }
 
