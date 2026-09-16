@@ -1,9 +1,9 @@
 import { mkdirSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
 import { DEFAULT_DB_DIR, DEFAULT_DB_NAME } from "./constants.js";
+import { homeDir } from "./homeDir.js";
 import type {
 	EventInsert,
 	EventRow,
@@ -284,7 +284,7 @@ export const getDbPath = (): string => {
 	if (process.env.HAPPENIN_DB) {
 		return process.env.HAPPENIN_DB;
 	}
-	return path.join(homedir(), DEFAULT_DB_DIR, DEFAULT_DB_NAME);
+	return path.join(homeDir(), DEFAULT_DB_DIR, DEFAULT_DB_NAME);
 };
 
 export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {

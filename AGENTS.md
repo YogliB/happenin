@@ -65,6 +65,7 @@ Common commands:
 - `src/shared/db.ts` — SQLite data layer.
 - `src/shared/constants.ts` — hook event lists and default responses.
 - `src/shared/types.ts` — shared TypeScript types.
+- `src/shared/homeDir.ts` — `$HOME`-aware home directory helper (os.homedir() ignores `HOME` on Windows).
 - `src/shared/toolCalls.ts` — extracts `file_path`/`skill_name` from a tool call's name+input; shared
   by the live hook recorder and the transcript importer.
 - `src/cli/record.ts` — hook target: parse stdin, insert event, respond.

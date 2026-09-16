@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { homedir } from "node:os";
 import process from "node:process";
 import { CURSOR_HOOK_EVENTS, CLAUDE_HOOK_EVENTS } from "../shared/constants.js";
+import { homeDir } from "../shared/homeDir.js";
 
 type CursorHookCommand = { command: string };
 type CursorHookFile = { version?: number; hooks: Record<string, CursorHookCommand[]> };
@@ -17,7 +17,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 export const formatError = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
-export const homeDir = (): string => process.env.HOME || homedir();
+export { homeDir };
 
 const NPX_CACHE_SEGMENT = "_npx";
 
