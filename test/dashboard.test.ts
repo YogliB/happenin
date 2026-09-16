@@ -985,6 +985,7 @@ describe("dashboard components", () => {
 
 	it("shortens Windows paths and keeps POSIX backslashes literal", () => {
 		expect(lastPathSegments("C:\\dev\\repo\\file.md", 2)).toBe("repo/file.md");
+		expect(lastPathSegments("docs\\guides\\setup.md", 2)).toBe("guides/setup.md");
 		expect(lastPathSegments("/posix/dir\\name/file.md", 2)).toBe("dir\\name/file.md");
 	});
 

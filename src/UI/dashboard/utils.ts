@@ -21,6 +21,9 @@ export function truncate(value: string, limit = 24): string {
 
 const WINDOWS_PATH = /^[A-Za-z]:[\\/]|^\\\\/;
 
+const usesBackslashSep = (path: string): boolean =>
+	WINDOWS_PATH.test(path) || (path.includes("\\") && !path.includes("/"));
+
 export function commonPathPrefix(paths: string[]): string {
 	if (paths.length === 0) return "";
 	let prefix = paths[0];
@@ -30,7 +33,7 @@ export function commonPathPrefix(paths: string[]): string {
 		prefix = prefix.slice(0, i);
 		if (prefix === "") return "";
 	}
-	const lastSlash = WINDOWS_PATH.test(prefix)
+	const lastSlash = usesBackslashSep(prefix)
 		? Math.max(prefix.lastIndexOf("/"), prefix.lastIndexOf("\\"))
 		: prefix.lastIndexOf("/");
 	return lastSlash > 0 ? prefix.slice(0, lastSlash + 1) : "";
@@ -38,7 +41,7 @@ export function commonPathPrefix(paths: string[]): string {
 
 export function lastPathSegments(path: string, count: number): string {
 	const segments = path
-		.split(WINDOWS_PATH.test(path) ? /[\\/]/ : /\//)
+		.split(usesBackslashSep(path) ? /[\\/]/ : /\//)
 		.filter((segment) => segment.length > 0);
 	return segments.slice(-count).join("/");
 }
