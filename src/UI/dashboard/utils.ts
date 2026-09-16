@@ -19,6 +19,8 @@ export function truncate(value: string, limit = 24): string {
 	return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
 }
 
+const WINDOWS_PATH = /^[A-Za-z]:[\\/]|^\\\\/;
+
 export function commonPathPrefix(paths: string[]): string {
 	if (paths.length === 0) return "";
 	let prefix = paths[0];
@@ -28,12 +30,16 @@ export function commonPathPrefix(paths: string[]): string {
 		prefix = prefix.slice(0, i);
 		if (prefix === "") return "";
 	}
-	const lastSlash = Math.max(prefix.lastIndexOf("/"), prefix.lastIndexOf("\\"));
+	const lastSlash = WINDOWS_PATH.test(prefix)
+		? Math.max(prefix.lastIndexOf("/"), prefix.lastIndexOf("\\"))
+		: prefix.lastIndexOf("/");
 	return lastSlash > 0 ? prefix.slice(0, lastSlash + 1) : "";
 }
 
 export function lastPathSegments(path: string, count: number): string {
-	const segments = path.split(/[\\/]/).filter((segment) => segment.length > 0);
+	const segments = path
+		.split(WINDOWS_PATH.test(path) ? /[\\/]/ : /\//)
+		.filter((segment) => segment.length > 0);
 	return segments.slice(-count).join("/");
 }
 

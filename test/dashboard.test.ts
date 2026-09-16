@@ -20,6 +20,7 @@ import {
 	formatTimestamp,
 	truncate,
 	commonPathPrefix,
+	lastPathSegments,
 } from "../src/UI/dashboard/utils.js";
 import { buildFragmentUrl } from "../src/UI/dashboard/queryLink.js";
 import { renderHeader } from "../src/UI/dashboard/components/Header.js";
@@ -980,6 +981,11 @@ describe("dashboard components", () => {
 		expect(commonPathPrefix(["/Users/dev/repo-a", "/Users/dev/repo-b"])).toBe("/Users/dev/");
 		expect(commonPathPrefix(["C:\\dev\\repo-a", "C:\\dev\\repo-b"])).toBe("C:\\dev\\");
 		expect(commonPathPrefix(["abc", "xyz"])).toBe("");
+	});
+
+	it("shortens Windows paths and keeps POSIX backslashes literal", () => {
+		expect(lastPathSegments("C:\\dev\\repo\\file.md", 2)).toBe("repo/file.md");
+		expect(lastPathSegments("/posix/dir\\name/file.md", 2)).toBe("dir\\name/file.md");
 	});
 
 	it("renders header with selected values", () => {
