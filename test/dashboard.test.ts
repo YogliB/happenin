@@ -32,6 +32,7 @@ import { renderSkillChart } from "../src/UI/dashboard/components/ChartSkills.js"
 import { renderTopFiles } from "../src/UI/dashboard/components/TopFiles.js";
 import { renderSessionsTable } from "../src/UI/dashboard/components/SessionsTable.js";
 import { renderSessionDetail } from "../src/UI/dashboard/components/DetailPanel.js";
+import { renderBackButton } from "../src/UI/dashboard/components/BackButton.js";
 import {
 	renderContextBreakdown,
 	formatBytes,
@@ -231,10 +232,35 @@ describe("dashboard", () => {
 		const req = createMockReq({ url: "/fragments/sessions" });
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
-		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
+		expect(res.writeHead).toHaveBeenCalledWith(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"HX-Push-Url": "/",
+		});
 		const html = res.end.mock.calls[0]?.[0] as string;
 		expect(html).toContain("metric-grid");
 		expect(html).toContain("top-charts");
+	});
+
+	it("pushes a full-page URL for user-initiated sessions fragment requests", () => {
+		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		const req = createMockReq({ url: "/fragments/sessions?tool=Shell&view=list" });
+		const res = createMockRes();
+		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"HX-Push-Url": "/?tool=Shell&view=list",
+		});
+	});
+
+	it("omits HX-Push-Url for the background SSE-triggered sessions refresh", () => {
+		insertEvent(dashboard.db, eventInsert({ payload: JSON.stringify({}) }));
+		const req = createMockReq({
+			url: "/fragments/sessions",
+			headers: { "hx-trigger": "dashboard-content" },
+		});
+		const res = createMockRes();
+		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 	});
 
 	it("falls back to the default time range for invalid range values", () => {
@@ -242,7 +268,10 @@ describe("dashboard", () => {
 		const req = createMockReq({ url: "/fragments/sessions?range=999d" });
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
-		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
+		expect(res.writeHead).toHaveBeenCalledWith(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"HX-Push-Url": "/?range=999d",
+		});
 	});
 
 	it("serves the session detail fragment", () => {
@@ -250,9 +279,23 @@ describe("dashboard", () => {
 		const req = createMockReq({ url: "/fragments/detail?session=s-1" });
 		const res = createMockRes();
 		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
+		expect(res.writeHead).toHaveBeenCalledWith(200, {
+			"Content-Type": "text/html; charset=utf-8",
+			"HX-Push-Url": "/?session=s-1",
+		});
+		const html = res.end.mock.calls[0]?.[0] as string;
+		expect(html).toContain("Session Details - s-1");
+	});
+
+	it("renders the session detail view for GET / when a session is requested", () => {
+		insertEvent(dashboard.db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
+		const req = createMockReq({ url: "/?session=s-1" });
+		const res = createMockRes();
+		dashboard.handleRequest(req, res as unknown as http.ServerResponse);
 		expect(res.writeHead).toHaveBeenCalledWith(200, { "Content-Type": "text/html; charset=utf-8" });
 		const html = res.end.mock.calls[0]?.[0] as string;
 		expect(html).toContain("Session Details - s-1");
+		expect(html).not.toContain('class="main-metrics"');
 	});
 
 	it("serves events as json", () => {
@@ -558,9 +601,26 @@ describe("dashboard page and fragments", () => {
 		db.close();
 	});
 
+	it("renders the sessions view with the view input set to list", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, eventInsert({ payload: JSON.stringify({}) }));
+		const html = dashboardHtml(db, { range: "24h", view: "list" });
+		expect(html).toContain('<input type="hidden" name="view" value="list">');
+		db.close();
+	});
+
+	it("renders session detail on the full page when a session is selected", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, eventInsert({ sessionId: "s-1", payload: JSON.stringify({}) }));
+		const html = dashboardHtml(db, { range: "24h", sessionId: "s-1" });
+		expect(html).toContain("Session Details - s-1");
+		expect(html).not.toContain('class="main-metrics"');
+		db.close();
+	});
+
 	it("parses all query parameters", () => {
 		const url = new URL(
-			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&skill=commit-push-pr&file=%2Fa.md&mdDir=%2Frepo&view=list&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5",
+			"http://localhost/?q=test&range=7d&status=failed&source=cursor&tool=Shell&skill=commit-push-pr&file=%2Fa.md&mdDir=%2Frepo&view=list&minDuration=1&maxDuration=10&session=s-1&subagent=sub-1&since=5&event=preToolUse&limit=10&offset=5&dirs=%2Frepo-a&dirs=%2Frepo-b&skills=design&skills=commit-push-pr&mcp=confluence&mcp=figma",
 		);
 		const query = parseQuery(url);
 		expect(query.q).toBe("test");
@@ -580,6 +640,9 @@ describe("dashboard page and fragments", () => {
 		expect(query.event).toBe("preToolUse");
 		expect(query.limit).toBe(10);
 		expect(query.offset).toBe(5);
+		expect(query.projectPaths).toEqual(["/repo-a", "/repo-b"]);
+		expect(query.skills).toEqual(["design", "commit-push-pr"]);
+		expect(query.mcpServers).toEqual(["confluence", "figma"]);
 	});
 
 	it("ignores a view parameter other than list", () => {
@@ -590,6 +653,20 @@ describe("dashboard page and fragments", () => {
 	it("omits view and offset from the URL when unset", () => {
 		const url = buildFragmentUrl({});
 		expect(url).toBe("/fragments/sessions?");
+	});
+
+	it("serializes multi-select filter arrays as repeated params and omits empty ones", () => {
+		const withValues = buildFragmentUrl({
+			projectPaths: ["/repo-a", "/repo-b"],
+			skills: ["design"],
+			mcpServers: ["confluence", "figma"],
+		});
+		expect(withValues).toBe(
+			"/fragments/sessions?dirs=%2Frepo-a&dirs=%2Frepo-b&skills=design&mcp=confluence&mcp=figma",
+		);
+
+		const withEmptyArrays = buildFragmentUrl({ projectPaths: [], skills: [], mcpServers: [] });
+		expect(withEmptyArrays).toBe("/fragments/sessions?");
 	});
 
 	it("renders sessions and events content", () => {
@@ -603,6 +680,8 @@ describe("dashboard page and fragments", () => {
 		expect(listHtml).toContain("sessions-list-view");
 		expect(listHtml).toContain("sessions-table");
 		expect(listHtml).not.toContain("metric-grid");
+		expect(listHtml).toContain('class="detail-back"');
+		expect(listHtml).toContain("backToDashboard()");
 
 		const eventsHtml = renderSessionDetailFragment(db, { sessionId: "s-1" });
 		expect(eventsHtml).toContain("Session Details - s-1");
@@ -821,6 +900,9 @@ describe("dashboard page and fragments", () => {
 		expect(query.maxDuration).toBeUndefined();
 		expect(query.limit).toBeUndefined();
 		expect(query.offset).toBeUndefined();
+		expect(query.projectPaths).toBeUndefined();
+		expect(query.skills).toBeUndefined();
+		expect(query.mcpServers).toBeUndefined();
 	});
 });
 
@@ -879,6 +961,16 @@ describe("dashboard components", () => {
 		expect(formatTimestamp(ts)).toContain("2024");
 	});
 
+	it("renders a back button with a default and custom label", () => {
+		const defaultButton = renderBackButton();
+		expect(defaultButton).toContain('class="detail-back"');
+		expect(defaultButton).toContain('onclick="backToDashboard()"');
+		expect(defaultButton).toContain(">Back<");
+
+		const customButton = renderBackButton("Return to overview");
+		expect(customButton).toContain(">Return to overview<");
+	});
+
 	it("finds the longest slash-aligned common path prefix", () => {
 		expect(commonPathPrefix([])).toBe("");
 		expect(commonPathPrefix(["/only/one/path"])).toBe("/only/one/");
@@ -902,6 +994,8 @@ describe("dashboard components", () => {
 				events: [],
 				tools: ["Shell", "Edit"],
 				directories: ["/repo-a", "/repo-b"],
+				skills: ["commit-push-pr", "design"],
+				mcpServers: ["confluence", "figma"],
 			},
 			{
 				status: "active",
@@ -910,21 +1004,47 @@ describe("dashboard components", () => {
 				mdDir: "/repo-a",
 				minDuration: 5,
 				maxDuration: 30,
+				projectPaths: ["/repo-b"],
+				skills: ["design"],
+				mcpServers: ["figma"],
 			},
 		);
 		expect(html).toContain('name="status"');
 		expect(html).toContain('name="source"');
 		expect(html).toContain('name="tool"');
 		expect(html).toContain('name="mdDir"');
+		expect(html).toContain('name="dirs" multiple');
+		expect(html).toContain('name="skills" multiple');
+		expect(html).toContain('name="mcp" multiple');
 		expect(html).toContain('value="/repo-a" selected');
+		expect(html).toContain('value="/repo-b" data-label="/repo-b" selected');
+		expect(html).toContain('value="design" data-label="design" selected');
+		expect(html).not.toContain('value="commit-push-pr" data-label="commit-push-pr" selected');
+		expect(html).toContain('value="figma" data-label="figma" selected');
+		expect(html).not.toContain('value="confluence" data-label="confluence" selected');
 		expect(html).toContain('value="5"');
 		expect(html).toContain('value="30"');
 	});
 
+	it("marks the sessions tab active when the view is list", () => {
+		const html = renderFilters(
+			{ sources: [], events: [], tools: [], directories: [], skills: [], mcpServers: [] },
+			{ view: "list" },
+		);
+		expect(html).toContain('id="tab-overview" class="view-tab" role="tab" aria-selected="false"');
+		expect(html).toContain('id="tab-sessions" class="view-tab" role="tab" aria-selected="true"');
+	});
+
 	it("renders filters with no selection", () => {
-		const html = renderFilters({ sources: [], events: [], tools: [], directories: [] }, {});
+		const html = renderFilters(
+			{ sources: [], events: [], tools: [], directories: [], skills: [], mcpServers: [] },
+			{},
+		);
 		expect(html).toContain('<option value="" selected>all</option>');
 		expect(html).toContain('<option value="" selected>all directories</option>');
+		expect(html).toContain('name="dirs" multiple');
+		expect(html).toContain('name="skills" multiple');
+		expect(html).toContain('name="mcp" multiple');
 	});
 
 	it("strips the common path prefix from directory option labels", () => {
@@ -934,11 +1054,13 @@ describe("dashboard components", () => {
 				events: [],
 				tools: [],
 				directories: ["/Users/dev/Workspace/repo-a", "/Users/dev/Workspace/repo-b"],
+				skills: [],
+				mcpServers: [],
 			},
 			{},
 		);
-		expect(html).toContain(">repo-a<");
-		expect(html).toContain(">repo-b<");
+		expect(html.match(/>repo-a</g)?.length).toBe(2);
+		expect(html.match(/>repo-b</g)?.length).toBe(2);
 		expect(html).not.toContain(">/Users/dev/Workspace/repo-a<");
 	});
 
@@ -1113,6 +1235,31 @@ describe("dashboard components", () => {
 		const noSessionHtml = renderSessionsTable([noSession], now);
 		expect(noSessionHtml).toContain("session-item-static");
 		expect(noSessionHtml).not.toContain("hx-get=");
+	});
+
+	it("includes multi-select filters in the session detail link", () => {
+		const now = Date.now();
+		const base: Session = {
+			sessionId: "s-1",
+			firstAt: new Date(now - 10000).toISOString(),
+			lastAt: new Date(now).toISOString(),
+			firstReceivedAt: now - 10000,
+			lastReceivedAt: now,
+			durationMs: 10000,
+			eventCount: 2,
+			projectPath: null,
+			projectPaths: [],
+			tools: ["Shell"],
+			failureCount: 0,
+		};
+		const withMultiSelect = renderSessionsTable([base], now, undefined, undefined, {
+			projectPaths: ["/repo-a", "/repo-b"],
+			skills: ["design"],
+			mcpServers: ["confluence", "figma"],
+		});
+		expect(withMultiSelect).toContain("dirs=%2Frepo-a&amp;dirs=%2Frepo-b");
+		expect(withMultiSelect).toContain("skills=design");
+		expect(withMultiSelect).toContain("mcp=confluence&amp;mcp=figma");
 	});
 
 	it("renders session detail", () => {

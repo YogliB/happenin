@@ -1312,6 +1312,248 @@ describe("db edge cases", () => {
 		}
 	});
 
+	it("includes distinct skills and MCP servers in filter options", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Skill",
+			skillName: "commit-push-pr",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Skill",
+			skillName: "design",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-2",
+			toolName: "mcp__confluence__search_pages",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-2",
+			toolName: "mcp__figma__get_file",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-3",
+			toolName: "mcp__confluence__get_page",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-4",
+			toolName: "mcp__nodashesuffix",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-5",
+			toolName: "Read",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			const options = getFilterOptions(db);
+			expect(options.skills).toEqual(["commit-push-pr", "design"]);
+			expect(options.mcpServers).toEqual(["confluence", "figma"]);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("filters events by a list of skills (OR within the category)", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "Skill",
+			skillName: "commit-push-pr",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-2",
+			toolName: "Skill",
+			skillName: "design",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-3",
+			toolName: "Skill",
+			skillName: "unrelated-skill",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			expect(getEvents(db, { skills: ["commit-push-pr", "design"] }).length).toBe(2);
+			expect(countEvents(db, { skills: ["commit-push-pr", "design"] })).toBe(2);
+			expect(countEvents(db, { skills: [] })).toBe(3);
+			expect(countEvents(db, { skills: ["missing-skill"] })).toBe(0);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("filters events by a list of project paths (OR within the category)", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			projectPath: "/repo-a",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-2",
+			projectPath: "/repo-b",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-3",
+			projectPath: "/repo-c",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			expect(countEvents(db, { projectPaths: ["/repo-a", "/repo-b"] })).toBe(2);
+			expect(countEvents(db, { projectPaths: [] })).toBe(3);
+			expect(countEvents(db, { projectPaths: ["/missing"] })).toBe(0);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("filters events by MCP server, escaping LIKE wildcards in server names", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			toolName: "mcp__confluence__search_pages",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-2",
+			toolName: "mcp__figma__get_file",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-3",
+			toolName: "mcp__some_server__thing",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-4",
+			toolName: "mcp__someXserver__other",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			expect(countEvents(db, { mcpServers: ["confluence"] })).toBe(1);
+			expect(countEvents(db, { mcpServers: ["confluence", "figma"] })).toBe(2);
+			expect(countEvents(db, { mcpServers: [] })).toBe(4);
+			expect(countEvents(db, { mcpServers: ["missing-server"] })).toBe(0);
+			const underscoreServerMatchCount = countEvents(db, { mcpServers: ["some_server"] });
+			expect(underscoreServerMatchCount).toBe(1);
+			expect(countEvents(db, { mcpServers: ["someXserver"] })).toBe(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("combines multi-select filters across categories with AND", () => {
+		const db = initDb(":memory:");
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-1",
+			projectPath: "/repo-a",
+			skillName: "commit-push-pr",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-2",
+			projectPath: "/repo-b",
+			skillName: "commit-push-pr",
+			payload: JSON.stringify({}),
+		});
+		insertEvent(db, {
+			source: "cursor",
+			client: "cursor",
+			event: "preToolUse",
+			sessionId: "s-3",
+			projectPath: "/repo-a",
+			skillName: "design",
+			payload: JSON.stringify({}),
+		});
+
+		try {
+			expect(
+				countEvents(db, {
+					projectPaths: ["/repo-a"],
+					skills: ["commit-push-pr"],
+				}),
+			).toBe(1);
+			expect(
+				getEvents(db, {
+					projectPaths: ["/repo-a"],
+					skills: ["commit-push-pr", "design"],
+				}).length,
+			).toBe(2);
+		} finally {
+			db.close();
+		}
+	});
+
 	it("filters sessions by status", () => {
 		const db = initDb(":memory:");
 		const now = Date.now();

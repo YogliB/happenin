@@ -2,6 +2,11 @@ import type { FilterOptions } from "../../shared/types.js";
 
 export type QueryOptions = FilterOptions;
 
+function appendAll(params: URLSearchParams, key: string, values: string[] | undefined): void {
+	if (values === undefined || values.length === 0) return;
+	for (const value of values) params.append(key, value);
+}
+
 function serializeQuery(query: QueryOptions, overrides: Partial<QueryOptions> = {}): string {
 	const merged: QueryOptions = { ...query, ...overrides };
 	const params = new URLSearchParams();
@@ -16,6 +21,9 @@ function serializeQuery(query: QueryOptions, overrides: Partial<QueryOptions> = 
 	if (merged.skill) params.set("skill", merged.skill);
 	if (merged.file) params.set("file", merged.file);
 	if (merged.mdDir) params.set("mdDir", merged.mdDir);
+	appendAll(params, "dirs", merged.projectPaths);
+	appendAll(params, "skills", merged.skills);
+	appendAll(params, "mcp", merged.mcpServers);
 	if (merged.view) params.set("view", merged.view);
 	if (merged.minDuration !== undefined) params.set("minDuration", String(merged.minDuration));
 	if (merged.maxDuration !== undefined) params.set("maxDuration", String(merged.maxDuration));
