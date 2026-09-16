@@ -1,4 +1,4 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { IncomingMessage, OutgoingHttpHeaders, ServerResponse } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import {
 	getEvents,
@@ -20,6 +20,7 @@ import { renderTopFiles } from "./components/TopFiles.js";
 import { renderContextBreakdown } from "./components/ContextBreakdown.js";
 import { renderSessionsTable } from "./components/SessionsTable.js";
 import { renderSessionDetail } from "./components/DetailPanel.js";
+import { renderBackButton } from "./components/BackButton.js";
 import type {
 	EventFrequency,
 	FilterOptions,
@@ -69,6 +70,9 @@ export function parseQuery(url: URL): QueryOptions {
 	const skill = url.searchParams.get("skill") || undefined;
 	const file = url.searchParams.get("file") || undefined;
 	const mdDir = url.searchParams.get("mdDir") || undefined;
+	const dirs = url.searchParams.getAll("dirs").filter((value) => value !== "");
+	const skills = url.searchParams.getAll("skills").filter((value) => value !== "");
+	const mcpServers = url.searchParams.getAll("mcp").filter((value) => value !== "");
 	const viewRaw = url.searchParams.get("view") || undefined;
 	const view = viewRaw === "list" ? "list" : undefined;
 	const minDuration = url.searchParams.get("minDuration");
@@ -100,6 +104,9 @@ export function parseQuery(url: URL): QueryOptions {
 		file,
 		mdDir,
 		view,
+		projectPaths: dirs.length > 0 ? dirs : undefined,
+		skills: skills.length > 0 ? skills : undefined,
+		mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
 		minDuration: parseNumber(minDuration),
 		maxDuration: parseNumber(maxDuration),
 		range,
@@ -156,7 +163,10 @@ function renderSessionsListView(db: DatabaseSync, query: QueryOptions, now: numb
 		? `<div class="sessions-list-filter">Sessions using ${escapeHtml(active.kind)}: <strong>${escapeHtml(active.value)}</strong> <a href="${clearUrl}" hx-get="${clearUrl}" hx-target="#dashboard-content" hx-swap="innerHTML">Clear</a></div>`
 		: "";
 	return `<div class="main-content sessions-list-view">
-<h2 class="session-list-title">Recent Sessions <span class="session-collapse-count">${allSessions.length}</span></h2>
+<div class="detail-header">
+${renderBackButton()}
+<h2 class="session-list-title">Sessions <span class="session-collapse-count">${allSessions.length}</span></h2>
+</div>
 ${filterBar}
 <div class="session-list-wrapper">
 ${renderSessionsTable(pageSessions, now, undefined, undefined, query)}
@@ -205,6 +215,20 @@ ${renderContextBreakdown(contextBreakdown)}
 </div>`;
 }
 
+const BACKGROUND_REFRESH_TRIGGER_ID = "dashboard-content";
+
+function isBackgroundRefresh(req: IncomingMessage): boolean {
+	return req.headers["hx-trigger"] === BACKGROUND_REFRESH_TRIGGER_ID;
+}
+
+function fragmentHeaders(req: IncomingMessage, url: URL): OutgoingHttpHeaders {
+	const headers: OutgoingHttpHeaders = { "Content-Type": "text/html; charset=utf-8" };
+	if (!isBackgroundRefresh(req)) {
+		headers["HX-Push-Url"] = `/${url.search}`;
+	}
+	return headers;
+}
+
 export function sendSessionsFragment(
 	req: IncomingMessage,
 	res: ServerResponse,
@@ -213,7 +237,7 @@ export function sendSessionsFragment(
 ): void {
 	const query = parseQuery(url);
 	const html = renderSessionsContent(db, query);
-	res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+	res.writeHead(200, fragmentHeaders(req, url));
 	res.end(html);
 }
 
@@ -265,7 +289,7 @@ export function sendSessionDetailFragment(
 ): void {
 	const query = parseQuery(url);
 	const html = renderSessionDetailFragment(db, query);
-	res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+	res.writeHead(200, fragmentHeaders(req, url));
 	res.end(html);
 }
 
