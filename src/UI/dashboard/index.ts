@@ -107,7 +107,7 @@ function openBrowser(url: string): void {
 		process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open";
 	const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
 	execFile(cmd, args, (err) => {
-		if (err) console.error("open failed:", err.message);
+		if (err) console.error("open failed:", err.message, "(use --no-open to suppress)");
 	});
 }
 
