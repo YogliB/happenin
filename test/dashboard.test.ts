@@ -979,14 +979,21 @@ describe("dashboard components", () => {
 		expect(commonPathPrefix(["/only/one/path"])).toBe("/only/one/");
 		expect(commonPathPrefix(["/repo-a", "/repo-b"])).toBe("");
 		expect(commonPathPrefix(["/Users/dev/repo-a", "/Users/dev/repo-b"])).toBe("/Users/dev/");
-		expect(commonPathPrefix(["C:\\dev\\repo-a", "C:\\dev\\repo-b"])).toBe("C:\\dev\\");
 		expect(commonPathPrefix(["abc", "xyz"])).toBe("");
 	});
 
-	it("shortens Windows paths and keeps POSIX backslashes literal", () => {
+	it("treats backslash as a separator only on Windows", () => {
+		const originalPlatform = process.platform;
+		Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+		expect(commonPathPrefix(["C:\\dev\\repo-a", "C:\\dev\\repo-b"])).toBe("C:\\dev\\");
 		expect(lastPathSegments("C:\\dev\\repo\\file.md", 2)).toBe("repo/file.md");
 		expect(lastPathSegments("docs\\guides\\setup.md", 2)).toBe("guides/setup.md");
+		Object.defineProperty(process, "platform", { value: "linux", configurable: true });
 		expect(lastPathSegments("/posix/dir\\name/file.md", 2)).toBe("dir\\name/file.md");
+		Object.defineProperty(process, "platform", {
+			value: originalPlatform,
+			configurable: true,
+		});
 	});
 
 	it("renders header with selected values", () => {
