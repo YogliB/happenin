@@ -9,7 +9,7 @@ allowed-tools:
 
 # Using happenin
 
-`happenin` is a local macOS CLI that captures Cursor and Claude Code hook events into a SQLite database and serves a real-time dashboard. All data stays on the user's machine.
+`happenin` is a local CLI that captures Cursor and Claude Code hook events into a SQLite database and serves a real-time dashboard. All data stays on the user's machine.
 
 This is a cross-agent skill. Any agent that supports `SKILL.md` files can load it.
 

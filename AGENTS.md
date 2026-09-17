@@ -23,7 +23,7 @@ Agent-facing entry point. For the open format, see [agents.md](https://agents.md
 
 ### What happenin is
 
-A macOS CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
+A CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
 
 `happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways until v1.0.0; breaking changes are noted in the changelog.
 
@@ -65,6 +65,7 @@ Common commands:
 - `src/shared/db.ts` — SQLite data layer.
 - `src/shared/constants.ts` — hook event lists and default responses.
 - `src/shared/types.ts` — shared TypeScript types.
+- `src/shared/homeDir.ts` — `$HOME`-aware home directory helper (os.homedir() ignores `HOME` on Windows).
 - `src/shared/toolCalls.ts` — extracts `file_path`/`skill_name` from a tool call's name+input; shared
   by the live hook recorder and the transcript importer.
 - `src/cli/record.ts` — hook target: parse stdin, insert event, respond.

@@ -20,6 +20,7 @@ import {
 	formatTimestamp,
 	truncate,
 	commonPathPrefix,
+	lastPathSegments,
 } from "../src/UI/dashboard/utils.js";
 import { buildFragmentUrl } from "../src/UI/dashboard/queryLink.js";
 import { renderHeader } from "../src/UI/dashboard/components/Header.js";
@@ -172,6 +173,7 @@ describe("dashboard", () => {
 	let dashboard: typeof import("../src/UI/dashboard/index.js");
 	let homeDir: string;
 	let originalHome: string | undefined;
+	const originalPlatform = process.platform;
 
 	beforeAll(async () => {
 		vi.mocked(http.createServer).mockImplementation((requestListener: http.RequestListener) =>
@@ -208,6 +210,10 @@ describe("dashboard", () => {
 			delete process.env.HOME;
 		}
 		rmSync(homeDir, { recursive: true, force: true });
+		Object.defineProperty(process, "platform", {
+			value: originalPlatform,
+			configurable: true,
+		});
 		vi.restoreAllMocks();
 	});
 
@@ -489,11 +495,14 @@ describe("dashboard", () => {
 		await expect(dashboard.startServer(65535, false)).rejects.toThrow("EACCES");
 	});
 
-	it("opens the browser on darwin and reports open failures", async () => {
-		const originalPlatform = process.platform;
-		Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+	it.each([
+		["darwin", "open"],
+		["linux", "xdg-open"],
+		["win32", "cmd"],
+	])("opens the browser on %s and reports open failures", async (platform, cmd) => {
+		Object.defineProperty(process, "platform", { value: platform, configurable: true });
 
-		const openSpy = vi.fn((cmd: string, args: string[], cb?: (err: Error | null) => void) => {
+		const openSpy = vi.fn((command: string, args: string[], cb?: (err: Error | null) => void) => {
 			if (cb) cb(new Error("open failed"));
 		});
 		vi.mocked(execFile).mockImplementation(openSpy as any);
@@ -502,14 +511,12 @@ describe("dashboard", () => {
 		await dashboard.startServer(1234, true);
 		const server = dashboard.getDashboardServer();
 
-		expect(openSpy).toHaveBeenCalledWith(
-			"open",
-			[expect.stringContaining(`:${1234}`)],
-			expect.any(Function),
-		);
+		const expectedArgs =
+			platform === "win32"
+				? ["/c", "start", "", expect.stringContaining(`:${1234}`)]
+				: [expect.stringContaining(`:${1234}`)];
+		expect(openSpy).toHaveBeenCalledWith(cmd, expectedArgs, expect.any(Function));
 		if (server) await closeServer(server);
-
-		Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
 	});
 
 	it("runs the dashboard with --no-open and a custom port", async () => {
@@ -528,6 +535,7 @@ describe("dashboard", () => {
 		await dashboard.runDashboard(["--no-open", "--port=1234"]);
 		const server = dashboard.getDashboardServer();
 		expect(server?.listening).toBe(true);
+		dashboard.db.close();
 
 		await dashboard.runDashboard(["--no-open"]);
 		const defaultServer = dashboard.getDashboardServer();
@@ -535,7 +543,6 @@ describe("dashboard", () => {
 	});
 
 	it("runs the dashboard with --silent and opens the browser by default", async () => {
-		const originalPlatform = process.platform;
 		Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
 
 		listenResponses = new Map([
@@ -545,6 +552,7 @@ describe("dashboard", () => {
 		await dashboard.runDashboard(["--silent", "--port", "1234"]);
 		const server = dashboard.getDashboardServer();
 		expect(server?.listening).toBe(true);
+		dashboard.db.close();
 
 		await dashboard.runDashboard(["--port", "1235"]);
 		expect(execFile).toHaveBeenCalledWith(
@@ -552,8 +560,6 @@ describe("dashboard", () => {
 			[expect.stringContaining("http://localhost")],
 			expect.any(Function),
 		);
-
-		Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
 	});
 
 	it("ignores unknown runDashboard arguments", async () => {
@@ -973,6 +979,16 @@ describe("dashboard components", () => {
 		expect(commonPathPrefix(["/repo-a", "/repo-b"])).toBe("");
 		expect(commonPathPrefix(["/Users/dev/repo-a", "/Users/dev/repo-b"])).toBe("/Users/dev/");
 		expect(commonPathPrefix(["abc", "xyz"])).toBe("");
+	});
+
+	it("treats backslash as a separator only on Windows", () => {
+		Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+		expect(commonPathPrefix(["C:\\dev\\repo-a", "C:\\dev\\repo-b"])).toBe("C:\\dev\\");
+		expect(lastPathSegments("C:\\dev\\repo\\file.md", 2)).toBe("repo/file.md");
+		expect(lastPathSegments("docs\\guides\\setup.md", 2)).toBe("guides/setup.md");
+		Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+		expect(commonPathPrefix(["/a/dir\\name/x.md", "/a/dir\\name/y.md"])).toBe("/a/dir\\name/");
+		expect(lastPathSegments("/posix/dir\\name/file.md", 2)).toBe("dir\\name/file.md");
 	});
 
 	it("renders header with selected values", () => {

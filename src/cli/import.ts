@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { homedir } from "node:os";
+import { homeDir } from "../shared/homeDir.js";
 import {
 	getDbPath,
 	initDb,
@@ -178,7 +178,7 @@ async function importClaudeJsonl(db: DatabaseSync, filePath: string): Promise<vo
 }
 
 async function importClaudeTranscripts(db: DatabaseSync): Promise<void> {
-	const dir = path.resolve(homedir(), ".claude/projects");
+	const dir = path.resolve(homeDir(), ".claude/projects");
 	for (const file of findJsonlFiles(dir)) {
 		await importClaudeJsonl(db, file);
 	}
@@ -255,7 +255,7 @@ async function importCursorSession(db: DatabaseSync, sessionPath: string): Promi
 }
 
 async function importCursorTranscripts(db: DatabaseSync): Promise<void> {
-	const dir = path.resolve(homedir(), ".cursor/chats");
+	const dir = path.resolve(homeDir(), ".cursor/chats");
 	for (const session of findCursorChatDirs(dir)) {
 		await importCursorSession(db, session);
 	}

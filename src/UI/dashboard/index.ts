@@ -102,6 +102,15 @@ export function handleRequest(req: http.IncomingMessage, res: http.ServerRespons
 	}
 }
 
+function openBrowser(url: string): void {
+	const cmd =
+		process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "open" : "xdg-open";
+	const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+	execFile(cmd, args, (err) => {
+		if (err) console.error("open failed:", err.message, "(use --no-open to suppress)");
+	});
+}
+
 export async function startServer(port: number, open: boolean, silent = false): Promise<void> {
 	const server = http.createServer((req, res) => {
 		void handleRequest(req, res);
@@ -122,11 +131,7 @@ export async function startServer(port: number, open: boolean, silent = false): 
 				server.off("error", onError);
 				const url = `http://localhost:${p}`;
 				if (!silent) console.log(`Dashboard: ${url}`);
-				if (open && process.platform === "darwin") {
-					execFile("open", [url], (err) => {
-						if (err) console.error("open failed:", err.message);
-					});
-				}
+				if (open) openBrowser(url);
 				resolve();
 			}
 			server.once("error", onError);
