@@ -2,9 +2,12 @@
 
 ## [Unreleased]
 
+- Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
+
+## [0.4.0]
+
 - Added multi-select "directories", "skills", and "integrations (MCP)" filters to the dashboard filter bar. Selected values within a category combine with OR; categories combine with each other (and with the existing filters) with AND. The MCP server list is derived from the `mcp__<server>__<tool>` names actually recorded, with no hardcoded list.
 - Added a context breakdown widget to the dashboard (and session detail view) that buckets recorded payload size and imported-transcript token usage into MCP servers, markdown files, bloatware, and actual value.
-- Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
 - Added Linux and Windows support: the dashboard browser launch now uses `xdg-open`/`cmd start` off macOS, `install` resolves the npm shim name on Windows (where a bare `.js` path is not executable), and the quality and e2e workflows now run on all three operating systems.
 
 ## [0.3.0]
@@ -34,7 +37,8 @@
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
 
-[Unreleased]: https://github.com/YogliB/happenin/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/YogliB/happenin/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/YogliB/happenin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/YogliB/happenin/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/YogliB/happenin/compare/v0.1.0...v0.1.1
