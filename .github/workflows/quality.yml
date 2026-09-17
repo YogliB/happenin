@@ -7,16 +7,12 @@ on:
 
 jobs:
   quality:
-    name: Quality (${{ matrix.os }}, Node ${{ matrix.node }})
-    runs-on: ${{ matrix.os }}
+    name: Quality (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         node: ["22", "24"]
-    defaults:
-      run:
-        shell: bash
 
     steps:
       - uses: actions/checkout@v5
@@ -37,3 +33,29 @@ jobs:
       - run: nub run knip:ci
       - run: nub run typecheck
       - run: nub run test:ci
+
+  quality-os:
+    name: Tests (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ["22", "24"]
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pin Node for this matrix leg
+        run: echo "${{ matrix.node }}" > .node-version
+
+      - uses: nubjs/setup-nub@v0
+        with:
+          nub-version: ^0.6.0
+
+      - run: nub ci
+      - run: nub run build
+      - run: nub run test
