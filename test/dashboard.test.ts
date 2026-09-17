@@ -989,6 +989,7 @@ describe("dashboard components", () => {
 		expect(lastPathSegments("C:\\dev\\repo\\file.md", 2)).toBe("repo/file.md");
 		expect(lastPathSegments("docs\\guides\\setup.md", 2)).toBe("guides/setup.md");
 		Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+		expect(commonPathPrefix(["/a/dir\\name/x.md", "/a/dir\\name/y.md"])).toBe("/a/dir\\name/");
 		expect(lastPathSegments("/posix/dir\\name/file.md", 2)).toBe("dir\\name/file.md");
 		Object.defineProperty(process, "platform", {
 			value: originalPlatform,
