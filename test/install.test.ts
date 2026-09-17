@@ -16,6 +16,7 @@ function cleanup(dir: string): void {
 describe("install", () => {
 	const originalHome = process.env.HOME;
 	const originalArgv1 = process.argv[1];
+	const originalPlatform = process.platform;
 
 	beforeEach(() => {
 		process.env.HOME = tempDir();
@@ -27,6 +28,10 @@ describe("install", () => {
 		}
 		process.env.HOME = originalHome;
 		process.argv[1] = originalArgv1;
+		Object.defineProperty(process, "platform", {
+			value: originalPlatform,
+			configurable: true,
+		});
 	});
 
 	it("parseTargets defaults to both, and respects flags", () => {
@@ -42,25 +47,15 @@ describe("install", () => {
 	});
 
 	it("resolveBin uses an absolute argv[1] on posix", () => {
-		const originalPlatform = process.platform;
 		Object.defineProperty(process, "platform", { value: "linux", configurable: true });
 		process.argv[1] = "/usr/local/bin/happenin";
 		expect(resolveBin()).toBe("/usr/local/bin/happenin");
-		Object.defineProperty(process, "platform", {
-			value: originalPlatform,
-			configurable: true,
-		});
 	});
 
 	it("resolveBin falls back to the npm shim for an absolute argv[1] on win32", () => {
-		const originalPlatform = process.platform;
 		Object.defineProperty(process, "platform", { value: "win32", configurable: true });
 		process.argv[1] = "/home/x/.npm/lib/node_modules/happenin/dist/bin.js";
 		expect(resolveBin()).toBe("happenin");
-		Object.defineProperty(process, "platform", {
-			value: originalPlatform,
-			configurable: true,
-		});
 	});
 
 	it("resolveBin returns an npx command inside an npx cache", () => {
