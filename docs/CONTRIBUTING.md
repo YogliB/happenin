@@ -56,27 +56,27 @@ Development requires Node 24 or later (`.node-version` pins it). Node `>= 22.13`
 ```bash
 git clone git@github.com:YogliB/happenin.git
 cd happenin
-npm install
-npm run build
+nub install
+nub run build
 ```
 
-If you use `nub`, run `nub install` and `nub run build` instead.
+If you use `npm`, run `npm install` and `npm run build` instead.
 
 Every pull request must reference an existing issue. If no issue exists, open one first, then link it in the pull request body with `Closes #<issue>`. CI enforces this on every pull request; bot PRs are skipped, and maintainers can bypass with the `no-issue` label.
 
 Before opening a pull request, run:
 
 ```bash
-npm run build
-npm run typecheck
-npm run format
-npm run lint
-npm run duplicates:ci
-npm run knip:ci
-npm run test:ci
+nub run build
+nub run typecheck
+nub run format
+nub run lint
+nub run duplicates:ci
+nub run knip:ci
+nub run test:ci
 ```
 
-If you use `nub`, run `nub run <script>` instead of `npm run <script>`.
+If you use `npm`, run `npm run <script>` instead of `nub run <script>`.
 
 Keep changes focused. Squash to a single commit and write a [Conventional Commit](https://www.conventionalcommits.org/) message.
 
