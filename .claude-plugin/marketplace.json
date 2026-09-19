@@ -1,0 +1,14 @@
+{
+	"name": "happenin",
+	"description": "Record Cursor and Claude Code agent events in a local dashboard.",
+	"owner": {
+		"name": "Yogev Boaron Ben-Har"
+	},
+	"plugins": [
+		{
+			"name": "happenin",
+			"source": "./plugins/claude",
+			"description": "Record local Claude Code events for the happenin dashboard."
+		}
+	]
+}

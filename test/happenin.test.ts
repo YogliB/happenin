@@ -381,7 +381,7 @@ describe("happenin", () => {
 		});
 
 		it("writes Cursor and Claude hook configs", async () => {
-			await runInstall([]);
+			await runInstall(["--legacy"]);
 			const home = process.env.HOME as string;
 			const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
 			const claude = JSON.parse(readFileSync(path.join(home, ".claude/settings.json"), "utf8"));
@@ -416,7 +416,7 @@ describe("happenin", () => {
 				}),
 			);
 
-			await runInstall([]);
+			await runInstall(["--legacy"]);
 
 			const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
 			const claude = JSON.parse(readFileSync(path.join(home, ".claude/settings.json"), "utf8"));

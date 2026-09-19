@@ -52,7 +52,7 @@ Common commands:
 
 - Zero runtime dependencies. Everything uses Node built-in modules and the dashboard loads small JS libraries from a CDN.
 - SQLite via `node:sqlite` with WAL mode.
-- Append-only hooks. Back up and merge existing configs; never overwrite.
+- Plugin-first setup. Package hooks as Cursor and Claude plugins; keep config backup-and-merge behavior only behind `--legacy`.
 - Fail-open responses. `record` returns the minimum required non-blocking response and no output for observer hooks.
 - Keep docs short, clear, and concise. `AGENTS.md` is a condensed version of the human docs; link to the full doc when detail is needed. Diagrams in docs use mermaid fenced blocks — `lint:ci` flags ASCII diagrams.
 - PRs must be focused, pass `build`, `typecheck`, `format:ci`, `lint:ci`, `duplicates:ci`, `knip:ci`, and `test:ci`, and use a Conventional Commit message.

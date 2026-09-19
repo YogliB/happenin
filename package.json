@@ -32,6 +32,9 @@
 	"files": [
 		"assets",
 		"dist",
+		".claude-plugin",
+		".cursor-plugin",
+		"plugins",
 		"LICENSE.md",
 		"README.md"
 	],

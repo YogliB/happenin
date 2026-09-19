@@ -8,7 +8,7 @@ Install from npm:
 npm install -g happenin
 ```
 
-Or try it without installing (hooks installed this way run through `npx`):
+Or try it without installing (the packaged hooks run through `npx`):
 
 ```bash
 npx -y happenin install
@@ -32,7 +32,7 @@ If you use `nub`, run `nub install` and `nub run build` instead.
 ## Quick start
 
 ```bash
-# Install Cursor and Claude Code hooks (backs up existing configs)
+# Show the Cursor and Claude Code plugin setup
 happenin install
 
 # Import existing transcripts
@@ -48,7 +48,9 @@ The dashboard opens at `http://localhost:8765`. New events stream in automatical
 
 ### `happenin install [--cursor] [--claude]`
 
-Backs up and appends `happenin record` hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`. Backups are written to `~/.happenin/backups/`. Re-running `install` replaces the previous `happenin` hooks instead of duplicating them, and hooks installed through `npx -y happenin install` are written as `npx -y happenin` commands so they keep working without a global install.
+Prints the supported plugin setup for Cursor and Claude Code. The packaged plugins call `npx -y happenin record`, so they work with both the trial and global-install flows without rewriting `~/.cursor/hooks.json` or `~/.claude/settings.json`. Use `--cursor` or `--claude` to show one client only.
+
+For an older direct-config setup, install both plugins first, then remove only the `happenin record` entries from those two files. Keep every unrelated hook. If you need the old setup temporarily, `happenin install --legacy [--cursor|--claude]` still makes a backup before editing.
 
 ### `happenin record <source> [event]`
 

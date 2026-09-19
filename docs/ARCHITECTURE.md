@@ -23,7 +23,7 @@ flowchart LR
 | `src/shared/constants.ts`          | Default DB path, hook event lists, default hook responses.                                                                                                     |
 | `src/shared/types.ts`              | Shared TypeScript types.                                                                                                                                       |
 | `src/cli/record.ts`                | Reads hook JSON from stdin, inserts an event, prints the non-blocking agent response.                                                                          |
-| `src/cli/install.ts`               | Backs up and appends hooks to `~/.cursor/hooks.json` and `~/.claude/settings.json`.                                                                            |
+| `src/cli/install.ts`               | Shows plugin setup instructions by default; `--legacy` backs up and appends hooks to the Cursor and Claude config files.                                       |
 | `src/cli/import.ts`                | Imports Claude and Cursor transcript files into SQLite.                                                                                                        |
 | `src/cli/query.ts`                 | Filter and format events for the `query` command.                                                                                                              |
 | `src/shared/view.ts`               | Shared event view used by `query` and `dashboard`.                                                                                                             |
@@ -39,5 +39,5 @@ flowchart LR
 - **Zero runtime dependencies.** Everything uses Node built-in modules and the dashboard loads the small JS libraries from a CDN.
 - **SQLite via `node:sqlite`.** Events are stored as-is in a local SQLite file so the dashboard can read history even when it was not running.
 - **WAL mode.** SQLite `journal_mode = WAL` lets dashboard readers and hook writers coexist without blocking each other.
-- **Append-only hooks.** Existing Cursor and Claude hook configs are backed up and merged with the new commands; nothing is overwritten.
+- **Plugin-first setup.** `install` prints the packaged Cursor and Claude plugin setup by default without changing user config; `--legacy` keeps the previous backup-and-merge flow.
 - **Fail-open responses.** `record` returns the minimum response required for blocking hooks (`{"permission":"allow"}`, `{"decision":"approve"}`, or `{"continue":true}`) and no output for observer hooks.
