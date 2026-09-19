@@ -23,7 +23,7 @@ flowchart LR
 | `src/shared/constants.ts`          | Default DB path, hook event lists, default hook responses.                                                                                                     |
 | `src/shared/types.ts`              | Shared TypeScript types.                                                                                                                                       |
 | `src/cli/record.ts`                | Reads hook JSON from stdin, inserts an event, prints the non-blocking agent response.                                                                          |
-| `src/cli/install.ts`               | Shows plugin setup instructions by default; `--legacy` backs up and appends hooks to the Cursor and Claude config files.                                               |
+| `src/cli/install.ts`               | Shows plugin setup instructions by default; `--legacy` backs up and appends hooks to the Cursor and Claude config files.                                       |
 | `src/cli/import.ts`                | Imports Claude and Cursor transcript files into SQLite.                                                                                                        |
 | `src/cli/query.ts`                 | Filter and format events for the `query` command.                                                                                                              |
 | `src/shared/view.ts`               | Shared event view used by `query` and `dashboard`.                                                                                                             |
