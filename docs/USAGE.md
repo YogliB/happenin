@@ -50,7 +50,7 @@ The dashboard opens at `http://localhost:8765`. New events stream in automatical
 
 Prints the supported plugin setup for Cursor and Claude Code. The packaged plugins call `npx -y happenin record`, so they work with both the trial and global-install flows without rewriting `~/.cursor/hooks.json` or `~/.claude/settings.json`. Use `--cursor` or `--claude` to show one client only.
 
-For an older direct-config setup, install both plugins first, then remove only the `happenin record` entries from those two files. Keep every unrelated hook. If you need the old setup temporarily, `happenin install --legacy [--cursor|--claude]` still makes a backup before editing.
+Migrating from a pre-plugin install? Remove the old `happenin record` entries from `~/.cursor/hooks.json` and `~/.claude/settings.json` by hand (one-time step). Keep every unrelated hook.
 
 ### `happenin record <source> [event]`
 

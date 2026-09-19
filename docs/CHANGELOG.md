@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 
-- `happenin install` now shows setup for the packaged Cursor and Claude Code plugins without editing user config; `--legacy` preserves the previous backup-and-merge behavior for migration.
+- `happenin install` now shows setup for the packaged Cursor and Claude Code plugins without editing user config.
+- Removed the `--legacy` direct-config install path (config backup/append into `~/.cursor/hooks.json` and `~/.claude/settings.json`); plugin-based setup is the only install path. Pre-plugin installs should remove old `happenin record` entries from those two files by hand (one-time step).
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
 
 ## [0.4.0]

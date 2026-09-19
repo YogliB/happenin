@@ -19,7 +19,6 @@ import {
 } from "../src/shared/db.js";
 
 import { recordFromRaw } from "../src/cli/record.js";
-import { runInstall } from "../src/cli/install.js";
 import { importTranscripts } from "../src/cli/import.js";
 import { dashboardHtml } from "../src/UI/dashboard/page.js";
 import { parseQuery } from "../src/UI/dashboard/fragments.js";
@@ -120,9 +119,9 @@ describe("happenin", () => {
 		it("migrates an old schema and backfills subagent metadata", () => {
 			const dir = tempDir();
 			const dbPath = path.join(dir, "happenin.db");
-			const legacyDb = new DatabaseSync(dbPath);
+			const oldSchemaDb = new DatabaseSync(dbPath);
 			try {
-				legacyDb.exec(`
+				oldSchemaDb.exec(`
 					CREATE TABLE events (
 						id INTEGER PRIMARY KEY AUTOINCREMENT,
 						source TEXT NOT NULL,
@@ -138,7 +137,7 @@ describe("happenin", () => {
 						source_path TEXT
 					);
 				`);
-				legacyDb.exec(`
+				oldSchemaDb.exec(`
 					INSERT INTO events (source, client, event, received_at, payload)
 					VALUES (
 						'cursor',
@@ -155,7 +154,7 @@ describe("happenin", () => {
 					);
 				`);
 			} finally {
-				legacyDb.close();
+				oldSchemaDb.close();
 			}
 
 			const db = initDb(dbPath);
@@ -363,67 +362,6 @@ describe("happenin", () => {
 			expect(recordFromRaw(["cursor"], "")).toBeUndefined();
 			expect(recordFromRaw(["cursor"], "not-json")).toBeUndefined();
 			expect(recordFromRaw(["unknown"], "{}")).toBeUndefined();
-		});
-	});
-
-	describe("install", () => {
-		const originalHome = process.env.HOME;
-
-		beforeEach(() => {
-			process.env.HOME = tempDir();
-		});
-
-		afterEach(() => {
-			if (process.env.HOME && process.env.HOME.startsWith(tmpdir())) {
-				cleanup(process.env.HOME);
-			}
-			process.env.HOME = originalHome;
-		});
-
-		it("writes Cursor and Claude hook configs", async () => {
-			await runInstall(["--legacy"]);
-			const home = process.env.HOME as string;
-			const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
-			const claude = JSON.parse(readFileSync(path.join(home, ".claude/settings.json"), "utf8"));
-
-			expect(cursor.version).toBe(1);
-			expect(cursor.hooks.beforeSubmitPrompt.length).toBeGreaterThan(0);
-			expect(cursor.hooks.beforeSubmitPrompt[0].command).toMatch(/ record cursor$/);
-
-			expect(claude.hooks.UserPromptSubmit.length).toBeGreaterThan(0);
-			expect(claude.hooks.UserPromptSubmit[0].hooks[0].command).toMatch(
-				/ record claude UserPromptSubmit$/,
-			);
-
-			expect(existsSync(path.join(home, ".happenin/backups/cursor"))).toBe(true);
-			expect(existsSync(path.join(home, ".happenin/backups/claude"))).toBe(true);
-		});
-
-		it("appends to existing hooks without overwriting", async () => {
-			const home = process.env.HOME as string;
-			mkdirSync(path.join(home, ".cursor"), { recursive: true });
-			writeFileSync(
-				path.join(home, ".cursor/hooks.json"),
-				JSON.stringify({ version: 1, hooks: { beforeSubmitPrompt: [{ command: "existing" }] } }),
-			);
-			mkdirSync(path.join(home, ".claude"), { recursive: true });
-			writeFileSync(
-				path.join(home, ".claude/settings.json"),
-				JSON.stringify({
-					hooks: {
-						UserPromptSubmit: [{ matcher: "", hooks: [{ type: "command", command: "existing" }] }],
-					},
-				}),
-			);
-
-			await runInstall(["--legacy"]);
-
-			const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
-			const claude = JSON.parse(readFileSync(path.join(home, ".claude/settings.json"), "utf8"));
-
-			expect(cursor.hooks.beforeSubmitPrompt.length).toBe(2);
-			expect(cursor.hooks.beforeSubmitPrompt[0].command).toBe("existing");
-			expect(claude.hooks.UserPromptSubmit.length).toBe(2);
 		});
 	});
 
