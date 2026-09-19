@@ -62,6 +62,8 @@ npm run build
 
 If you use `nub`, run `nub install` and `nub run build` instead.
 
+Every pull request must reference an existing issue. If no issue exists, open one first, then link it in the pull request body with `Closes #<issue>`.
+
 Before opening a pull request, run:
 
 ```bash
