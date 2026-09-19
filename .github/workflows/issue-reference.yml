@@ -40,11 +40,12 @@ jobs:
           fi
           valid=0
           while IFS= read -r ref; do
-            target="$(printf '%s' "$ref" | grep -oE "$TARGET")"
-            case "$target" in
+            target="$(printf '%s' "$ref" | grep -oiE "$TARGET")"
+            lower="$(printf '%s' "$target" | tr '[:upper:]' '[:lower:]')"
+            case "$lower" in
               https://github.com/*)
-                repo="$(printf '%s' "$target" | cut -d/ -f4-5)"
-                number="${target##*/}"
+                repo="$(printf '%s' "$lower" | cut -d/ -f4-5)"
+                number="${lower##*/}"
                 ;;
               *)
                 repo="${target%%#*}"
