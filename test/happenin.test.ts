@@ -448,8 +448,8 @@ describe("happenin", () => {
 			expect(html).toContain("happenin-theme");
 			expect(html).toContain("happenin-filters");
 			expect(html).toContain("Session Overview Analytics");
-			expect(html).toContain('<select name="source">');
-			expect(html).toContain('<select name="tool">');
+			expect(html).toContain('<select name="source" id="filter-source">');
+			expect(html).toContain('<select name="tool" id="filter-tool">');
 			expect(html).toContain("metric-grid");
 			expect(html).toContain("toggle-pill");
 			expect(html).toContain('id="tab-overview"');

@@ -13,7 +13,7 @@ function renderSelect(
 ): string {
 	const selectedValue = selected ?? "";
 	const safe = escapeAttr(selectedValue);
-	return `<select name="${name}"><option value=""${selectedValue === "" ? " selected" : ""}>${placeholder}</option>${values
+	return `<select name="${name}" id="filter-${name}"><option value=""${selectedValue === "" ? " selected" : ""}>${placeholder}</option>${values
 		.map((value) => {
 			const v = escapeAttr(value);
 			const s = v === safe ? " selected" : "";
@@ -38,7 +38,7 @@ function renderDirectorySelect(
 			return `<option value="${v}"${s}>${escapeHtml(label)}</option>`;
 		})
 		.join("");
-	return `<select name="${name}"><option value=""${selectedValue === "" ? " selected" : ""}>all directories</option>${options}</select>`;
+	return `<select name="${name}" id="filter-${name}"><option value=""${selectedValue === "" ? " selected" : ""}>all directories</option>${options}</select>`;
 }
 
 function renderPillMultiSelect(
@@ -56,7 +56,7 @@ function renderPillMultiSelect(
 		})
 		.join("");
 	return `<div class="ms" data-ms-all="${escapeAttr(allLabel)}">
-	<select name="${name}" multiple class="ms-native">${optionsHtml}</select>
+	<select name="${name}" multiple class="ms-native" id="filter-${name}">${optionsHtml}</select>
 </div>`;
 }
 
@@ -110,15 +110,15 @@ export function renderFilters(options: FilterOptionLists, selected: FilterOption
 	</div>
 </div>
 <div class="filter-panel" id="filter-panel">
-	<div class="field"><label>Status</label>${renderSelect("status", statuses, status)}</div>
-	<div class="field"><label>Source</label>${renderSelect("source", options.sources, source)}</div>
-	<div class="field"><label>Tool</label>${renderSelect("tool", options.tools, tool)}</div>
-	<div class="field"><label>Event</label>${renderSelect("event", options.events, event)}</div>
-	<div class="field field-wide"><label>Directories</label>${renderDirectoryMultiSelect("dirs", options.directories, selectedDirs)}</div>
-	<div class="field field-wide"><label>Skills</label>${renderPlainMultiSelect("skills", options.skills, selectedSkills, "All skills")}</div>
-	<div class="field field-wide"><label>Integrations (MCP)</label>${renderPlainMultiSelect("mcp", options.mcpServers, selectedMcpServers, "All integrations")}</div>
-	<div class="field"><label>Md files directory</label>${renderDirectorySelect("mdDir", options.directories, mdDir)}</div>
-	<div class="field"><label>Min duration (m)</label><input type="number" name="minDuration" min="0" step="any" placeholder="min" value="${escapeHtml(minDuration)}"></div>
-	<div class="field"><label>Max duration (m)</label><input type="number" name="maxDuration" min="0" step="any" placeholder="max" value="${escapeHtml(maxDuration)}"></div>
+	<div class="field"><label id="filter-label-status" for="filter-status">Status</label>${renderSelect("status", statuses, status)}</div>
+	<div class="field"><label id="filter-label-source" for="filter-source">Source</label>${renderSelect("source", options.sources, source)}</div>
+	<div class="field"><label id="filter-label-tool" for="filter-tool">Tool</label>${renderSelect("tool", options.tools, tool)}</div>
+	<div class="field"><label id="filter-label-event" for="filter-event">Event</label>${renderSelect("event", options.events, event)}</div>
+	<div class="field field-wide"><label id="filter-label-dirs" for="filter-dirs">Directories</label>${renderDirectoryMultiSelect("dirs", options.directories, selectedDirs)}</div>
+	<div class="field field-wide"><label id="filter-label-skills" for="filter-skills">Skills</label>${renderPlainMultiSelect("skills", options.skills, selectedSkills, "All skills")}</div>
+	<div class="field field-wide"><label id="filter-label-mcp" for="filter-mcp">Integrations (MCP)</label>${renderPlainMultiSelect("mcp", options.mcpServers, selectedMcpServers, "All integrations")}</div>
+	<div class="field"><label id="filter-label-mdDir" for="filter-mdDir">Md files directory</label>${renderDirectorySelect("mdDir", options.directories, mdDir)}</div>
+	<div class="field"><label id="filter-label-minDuration" for="filter-minDuration">Min duration (m)</label><input type="number" id="filter-minDuration" name="minDuration" min="0" step="any" placeholder="min" value="${escapeHtml(minDuration)}"></div>
+	<div class="field"><label id="filter-label-maxDuration" for="filter-maxDuration">Max duration (m)</label><input type="number" id="filter-maxDuration" name="maxDuration" min="0" step="any" placeholder="max" value="${escapeHtml(maxDuration)}"></div>
 </div>`;
 }

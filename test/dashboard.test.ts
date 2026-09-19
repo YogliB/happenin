@@ -600,6 +600,9 @@ describe("dashboard page and fragments", () => {
 		expect(html).toContain("dashboard-content");
 		expect(html).toContain("session-detail");
 		expect(html).toContain("metric-grid");
+		expect(html).toContain('event.preventDefault();');
+		expect(html).toContain('input.focus();');
+		expect(html).toContain("input.setAttribute('aria-labelledby', label.id)");
 		db.close();
 	});
 
@@ -1036,6 +1039,33 @@ describe("dashboard components", () => {
 		expect(html).not.toContain('value="confluence" data-label="confluence" selected');
 		expect(html).toContain('value="5"');
 		expect(html).toContain('value="30"');
+	});
+
+	it("associates every filter label with a stable control id", () => {
+		const html = renderFilters(
+			{ sources: [], events: [], tools: [], directories: [], skills: [], mcpServers: [] },
+			{},
+		);
+		const fields = [
+			["status", "Status"],
+			["source", "Source"],
+			["tool", "Tool"],
+			["event", "Event"],
+			["dirs", "Directories"],
+			["skills", "Skills"],
+			["mcp", "Integrations (MCP)"],
+			["mdDir", "Md files directory"],
+			["minDuration", "Min duration (m)"],
+			["maxDuration", "Max duration (m)"],
+		];
+
+		for (const [name, label] of fields) {
+			expect(html).toContain(
+				`<label id="filter-label-${name}" for="filter-${name}">${label}</label>`,
+			);
+			expect(html).toContain(`id="filter-${name}"`);
+		}
+		expect(new Set(fields.map(([name]) => `filter-${name}`)).size).toBe(fields.length);
 	});
 
 	it("marks the sessions tab active when the view is list", () => {
