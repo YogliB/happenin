@@ -1,4 +1,4 @@
-name: Issue Reference
+name: PR Requirements
 
 permissions:
   pull-requests: read
@@ -9,15 +9,16 @@ on:
     types: [opened, reopened, synchronize, edited, labeled, unlabeled]
 
 jobs:
-  issue-reference:
-    name: Linked issue
+  pr-requirements:
+    name: PR requirements
     runs-on: ubuntu-latest
     steps:
-      - name: Check that the PR body references an existing issue
+      - name: Check pull request requirements
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           DEFAULT_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -28,42 +29,88 @@ jobs:
               exit 0
               ;;
           esac
+
+          failures=0
+
           if printf '%s' "$PR_LABELS" | grep -q '"no-issue"'; then
-            echo "Skipping: the no-issue label is applied."
-            exit 0
+            echo "Skipping issue reference: the no-issue label is applied."
+          else
+            PATTERN='(close[sd]?|fix(e[sd])?|resolve[sd]?|ref(erence)?s?)[[:space:]]+(([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+|https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+)'
+            TARGET='([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+|https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+'
+            valid=0
+            while IFS= read -r ref; do
+              target="$(printf '%s' "$ref" | grep -oiE "$TARGET")"
+              lower="$(printf '%s' "$target" | tr '[:upper:]' '[:lower:]')"
+              case "$lower" in
+                https://github.com/*)
+                  repo="$(printf '%s' "$lower" | cut -d/ -f4-5)"
+                  number="${lower##*/}"
+                  ;;
+                *)
+                  repo="${target%%#*}"
+                  number="${target##*#}"
+                  repo="${repo:-$DEFAULT_REPO}"
+                  ;;
+              esac
+              kind="$(gh api "repos/$repo/issues/$number" --jq 'if has("pull_request") then "pr" else "issue" end' 2>/dev/null || true)"
+              if [ "$kind" = "issue" ]; then
+                echo "Verified: '$ref' points to existing issue $repo#$number."
+                valid=$((valid + 1))
+              elif [ "$kind" = "pr" ]; then
+                echo "::warning::'$ref' points to pull request $repo#$number, not an issue."
+              else
+                echo "::warning::'$ref' does not resolve to an existing issue."
+              fi
+            done < <(printf '%s' "$PR_BODY" | grep -oiE "$PATTERN" || true)
+            if [ "$valid" -eq 0 ]; then
+              echo "::error::Every pull request must reference an existing issue. Add 'Closes #<issue>' to the PR body, opening an issue first if none exists. Maintainers can bypass with the no-issue label."
+              failures=$((failures + 1))
+            fi
           fi
-          PATTERN='(close[sd]?|fix(e[sd])?|resolve[sd]?|ref(erence)?s?)[[:space:]]+(([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+|https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+)'
-          TARGET='([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+|https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+'
-          if ! printf '%s' "$PR_BODY" | grep -qiE "$PATTERN"; then
-            echo "::error::Every pull request must reference an existing issue. Add 'Closes #<issue>' to the PR body, opening an issue first if none exists. Maintainers can bypass with the no-issue label."
-            exit 1
-          fi
-          valid=0
-          while IFS= read -r ref; do
-            target="$(printf '%s' "$ref" | grep -oiE "$TARGET")"
-            lower="$(printf '%s' "$target" | tr '[:upper:]' '[:lower:]')"
-            case "$lower" in
-              https://github.com/*)
-                repo="$(printf '%s' "$lower" | cut -d/ -f4-5)"
-                number="${lower##*/}"
+
+          mapfile -t changed_files < <(gh api --paginate "repos/$DEFAULT_REPO/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename')
+          product_changed=0
+          changelog_changed=0
+          docs_changed=0
+          for file in "${changed_files[@]}"; do
+            case "$file" in
+              docs/CHANGELOG.md)
+                changelog_changed=1
                 ;;
-              *)
-                repo="${target%%#*}"
-                number="${target##*#}"
-                repo="${repo:-$DEFAULT_REPO}"
+              README.md|AGENTS.md|CLAUDE.md|llms.txt|assets/help.md|docs/*)
+                docs_changed=1
                 ;;
             esac
-            kind="$(gh api "repos/$repo/issues/$number" --jq 'if has("pull_request") then "pr" else "issue" end' 2>/dev/null || true)"
-            if [ "$kind" = "issue" ]; then
-              echo "Verified: '$ref' points to existing issue $repo#$number."
-              valid=$((valid + 1))
-            elif [ "$kind" = "pr" ]; then
-              echo "::warning::'$ref' points to pull request $repo#$number, not an issue."
+            case "$file" in
+              src/*|plugins/*|.claude-plugin/*|.cursor-plugin/*|assets/*|package.json|package-lock.json|tsconfig.json|tsdown.config.ts)
+                product_changed=1
+                ;;
+            esac
+          done
+
+          if [ "$product_changed" -eq 0 ]; then
+            echo "Skipping documentation and changelog requirements: no product-code paths changed."
+          else
+            if [ "$changelog_changed" -eq 1 ]; then
+              echo "Verified: docs/CHANGELOG.md changed with product code."
+            elif printf '%s' "$PR_LABELS" | grep -q '"no-changelog"'; then
+              echo "Skipping changelog requirement: the no-changelog label is applied."
             else
-              echo "::warning::'$ref' does not resolve to an existing issue."
+              echo "::error::Product-code changes must update docs/CHANGELOG.md. Add a user-facing bullet under Unreleased, or ask a maintainer to apply the no-changelog label."
+              failures=$((failures + 1))
             fi
-          done < <(printf '%s' "$PR_BODY" | grep -oiE "$PATTERN")
-          if [ "$valid" -eq 0 ]; then
-            echo "::error::None of the issue references in the PR body resolve to an existing issue. Link an existing issue, opening one first if needed."
+
+            if [ "$docs_changed" -eq 1 ]; then
+              echo "Verified: user or contributor documentation changed with product code."
+            elif printf '%s' "$PR_LABELS" | grep -q '"no-docs"'; then
+              echo "Skipping documentation requirement: the no-docs label is applied."
+            else
+              echo "::error::Product-code changes must update relevant documentation outside docs/CHANGELOG.md. Update README.md, AGENTS.md, llms.txt, assets/help.md, or another file under docs/, or ask a maintainer to apply the no-docs label after confirming the documentation is already in sync."
+              failures=$((failures + 1))
+            fi
+          fi
+
+          if [ "$failures" -gt 0 ]; then
+            echo "::error::$failures pull request requirement(s) failed."
             exit 1
           fi
