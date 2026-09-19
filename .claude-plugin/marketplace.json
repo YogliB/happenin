@@ -1,6 +1,9 @@
 {
 	"name": "happenin",
-	"owner": { "name": "Yogev Boaron Ben-Har" },
+	"description": "Record Cursor and Claude Code agent events in a local dashboard.",
+	"owner": {
+		"name": "Yogev Boaron Ben-Har"
+	},
 	"plugins": [
 		{
 			"name": "happenin",
