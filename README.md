@@ -187,6 +187,8 @@ npm install
 npm run build
 ```
 
+Every pull request must reference an existing issue. If no issue exists, open one first, then link it in the pull request body with `Closes #<issue>`.
+
 Before opening a pull request, run the full check suite:
 
 ```bash
