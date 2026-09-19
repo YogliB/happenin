@@ -136,7 +136,7 @@ Starts a local HTTP server and opens the dashboard in your browser.
 
 | Command                        | Purpose                                     |
 | ------------------------------ | ------------------------------------------- |
-| `happenin install`             | Install hooks.                              |
+| `happenin install`             | Show the plugin setup.                      |
 | `happenin import`              | Import existing transcripts.                |
 | `happenin dashboard`           | Start the realtime dashboard.               |
 | `happenin query --limit 10`    | Print the 10 most recent events.            |

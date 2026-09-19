@@ -169,7 +169,7 @@ Use `--no-open` or `--silent` to start without launching the browser.
 
 ## When to use
 
-- To start recording events from an existing agent setup, run `happenin install` and restart the agent.
+- To start recording events from an existing agent setup, run `happenin install`, add the plugin it prints to the agent, and restart the agent.
 - To record a one-off event manually, pipe JSON to `happenin record <source> [event]`.
 - To backfill existing agent transcripts, run `happenin import`.
 - To inspect events, run `happenin query`, `happenin sessions`, or start `happenin dashboard`.
