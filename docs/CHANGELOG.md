@@ -6,10 +6,8 @@
 
 ## [0.5.0]
 
-- `happenin install` now shows setup for the packaged Cursor and Claude Code plugins without editing user config.
-- Removed the `--legacy` direct-config install path (config backup/append into `~/.cursor/hooks.json` and `~/.claude/settings.json`); plugin-based setup is the only install path. Pre-plugin installs should remove old `happenin record` entries from those two files by hand (one-time step).
-- Every pull request must now reference an existing issue; CI fails pull requests without one (bot PRs are skipped, maintainers can bypass with the `no-issue` label).
-- Fixed `npm ci` on linux-x64 (platform-specific oxc bindings are optional in the lockfile again), removed a duplicated changelog entry, and made `nub` the documented baseline for development commands with `npm` as the fallback.
+- `happenin install` no longer edits `~/.cursor/hooks.json` or `~/.claude/settings.json`. The record hooks are now packaged as Cursor and Claude Code plugins, and `install` prints the marketplace setup steps instead of touching your config.
+- Installed with an older happenin? Remove the old `happenin record` entries from those two files by hand and install the plugin instead (one-time step; see the migration guide in README.md).
 
 ## [0.4.0]
 
