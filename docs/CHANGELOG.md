@@ -15,7 +15,6 @@
 ## [0.3.0]
 
 - `npx -y happenin install` now writes hooks that run through `npx` instead of pointing at the ephemeral npx cache path, so a zero-install trial keeps working; re-running `install` replaces previous `happenin` hooks instead of duplicating them.
-- Added a context breakdown widget to the dashboard (and session detail view) that buckets recorded payload size and imported-transcript token usage into MCP servers, markdown files, bloatware, and actual value.
 
 ## [0.2.0]
 

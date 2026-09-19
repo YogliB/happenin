@@ -194,14 +194,16 @@ Every pull request must reference an existing issue. If no issue exists, open on
 Before opening a pull request, run the full check suite:
 
 ```bash
-npm run build
-npm run typecheck
-npm run format
-npm run lint
-npm run duplicates:ci
-npm run knip:ci
-npm run test:ci
+nub run build
+nub run typecheck
+nub run format
+nub run lint
+nub run duplicates:ci
+nub run knip:ci
+nub run test:ci
 ```
+
+The same scripts also work with `npm run <script>`.
 
 See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
 
