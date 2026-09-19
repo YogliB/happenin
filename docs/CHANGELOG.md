@@ -2,9 +2,14 @@
 
 ## [Unreleased]
 
+- Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
+
+## [0.5.0]
+
 - `happenin install` now shows setup for the packaged Cursor and Claude Code plugins without editing user config.
 - Removed the `--legacy` direct-config install path (config backup/append into `~/.cursor/hooks.json` and `~/.claude/settings.json`); plugin-based setup is the only install path. Pre-plugin installs should remove old `happenin record` entries from those two files by hand (one-time step).
-- Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
+- Every pull request must now reference an existing issue; CI fails pull requests without one (bot PRs are skipped, maintainers can bypass with the `no-issue` label).
+- Fixed `npm ci` on linux-x64 (platform-specific oxc bindings are optional in the lockfile again), removed a duplicated changelog entry, and made `nub` the documented baseline for development commands with `npm` as the fallback.
 
 ## [0.4.0]
 
@@ -38,7 +43,8 @@
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
 
-[Unreleased]: https://github.com/YogliB/happenin/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/YogliB/happenin/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/YogliB/happenin/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/YogliB/happenin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/YogliB/happenin/compare/v0.1.1...v0.2.0
