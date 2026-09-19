@@ -68,7 +68,16 @@ jobs:
             fi
           fi
 
-          mapfile -t changed_files < <(gh api --paginate "repos/$DEFAULT_REPO/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename')
+          changed_files_json="$(gh api --paginate "repos/$DEFAULT_REPO/pulls/$PR_NUMBER/files?per_page=100")" || {
+            echo "::error::Could not retrieve the pull request file list."
+            exit 1
+          }
+          mapfile -t changed_files < <(printf '%s' "$changed_files_json" | jq -r '.[].filename')
+          if [ "${#changed_files[@]}" -eq 0 ]; then
+            echo "::error::The pull request file list is unexpectedly empty."
+            exit 1
+          fi
+
           product_changed=0
           changelog_changed=0
           docs_changed=0
