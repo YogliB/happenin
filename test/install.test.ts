@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
+import { CURSOR_HOOK_EVENTS, CLAUDE_HOOK_EVENTS } from "../src/shared/constants.js";
 import process from "node:process";
 import { runInstall, parseTargets, resolveBin, formatError, homeDir } from "../src/cli/install.js";
 
@@ -69,14 +71,58 @@ describe("install", () => {
 		expect(formatError(123)).toBe("123");
 	});
 
-	it("installs only Cursor", async () => {
+	it("defaults to plugin setup without changing user config", async () => {
+		const output = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+		await runInstall([]);
+		const home = process.env.HOME as string;
+		expect(existsSync(path.join(home, ".cursor/hooks.json"))).toBe(false);
+		expect(existsSync(path.join(home, ".claude/settings.json"))).toBe(false);
+		expect(output).toHaveBeenCalledWith(
+			expect.stringContaining("no user config files were changed"),
+		);
+		output.mockRestore();
+	});
+
+	it("shows setup for a selected plugin only", async () => {
+		const output = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 		await runInstall(["--cursor"]);
+		expect(output).toHaveBeenCalledWith(expect.stringContaining("Cursor: open Customize"));
+		expect(output).not.toHaveBeenCalledWith(expect.stringContaining("Claude Code: run"));
+		output.mockClear();
+		await runInstall(["--claude"]);
+		expect(output).toHaveBeenCalledWith(expect.stringContaining("Claude Code: run"));
+		expect(output).not.toHaveBeenCalledWith(expect.stringContaining("Cursor: open Customize"));
+		output.mockRestore();
+	});
+
+	it("packages every supported event in both plugin hook files", () => {
+		const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+		const cursor = JSON.parse(
+			readFileSync(path.join(root, "plugins/cursor/hooks/hooks.json"), "utf8"),
+		);
+		const claude = JSON.parse(
+			readFileSync(path.join(root, "plugins/claude/hooks/hooks.json"), "utf8"),
+		);
+		expect(Object.keys(cursor.hooks).sort()).toEqual([...CURSOR_HOOK_EVENTS].sort());
+		expect(Object.keys(claude.hooks).sort()).toEqual([...CLAUDE_HOOK_EVENTS].sort());
+		for (const entries of Object.values(cursor.hooks) as Array<Array<{ command: string }>>) {
+			expect(entries[0].command).toBe("npx -y happenin record cursor");
+		}
+		for (const [event, entries] of Object.entries(claude.hooks) as Array<
+			[string, Array<{ hooks: Array<{ command: string }> }>]
+		>) {
+			expect(entries[0].hooks[0].command).toBe(`npx -y happenin record claude ${event}`);
+		}
+	});
+
+	it("installs only Cursor", async () => {
+		await runInstall(["--legacy", "--cursor"]);
 		expect(existsSync(path.join(process.env.HOME as string, ".cursor/hooks.json"))).toBe(true);
 		expect(existsSync(path.join(process.env.HOME as string, ".claude/settings.json"))).toBe(false);
 	});
 
 	it("installs only Claude", async () => {
-		await runInstall(["--claude"]);
+		await runInstall(["--legacy", "--claude"]);
 		expect(existsSync(path.join(process.env.HOME as string, ".claude/settings.json"))).toBe(true);
 		expect(existsSync(path.join(process.env.HOME as string, ".cursor/hooks.json"))).toBe(false);
 	});
@@ -94,7 +140,7 @@ describe("install", () => {
 			JSON.stringify({ hooks: { UserPromptSubmit: "bad" } }),
 		);
 
-		await runInstall([]);
+		await runInstall(["--legacy"]);
 
 		const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
 		expect(cursor.version).toBe(1);
@@ -109,8 +155,8 @@ describe("install", () => {
 
 	it("replaces previous happenin hooks instead of duplicating them", async () => {
 		process.argv[1] = "happenin";
-		await runInstall([]);
-		await runInstall([]);
+		await runInstall(["--legacy"]);
+		await runInstall(["--legacy"]);
 
 		const home = process.env.HOME as string;
 		const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
@@ -164,7 +210,7 @@ describe("install", () => {
 			}),
 		);
 
-		await runInstall([]);
+		await runInstall(["--legacy"]);
 
 		const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
 		expect(cursor.hooks.beforeSubmitPrompt).toEqual([
@@ -200,7 +246,7 @@ describe("install", () => {
 
 		const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 		const previousExitCode = process.exitCode;
-		await runInstall([]);
+		await runInstall(["--legacy"]);
 		expect(err).toHaveBeenCalledWith(expect.stringContaining("install failed:"));
 		expect(process.exitCode).toBe(1);
 		process.exitCode = previousExitCode;
@@ -214,7 +260,7 @@ describe("install", () => {
 
 		const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 		const previousExitCode = process.exitCode;
-		await runInstall([]);
+		await runInstall(["--legacy"]);
 		expect(err).toHaveBeenCalledWith(expect.stringContaining("install failed:"));
 		expect(process.exitCode).toBe(1);
 		process.exitCode = previousExitCode;
@@ -228,7 +274,7 @@ describe("install", () => {
 
 		const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 		const previousExitCode = process.exitCode;
-		await runInstall([]);
+		await runInstall(["--legacy"]);
 		expect(err).toHaveBeenCalledWith(expect.stringContaining("install failed:"));
 		expect(process.exitCode).toBe(1);
 		process.exitCode = previousExitCode;
@@ -244,7 +290,7 @@ describe("install", () => {
 
 		const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 		const previousExitCode = process.exitCode;
-		await runInstall([]);
+		await runInstall(["--legacy"]);
 		expect(err).toHaveBeenCalledWith(expect.stringContaining("install failed:"));
 		expect(process.exitCode).toBe(1);
 		process.exitCode = previousExitCode;
@@ -258,7 +304,7 @@ describe("install", () => {
 		mkdirSync(path.join(home, ".claude"), { recursive: true });
 		writeFileSync(path.join(home, ".claude/settings.json"), JSON.stringify({ hooks: 123 }));
 
-		await runInstall([]);
+		await runInstall(["--legacy"]);
 
 		const cursor = JSON.parse(readFileSync(path.join(home, ".cursor/hooks.json"), "utf8"));
 		expect(cursor.hooks.beforeSubmitPrompt.length).toBeGreaterThan(0);

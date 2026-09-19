@@ -181,23 +181,44 @@ export const parseTargets = (argv: string[]): { cursor: boolean; claude: boolean
 	return { cursor, claude };
 };
 
-async function install(opts: { cursor?: boolean; claude?: boolean } = {}): Promise<void> {
+const PLUGIN_SETUP = {
+	cursor:
+		"Cursor: open Customize, import https://github.com/YogliB/happenin as a marketplace, then install happenin.",
+	claude:
+		"Claude Code: run /plugin marketplace add YogliB/happenin, then /plugin install happenin@happenin.",
+};
+
+const showPluginSetup = (opts: { cursor: boolean; claude: boolean }): void => {
+	process.stdout.write(
+		"happenin hooks are packaged as plugins; no user config files were changed.\n",
+	);
+	if (opts.cursor) process.stdout.write(`${PLUGIN_SETUP.cursor}\n`);
+	if (opts.claude) process.stdout.write(`${PLUGIN_SETUP.claude}\n`);
+	process.stdout.write(
+		"Already installed hooks with an older happenin? See the migration guide in README.md.\n",
+	);
+};
+
+async function installLegacy(opts: { cursor?: boolean; claude?: boolean } = {}): Promise<void> {
 	const { cursor = true, claude = true } = opts;
 	const bin = resolveBin();
 	const results: InstallResult[] = [];
 	if (cursor) results.push(installCursor(bin));
 	if (claude) results.push(installClaude(bin));
 	for (const { target, backup } of results) {
-		process.stdout.write(`${target} written
-`);
+		process.stdout.write(`${target} written\n`);
 		if (backup) process.stdout.write(`  backup: ${backup}\n`);
 	}
 }
 
 export async function runInstall(argv: string[] = []): Promise<void> {
 	try {
-		const { cursor, claude } = parseTargets(argv);
-		await install({ cursor, claude });
+		const targets = parseTargets(argv);
+		if (argv.includes("--legacy")) {
+			await installLegacy(targets);
+			return;
+		}
+		showPluginSetup(targets);
 	} catch (error) {
 		process.stderr.write(`install failed: ${formatError(error)}\n`);
 		process.exitCode = 1;

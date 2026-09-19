@@ -1,0 +1,95 @@
+{
+	"version": 1,
+	"hooks": {
+		"sessionStart": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"sessionEnd": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"beforeSubmitPrompt": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"preToolUse": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"postToolUse": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"postToolUseFailure": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"subagentStart": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"subagentStop": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"beforeShellExecution": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"afterShellExecution": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"beforeMCPExecution": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"afterMCPExecution": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"beforeReadFile": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"afterFileEdit": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"afterAgentResponse": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"afterAgentThought": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"preCompact": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		],
+		"stop": [
+			{
+				"command": "npx -y happenin record cursor"
+			}
+		]
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"name": "happenin",
+	"owner": { "name": "Yogev Boaron Ben-Har" },
+	"plugins": [
+		{
+			"name": "happenin",
+			"source": "./plugins/claude",
+			"description": "Record local Claude Code events for the happenin dashboard."
+		}
+	]
+}

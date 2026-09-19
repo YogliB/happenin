@@ -12,13 +12,14 @@ The build uses `tsdown` to bundle `src/` into `dist/bin.js`.
 
 ## Problem: `happenin install` does not change Cursor or Claude Code behavior
 
-The `install` command backs up and appends hooks, but the agent may cache its config.
+The `install` command prints the plugin setup; it does not enable a plugin itself.
 
 ### Solution
 
-- Verify `~/.cursor/hooks.json` or `~/.claude/settings.json` contains the `happenin record` entries.
-- Restart Cursor or Claude Code completely.
-- Check `~/.happenin/backups/` for the original config files.
+- In Cursor, import `https://github.com/YogliB/happenin` as a marketplace in Customize and install `happenin`.
+- In Claude Code, run `/plugin marketplace add YogliB/happenin`, then `/plugin install happenin@happenin`.
+- Restart the client after enabling the plugin.
+- If an older direct-config install is still present, remove only its `happenin record` entries after the plugin is enabled to avoid duplicate events. Keep unrelated hooks.
 
 ## Problem: Events do not appear in the dashboard
 

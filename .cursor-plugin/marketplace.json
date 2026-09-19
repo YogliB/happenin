@@ -1,0 +1,11 @@
+{
+	"name": "happenin",
+	"owner": { "name": "Yogev Boaron Ben-Har" },
+	"plugins": [
+		{
+			"name": "happenin",
+			"source": "./plugins/cursor",
+			"description": "Record local Cursor agent events for the happenin dashboard."
+		}
+	]
+}

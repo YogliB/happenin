@@ -1,0 +1,345 @@
+{
+	"hooks": {
+		"SessionStart": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude SessionStart"
+					}
+				]
+			}
+		],
+		"SessionEnd": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude SessionEnd"
+					}
+				]
+			}
+		],
+		"Setup": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude Setup"
+					}
+				]
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude UserPromptSubmit"
+					}
+				]
+			}
+		],
+		"UserPromptExpansion": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude UserPromptExpansion"
+					}
+				]
+			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude PreToolUse"
+					}
+				]
+			}
+		],
+		"PermissionRequest": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude PermissionRequest"
+					}
+				]
+			}
+		],
+		"PermissionDenied": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude PermissionDenied"
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude PostToolUse"
+					}
+				]
+			}
+		],
+		"PostToolUseFailure": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude PostToolUseFailure"
+					}
+				]
+			}
+		],
+		"PostToolBatch": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude PostToolBatch"
+					}
+				]
+			}
+		],
+		"Notification": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude Notification"
+					}
+				]
+			}
+		],
+		"MessageDisplay": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude MessageDisplay"
+					}
+				]
+			}
+		],
+		"SubagentStart": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude SubagentStart"
+					}
+				]
+			}
+		],
+		"SubagentStop": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude SubagentStop"
+					}
+				]
+			}
+		],
+		"TaskCreated": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude TaskCreated"
+					}
+				]
+			}
+		],
+		"TaskCompleted": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude TaskCompleted"
+					}
+				]
+			}
+		],
+		"Stop": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude Stop"
+					}
+				]
+			}
+		],
+		"StopFailure": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude StopFailure"
+					}
+				]
+			}
+		],
+		"TeammateIdle": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude TeammateIdle"
+					}
+				]
+			}
+		],
+		"InstructionsLoaded": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude InstructionsLoaded"
+					}
+				]
+			}
+		],
+		"ConfigChange": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude ConfigChange"
+					}
+				]
+			}
+		],
+		"CwdChanged": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude CwdChanged"
+					}
+				]
+			}
+		],
+		"DirectoryAdded": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude DirectoryAdded"
+					}
+				]
+			}
+		],
+		"FileChanged": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude FileChanged"
+					}
+				]
+			}
+		],
+		"WorktreeCreate": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude WorktreeCreate"
+					}
+				]
+			}
+		],
+		"WorktreeRemove": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude WorktreeRemove"
+					}
+				]
+			}
+		],
+		"PreCompact": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude PreCompact"
+					}
+				]
+			}
+		],
+		"PostCompact": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude PostCompact"
+					}
+				]
+			}
+		],
+		"Elicitation": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude Elicitation"
+					}
+				]
+			}
+		],
+		"ElicitationResult": [
+			{
+				"matcher": "",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "npx -y happenin record claude ElicitationResult"
+					}
+				]
+			}
+		]
+	}
+}
