@@ -1,0 +1,36 @@
+name: Issue Reference
+
+permissions:
+  pull-requests: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+
+jobs:
+  issue-reference:
+    name: Linked issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that the PR body references an issue
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+          case "$PR_AUTHOR" in
+            *"[bot]")
+              echo "Skipping: PR author $PR_AUTHOR is a bot."
+              exit 0
+              ;;
+          esac
+          if printf '%s' "$PR_LABELS" | grep -q '"no-issue"'; then
+            echo "Skipping: the no-issue label is applied."
+            exit 0
+          fi
+          if ! printf '%s' "$PR_BODY" | grep -qiE '(close[sd]?|fix(e[sd])?|resolve[sd]?|ref(erence)?s?)[[:space:]]+#[0-9]+'; then
+            echo "::error::Every pull request must reference an existing issue. Add 'Closes #<issue>' to the PR body, opening an issue first if none exists. Maintainers can bypass with the no-issue label."
+            exit 1
+          fi
+          echo "Issue reference found."

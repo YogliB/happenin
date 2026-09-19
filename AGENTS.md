@@ -56,6 +56,7 @@ Common commands:
 - Fail-open responses. `record` returns the minimum required non-blocking response and no output for observer hooks.
 - Keep docs short, clear, and concise. `AGENTS.md` is a condensed version of the human docs; link to the full doc when detail is needed. Diagrams in docs use mermaid fenced blocks — `lint:ci` flags ASCII diagrams.
 - PRs must be focused, pass `build`, `typecheck`, `format:ci`, `lint:ci`, `duplicates:ci`, `knip:ci`, and `test:ci`, and use a Conventional Commit message.
+- Every PR must reference an issue (`Closes #<issue>`). CI enforces it; bot PRs are skipped and the `no-issue` label bypasses.
 - PRs are also gated by `.github/workflows/anti-slop.yml`, which flags vague or AI-generated-sounding filler in commit messages and PR descriptions — write specific, concrete text.
 
 ### Project layout
