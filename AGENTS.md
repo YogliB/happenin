@@ -52,7 +52,7 @@ Common commands:
 
 - Zero runtime dependencies. Everything uses Node built-in modules and the dashboard loads small JS libraries from a CDN.
 - SQLite via `node:sqlite` with WAL mode.
-- Plugin-first setup. Package hooks as Cursor and Claude plugins; keep config backup-and-merge behavior only behind `--legacy`.
+- Plugin-only setup. Hooks ship as Cursor and Claude plugins; `install` prints setup instructions and never edits user config files.
 - Fail-open responses. `record` returns the minimum required non-blocking response and no output for observer hooks.
 - Keep docs short, clear, and concise. `AGENTS.md` is a condensed version of the human docs; link to the full doc when detail is needed. Diagrams in docs use mermaid fenced blocks — `lint:ci` flags ASCII diagrams.
 - PRs must be focused, pass `build`, `typecheck`, `format:ci`, `lint:ci`, `duplicates:ci`, `knip:ci`, and `test:ci`, and use a Conventional Commit message.
@@ -69,7 +69,7 @@ Common commands:
 - `src/shared/toolCalls.ts` — extracts `file_path`/`skill_name` from a tool call's name+input; shared
   by the live hook recorder and the transcript importer.
 - `src/cli/record.ts` — hook target: parse stdin, insert event, respond.
-- `src/cli/install.ts` — install Cursor / Claude Code hooks.
+- `src/cli/install.ts` — print the Cursor / Claude Code plugin setup.
 - `src/cli/import.ts` — import Claude and Cursor transcripts.
 - `src/cli/query.ts` — filter and format events for the `query` and `sessions` commands.
 - `src/cli/sessions.ts` — session summaries for the `sessions` command.

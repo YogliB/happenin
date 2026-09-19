@@ -36,11 +36,11 @@ npx skills add YogliB/happenin --skill happenin
 
 For a global install, add the `-g` flag. You can also copy `skills/happenin/SKILL.md` from this repository into your agent's skills directory.
 
-## `happenin install [--cursor] [--claude] [--legacy]`
+## `happenin install [--cursor] [--claude]`
 
 Shows the supported plugin setup for Cursor and Claude Code. The packaged hooks use `npx -y happenin record`, so the normal setup does not edit user configuration. Use `--cursor` or `--claude` to show one client only.
 
-For an older direct-config setup, install the plugins, then remove only the existing `happenin record` entries from `~/.cursor/hooks.json` and `~/.claude/settings.json`. The temporary `--legacy` option keeps the previous backup-and-edit behavior.
+Migrating from a pre-plugin install? Remove the old `happenin record` entries from `~/.cursor/hooks.json` and `~/.claude/settings.json` by hand (one-time step). Keep every unrelated hook.
 
 ## `happenin record <source> [event]`
 
@@ -169,7 +169,7 @@ Use `--no-open` or `--silent` to start without launching the browser.
 
 ## When to use
 
-- To start recording events from an existing agent setup, run `happenin install` and restart the agent.
+- To start recording events from an existing agent setup, run `happenin install`, add the plugin it prints to the agent, and restart the agent.
 - To record a one-off event manually, pipe JSON to `happenin record <source> [event]`.
 - To backfill existing agent transcripts, run `happenin import`.
 - To inspect events, run `happenin query`, `happenin sessions`, or start `happenin dashboard`.

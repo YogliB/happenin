@@ -4,14 +4,13 @@ A CLI that records Cursor and Claude Code agent events to a local SQLite databas
 
 ## Commands
 
-### `happenin install [--cursor] [--claude] [--legacy]`
+### `happenin install [--cursor] [--claude]`
 
 Shows how to install the packaged Cursor and Claude Code plugins without changing user config files.
 The plugin hooks use `npx -y happenin`, so they work with the trial and global-install flows.
 
 - `--cursor` — show Cursor setup only.
 - `--claude` — show Claude Code setup only.
-- `--legacy` — use the old direct-config installer, with backups in `~/.happenin/backups/`.
 
 ### `happenin record <source> [event]`
 
