@@ -32,24 +32,37 @@ jobs:
             echo "Skipping: the no-issue label is applied."
             exit 0
           fi
-          PATTERN='(close[sd]?|fix(e[sd])?|resolve[sd]?|ref(erence)?s?)[[:space:]]+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+'
+          PATTERN='(close[sd]?|fix(e[sd])?|resolve[sd]?|ref(erence)?s?)[[:space:]]+(([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+|https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+)'
+          TARGET='([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+|https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[0-9]+'
           if ! printf '%s' "$PR_BODY" | grep -qiE "$PATTERN"; then
             echo "::error::Every pull request must reference an existing issue. Add 'Closes #<issue>' to the PR body, opening an issue first if none exists. Maintainers can bypass with the no-issue label."
             exit 1
           fi
-          fail=0
+          valid=0
           while IFS= read -r ref; do
-            target="$(printf '%s' "$ref" | grep -oE '([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+')"
-            repo="${target%%#*}"
-            number="${target##*#}"
-            repo="${repo:-$DEFAULT_REPO}"
-            if gh api "repos/$repo/issues/$number" --jq '.number' >/dev/null 2>&1; then
-              echo "Verified: '$ref' points to $repo#$number."
+            target="$(printf '%s' "$ref" | grep -oE "$TARGET")"
+            case "$target" in
+              https://github.com/*)
+                repo="$(printf '%s' "$target" | cut -d/ -f4-5)"
+                number="${target##*/}"
+                ;;
+              *)
+                repo="${target%%#*}"
+                number="${target##*#}"
+                repo="${repo:-$DEFAULT_REPO}"
+                ;;
+            esac
+            kind="$(gh api "repos/$repo/issues/$number" --jq 'if has("pull_request") then "pr" else "issue" end' 2>/dev/null || true)"
+            if [ "$kind" = "issue" ]; then
+              echo "Verified: '$ref' points to existing issue $repo#$number."
+              valid=$((valid + 1))
+            elif [ "$kind" = "pr" ]; then
+              echo "::warning::'$ref' points to pull request $repo#$number, not an issue."
             else
-              echo "::error::The referenced issue $repo#$number does not exist. Link an existing issue in the PR body."
-              fail=1
+              echo "::warning::'$ref' does not resolve to an existing issue."
             fi
           done < <(printf '%s' "$PR_BODY" | grep -oiE "$PATTERN")
-          if [ "$fail" -ne 0 ]; then
+          if [ "$valid" -eq 0 ]; then
+            echo "::error::None of the issue references in the PR body resolve to an existing issue. Link an existing issue, opening one first if needed."
             exit 1
           fi
