@@ -71,10 +71,14 @@ jobs:
           mapfile -t changed_files < <(gh api --paginate "repos/$DEFAULT_REPO/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename')
           product_changed=0
           changelog_changed=0
+          docs_changed=0
           for file in "${changed_files[@]}"; do
             case "$file" in
               docs/CHANGELOG.md)
                 changelog_changed=1
+                ;;
+              README.md|AGENTS.md|CLAUDE.md|llms.txt|assets/help.md|docs/*)
+                docs_changed=1
                 ;;
             esac
             case "$file" in
@@ -85,14 +89,25 @@ jobs:
           done
 
           if [ "$product_changed" -eq 0 ]; then
-            echo "Skipping documentation requirement: no product-code paths changed."
-          elif [ "$changelog_changed" -eq 1 ]; then
-            echo "Verified: docs/CHANGELOG.md changed with product code."
-          elif printf '%s' "$PR_LABELS" | grep -q '"no-docs"'; then
-            echo "Skipping documentation requirement: the no-docs label is applied."
+            echo "Skipping documentation and changelog requirements: no product-code paths changed."
           else
-            echo "::error::Product-code changes must update docs/CHANGELOG.md. Add a user-facing bullet under Unreleased, or ask a maintainer to apply the no-docs label after confirming the documentation is already in sync."
-            failures=$((failures + 1))
+            if [ "$changelog_changed" -eq 1 ]; then
+              echo "Verified: docs/CHANGELOG.md changed with product code."
+            elif printf '%s' "$PR_LABELS" | grep -q '"no-changelog"'; then
+              echo "Skipping changelog requirement: the no-changelog label is applied."
+            else
+              echo "::error::Product-code changes must update docs/CHANGELOG.md. Add a user-facing bullet under Unreleased, or ask a maintainer to apply the no-changelog label."
+              failures=$((failures + 1))
+            fi
+
+            if [ "$docs_changed" -eq 1 ]; then
+              echo "Verified: user or contributor documentation changed with product code."
+            elif printf '%s' "$PR_LABELS" | grep -q '"no-docs"'; then
+              echo "Skipping documentation requirement: the no-docs label is applied."
+            else
+              echo "::error::Product-code changes must update relevant documentation outside docs/CHANGELOG.md. Update README.md, AGENTS.md, llms.txt, assets/help.md, or another file under docs/, or ask a maintainer to apply the no-docs label after confirming the documentation is already in sync."
+              failures=$((failures + 1))
+            fi
           fi
 
           if [ "$failures" -gt 0 ]; then
