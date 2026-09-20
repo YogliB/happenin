@@ -2,10 +2,12 @@
 
 ## [Unreleased]
 
-- The packaged Cursor and Claude Code plugins now bundle the `happenin` agent skill, so installing a plugin also installs the skill.
-- Plugin manifests bumped to 0.5.0 and the Cursor marketplace manifest now carries the metadata plugin directories display (description, version, author, keywords).
-- Removed the `DirectoryAdded` hook from the Claude Code plugin; current Claude Code no longer emits that event.
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
+
+## [0.6.0]
+
+- The packaged Cursor and Claude Code plugins now bundle the `happenin` agent skill, so installing a plugin also installs the skill.
+- Removed the `DirectoryAdded` hook from the Claude Code plugin; current Claude Code no longer emits that event.
 
 ## [0.5.0]
 
@@ -42,7 +44,8 @@
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
 
-[Unreleased]: https://github.com/YogliB/happenin/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/YogliB/happenin/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/YogliB/happenin/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/YogliB/happenin/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/YogliB/happenin/compare/v0.2.0...v0.3.0
