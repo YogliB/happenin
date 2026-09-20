@@ -230,7 +230,7 @@ See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
 
 ## Agent skill
 
-Install the reusable `happenin` skill for agents that support `SKILL.md` files:
+The Cursor and Claude Code plugins bundle the reusable `happenin` skill, so installing the plugin installs the skill too. For other agents that support `SKILL.md` files, install it directly:
 
 ```bash
 npx skills add YogliB/happenin --skill happenin
