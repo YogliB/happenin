@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- The packaged Cursor and Claude Code plugins now bundle the `happenin` agent skill, so installing a plugin also installs the skill.
+- Plugin manifests bumped to 0.5.0 and the Cursor marketplace manifest now carries the metadata plugin directories display (description, version, author, keywords).
+- Removed the `DirectoryAdded` hook from the Claude Code plugin; current Claude Code no longer emits that event.
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
 
 ## [0.5.0]

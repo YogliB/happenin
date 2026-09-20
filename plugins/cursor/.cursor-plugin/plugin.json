@@ -1,7 +1,7 @@
 {
 	"name": "happenin",
 	"displayName": "happenin",
-	"version": "0.4.0",
+	"version": "0.5.0",
 	"description": "Record local Cursor agent events for the happenin dashboard.",
 	"author": { "name": "Yogev Boaron Ben-Har" },
 	"repository": "https://github.com/YogliB/happenin",

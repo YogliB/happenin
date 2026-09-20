@@ -48,7 +48,6 @@ export const CLAUDE_HOOK_EVENTS = [
 	"InstructionsLoaded",
 	"ConfigChange",
 	"CwdChanged",
-	"DirectoryAdded",
 	"FileChanged",
 	"WorktreeCreate",
 	"WorktreeRemove",
