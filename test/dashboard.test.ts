@@ -600,8 +600,8 @@ describe("dashboard page and fragments", () => {
 		expect(html).toContain("dashboard-content");
 		expect(html).toContain("session-detail");
 		expect(html).toContain("metric-grid");
-		expect(html).toContain('event.preventDefault();');
-		expect(html).toContain('input.focus();');
+		expect(html).toContain("event.preventDefault();");
+		expect(html).toContain("input.focus();");
 		expect(html).toContain("input.setAttribute('aria-labelledby', label.id)");
 		db.close();
 	});

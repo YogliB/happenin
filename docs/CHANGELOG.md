@@ -4,6 +4,8 @@
 
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
 
+- Dashboard filter bar labels are now associated with their inputs (`for`/`id` on selects and inputs, `aria-labelledby` on the multi-selects), fixing screen-reader announcement of the filter controls. (#35)
+
 ## [0.5.0]
 
 - `happenin install` now shows setup for the packaged Cursor and Claude Code plugins without editing user config.
