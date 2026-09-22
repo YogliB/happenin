@@ -128,8 +128,17 @@ const clientScript = `
 		const input = document.createElement('input');
 		input.type = 'text';
 		input.className = 'ms-search';
+		input.id = select.id + '-search';
 		input.placeholder = 'Search ' + noun + '...';
 		input.autocomplete = 'off';
+		const label = wrapper.parentElement?.querySelector('label[for="' + select.id + '"]');
+		if (label) {
+			input.setAttribute('aria-labelledby', label.id);
+			label.addEventListener('click', (event) => {
+				event.preventDefault();
+				input.focus();
+			});
+		}
 		const dropdown = document.createElement('div');
 		dropdown.className = 'ms-dropdown';
 		dropdown.hidden = true;
