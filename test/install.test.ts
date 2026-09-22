@@ -87,6 +87,18 @@ describe("install", () => {
 		}
 	});
 
+	it("ships bundled skill copies identical to the root skill", () => {
+		const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+		const source = readFileSync(path.join(root, "skills/happenin/SKILL.md"), "utf8");
+		for (const plugin of ["claude", "cursor"]) {
+			const bundled = readFileSync(
+				path.join(root, `plugins/${plugin}/skills/happenin/SKILL.md`),
+				"utf8",
+			);
+			expect(bundled).toBe(source);
+		}
+	});
+
 	it("homeDir falls back to os.homedir when HOME is unset", () => {
 		const home = process.env.HOME as string;
 		delete process.env.HOME;

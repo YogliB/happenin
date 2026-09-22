@@ -1,11 +1,27 @@
 {
 	"name": "happenin",
-	"owner": { "name": "Yogev Boaron Ben-Har" },
+	"description": "Record Cursor and Claude Code agent events in a local dashboard.",
+	"version": "0.6.0",
+	"author": {
+		"name": "Yogev Boaron Ben-Har"
+	},
+	"homepage": "https://github.com/YogliB/happenin",
+	"keywords": ["hooks", "observability", "sessions", "analytics"],
+	"owner": {
+		"name": "Yogev Boaron Ben-Har"
+	},
 	"plugins": [
 		{
 			"name": "happenin",
 			"source": "./plugins/cursor",
-			"description": "Record local Cursor agent events for the happenin dashboard."
+			"description": "Record local Cursor agent events for the happenin dashboard.",
+			"version": "0.6.0",
+			"author": {
+				"name": "Yogev Boaron Ben-Har"
+			},
+			"license": "MIT",
+			"keywords": ["hooks", "observability", "sessions"],
+			"category": "analytics"
 		}
 	]
 }

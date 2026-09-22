@@ -253,17 +253,6 @@
 				]
 			}
 		],
-		"DirectoryAdded": [
-			{
-				"matcher": "",
-				"hooks": [
-					{
-						"type": "command",
-						"command": "npx -y happenin record claude DirectoryAdded"
-					}
-				]
-			}
-		],
 		"FileChanged": [
 			{
 				"matcher": "",

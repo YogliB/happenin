@@ -6,46 +6,48 @@
 
 - Dashboard filter bar labels are now associated with their inputs (`for`/`id` on selects and inputs, `aria-labelledby` on the multi-selects), fixing screen-reader announcement of the filter controls. (#35)
 
+## [0.6.0]
+
+- The packaged Cursor and Claude Code plugins now bundle the `happenin` agent skill, so installing a plugin also installs the skill.
+- Removed the `DirectoryAdded` hook from the Claude Code plugin; current Claude Code no longer emits that event.
+
 ## [0.5.0]
 
-- `happenin install` now shows setup for the packaged Cursor and Claude Code plugins without editing user config.
-- Removed the `--legacy` direct-config install path (config backup/append into `~/.cursor/hooks.json` and `~/.claude/settings.json`); plugin-based setup is the only install path. Pre-plugin installs should remove old `happenin record` entries from those two files by hand (one-time step).
-- Every pull request must now reference an existing issue; CI fails pull requests without one (bot PRs are skipped, maintainers can bypass with the `no-issue` label).
-- Fixed `npm ci` on linux-x64 (platform-specific oxc bindings are optional in the lockfile again), removed a duplicated changelog entry, and made `nub` the documented baseline for development commands with `npm` as the fallback.
+- `happenin install` no longer edits `~/.cursor/hooks.json` or `~/.claude/settings.json`. The record hooks are now packaged as Cursor and Claude Code plugins, and `install` prints the marketplace setup steps instead of touching your config.
+- Installed with an older happenin? Remove the old `happenin record` entries from those two files by hand and install the plugin instead (one-time step; see the migration guide in README.md).
 
 ## [0.4.0]
 
-- Added multi-select "directories", "skills", and "integrations (MCP)" filters to the dashboard filter bar. Selected values within a category combine with OR; categories combine with each other (and with the existing filters) with AND. The MCP server list is derived from the `mcp__<server>__<tool>` names actually recorded, with no hardcoded list.
-- Added a context breakdown widget to the dashboard (and session detail view) that buckets recorded payload size and imported-transcript token usage into MCP servers, markdown files, bloatware, and actual value.
-- Added Linux and Windows support: the dashboard browser launch now uses `xdg-open`/`cmd start` off macOS, `install` resolves the npm shim name on Windows (where a bare `.js` path is not executable), and the quality and e2e workflows now run on all three operating systems.
+- Added multi-select "directories", "skills", and "integrations (MCP)" filters to the dashboard. Values within a category combine with OR, categories with AND; the MCP server list comes from the servers actually recorded.
+- Added a context breakdown widget to the dashboard and session detail view, bucketing payload size and token usage into MCP servers, markdown files, bloatware, and actual value.
+- Added Linux and Windows support alongside macOS.
 
 ## [0.3.0]
 
-- `npx -y happenin install` now writes hooks that run through `npx` instead of pointing at the ephemeral npx cache path, so a zero-install trial keeps working; re-running `install` replaces previous `happenin` hooks instead of duplicating them.
+- `npx -y happenin install` now keeps working after install: hooks run through `npx` instead of the ephemeral cache path, and re-running `install` replaces old hooks instead of duplicating them.
 
 ## [0.2.0]
 
-- Sessions sidebar nests subagent rows under their parent with a selectable, filterable detail view.
+- The sessions sidebar nests subagent rows under their parent, with a selectable, filterable detail view.
 
 ## [0.1.1]
 
-- `npm install -g happenin` now works on Node.js 22.13 or later (previously 24 or later); the test suite and package smoke tests run on Node.js 22 and 24 in CI.
+- `happenin` now runs on Node.js 22.13 or later (previously 24 or later).
 
 ## [0.1.0]
 
-- Redesigned the browser dashboard into an analytics view: left sessions sidebar, metrics cards, event-frequency and tool-usage charts, full-height session detail with a subagent timeline, live SSE updates, and an emoji theme toggle.
-- Added dashboard filters for source, event, tool, query, status, duration, and range, with sticky header/filters and responsive viewport-constrained layout.
-- Added subagent fan-out grouping, live `tool_use_id` linking, historical backfill, and `idx_events_subagent_id`.
-- `record` now extracts `happenedAt` from more timestamp fields and `ts`, `createdAt`, and `created_at` and falls back to `receivedAt` when no timestamp is present.
-- `record` now extracts `projectPath` from multi-root Cursor workspace fields such as `workspace_roots` and `workspaceRoots`.
-- Existing rows are backfilled for `happened_at` and `project_path` on the next database open.
+- Redesigned the dashboard into an analytics view: sessions sidebar, metrics cards, event-frequency and tool-usage charts, full-height session detail with a subagent timeline, live updates, and an emoji theme toggle.
+- Added dashboard filters for source, event, tool, query, status, duration, and range.
+- Subagent events are grouped under their parent session and backfilled for existing data.
+- `record` reads timestamps and project paths from more event fields, with sensible fallbacks.
 - New `happenin sessions` command prints session-level summaries.
 
 ## [0.0.1]
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
 
-[Unreleased]: https://github.com/YogliB/happenin/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/YogliB/happenin/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/YogliB/happenin/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/YogliB/happenin/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/YogliB/happenin/compare/v0.2.0...v0.3.0

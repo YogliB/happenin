@@ -1,6 +1,6 @@
 {
 	"name": "happenin",
-	"version": "0.4.0",
+	"version": "0.6.0",
 	"description": "Record local Claude Code events for the happenin dashboard.",
 	"author": { "name": "Yogev Boaron Ben-Har" },
 	"repository": "https://github.com/YogliB/happenin",
