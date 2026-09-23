@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/banner.png" alt="happenin — see what's happening with your agents" width="480">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.png">
+    <img src="docs/banner-light.png" alt="happenin — see what's happening with your agents" width="480">
+  </picture>
 </p>
 
 # happenin
