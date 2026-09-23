@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/banner.png" alt="happenin — see what's happening with your agents" width="480">
+</p>
+
 # happenin
 
 [![Known Vulnerabilities](https://snyk.io/test/npm/happenin/badge.svg)](https://snyk.io/test/npm/happenin)
