@@ -1,6 +1,6 @@
 # happenin
 
-> A CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
+> A CLI that records Cursor, Claude Code, and Devin agent events to a local SQLite database and serves a live browser dashboard.
 
 Important notes:
 
@@ -32,7 +32,7 @@ Important notes:
 - [src/cli/index.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/cli/index.ts): CLI dispatch for `install`, `record`, `import`, `query`, `sessions`, `dashboard`, `--help`, and `--version`.
 - [src/shared/db.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/shared/db.ts): SQLite data layer.
 - [src/cli/record.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/cli/record.ts): Hook target; reads JSON from stdin and stores an event.
-- [src/cli/install.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/cli/install.ts): Shows the packaged Cursor and Claude Code plugin setup; never edits user config files.
+- [src/cli/install.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/cli/install.ts): Shows the packaged Cursor, Claude Code, and Devin plugin setup; never edits user config files.
 - [src/cli/import.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/cli/import.ts): Imports Claude and Cursor transcripts.
 - [src/UI/dashboard/index.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/UI/dashboard/index.ts): HTTP server, SSE, and routing.
 - [src/UI/dashboard/page.ts](https://raw.githubusercontent.com/YogliB/happenin/main/src/UI/dashboard/page.ts): Full-page HTML shell and client script for the session overview dashboard.

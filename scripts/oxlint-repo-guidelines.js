@@ -23,6 +23,7 @@ const allowedDocs = new Set([
 	".github/pull_request_template.md",
 	"plugins/claude/skills/happenin/SKILL.md",
 	"plugins/cursor/skills/happenin/SKILL.md",
+	"plugins/devin/skills/happenin/SKILL.md",
 	"skills/happenin/SKILL.md",
 	"llms.txt",
 ]);

@@ -1,23 +1,24 @@
 # happenin
 
-A CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
+A CLI that records Cursor, Claude Code, and Devin agent events to a local SQLite database and serves a live browser dashboard.
 
 ## Commands
 
-### `happenin install [--cursor] [--claude]`
+### `happenin install [--cursor] [--claude] [--devin]`
 
-Shows how to install the packaged Cursor and Claude Code plugins without changing user config files.
+Shows how to install the packaged Cursor, Claude Code, and Devin plugins without changing user config files.
 The plugin hooks use `npx -y happenin`, so they work with the trial and global-install flows.
 
 - `--cursor` — show Cursor setup only.
 - `--claude` — show Claude Code setup only.
+- `--devin` — show Devin setup only.
 
 ### `happenin record <source> [event]`
 
 The hook target. Reads a JSON payload from stdin, writes it to `~/.happenin/happenin.db`, and prints the required non-blocking response for the agent.
 
-- `source` — `cursor` or `claude`.
-- `event` — event name, only required for Claude (Cursor payloads include `hook_event_name`).
+- `source` — `cursor`, `claude`, or `devin`.
+- `event` — event name, only required for Claude (Cursor and Devin payloads include `hook_event_name`).
 
 This command is normally called by the agent hooks, not directly.
 

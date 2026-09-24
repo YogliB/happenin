@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-    hooks["Cursor / Claude hooks"] -- "stdin (JSON)" --> record["record command"]
+    hooks["Cursor / Claude / Devin hooks"] -- "stdin (JSON)" --> record["record command"]
     record -- "INSERT" --> db[("SQLite happenin.db")]
     transcripts["Claude JSONL · Cursor prompt_history · meta"] --> import["import (run)"]
     import --> db
@@ -23,7 +23,7 @@ flowchart LR
 | `src/shared/constants.ts`          | Default DB path, hook event lists, default hook responses.                                                                                                     |
 | `src/shared/types.ts`              | Shared TypeScript types.                                                                                                                                       |
 | `src/cli/record.ts`                | Reads hook JSON from stdin, inserts an event, prints the non-blocking agent response.                                                                          |
-| `src/cli/install.ts`               | Shows the packaged Cursor and Claude Code plugin setup; never edits user config files.                                                                         |
+| `src/cli/install.ts`               | Shows the packaged Cursor, Claude Code, and Devin plugin setup; never edits user config files.                                                                 |
 | `src/cli/import.ts`                | Imports Claude and Cursor transcript files into SQLite.                                                                                                        |
 | `src/cli/query.ts`                 | Filter and format events for the `query` command.                                                                                                              |
 | `src/shared/view.ts`               | Shared event view used by `query` and `dashboard`.                                                                                                             |
@@ -39,5 +39,5 @@ flowchart LR
 - **Zero runtime dependencies.** Everything uses Node built-in modules and the dashboard loads the small JS libraries from a CDN.
 - **SQLite via `node:sqlite`.** Events are stored as-is in a local SQLite file so the dashboard can read history even when it was not running.
 - **WAL mode.** SQLite `journal_mode = WAL` lets dashboard readers and hook writers coexist without blocking each other.
-- **Plugin-only setup.** `install` prints the packaged Cursor and Claude plugin setup and never changes user config.
+- **Plugin-only setup.** `install` prints the packaged Cursor, Claude, and Devin plugin setup and never changes user config.
 - **Fail-open responses.** `record` returns the minimum response required for blocking hooks (`{"permission":"allow"}`, `{"decision":"approve"}`, or `{"continue":true}`) and no output for observer hooks.

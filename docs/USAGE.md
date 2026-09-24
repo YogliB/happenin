@@ -32,7 +32,7 @@ If you use `nub`, run `nub install` and `nub run build` instead.
 ## Quick start
 
 ```bash
-# Show the Cursor and Claude Code plugin setup
+# Show the Cursor, Claude Code, and Devin plugin setup
 happenin install
 
 # Import existing transcripts
@@ -46,9 +46,9 @@ The dashboard opens at `http://localhost:8765`. New events stream in automatical
 
 ## Commands
 
-### `happenin install [--cursor] [--claude]`
+### `happenin install [--cursor] [--claude] [--devin]`
 
-Prints the supported plugin setup for Cursor and Claude Code. The packaged plugins call `npx -y happenin record`, so they work with both the trial and global-install flows without rewriting `~/.cursor/hooks.json` or `~/.claude/settings.json`. Use `--cursor` or `--claude` to show one client only.
+Prints the supported plugin setup for Cursor, Claude Code, and Devin. The packaged plugins call `npx -y happenin record`, so they work with both the trial and global-install flows without rewriting `~/.cursor/hooks.json` or `~/.claude/settings.json`. Use `--cursor`, `--claude`, or `--devin` to show one client only.
 
 Migrating from a pre-plugin install? Remove the old `happenin record` entries from `~/.cursor/hooks.json` and `~/.claude/settings.json` by hand (one-time step). Keep every unrelated hook.
 
@@ -56,8 +56,8 @@ Migrating from a pre-plugin install? Remove the old `happenin record` entries fr
 
 The hook target. Reads a JSON payload from stdin, writes it to `~/.happenin/happenin.db`, and prints the required non-blocking response for the agent.
 
-- `source` — `cursor` or `claude`.
-- `event` — only required for Claude; Cursor payloads include `hook_event_name`.
+- `source` — `cursor`, `claude`, or `devin`.
+- `event` — only required for Claude; Cursor and Devin payloads include `hook_event_name`.
 
 This command is normally called by the agent hooks, not directly.
 
@@ -101,7 +101,7 @@ happenin query --session abc123 --format summary
 
 ### `happenin sessions [options]`
 
-Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes. Each session includes `tools`, `skills`, and `files` — the distinct tool names, skill names (from `Skill` tool calls), and file paths (from `Read`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit` calls) seen in that session. The dashboard's session detail view shows the same three lists.
+Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes. Each session includes `tools`, `skills`, and `files` — the distinct tool names, skill names (from `Skill`/`skill` tool calls), and file paths (from `Read`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`read`/`edit`/`write`/`notebook_edit` calls) seen in that session. The dashboard's session detail view shows the same three lists.
 
 - `--source <source>` — filter sessions by source.
 - `--event <event>` — filter sessions by event name.

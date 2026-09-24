@@ -14,8 +14,16 @@ describe("toolCallFilePath", () => {
 		expect(toolCallFilePath("Read", { path: "/p.ts" })).toBe("/p.ts");
 	});
 
+	it("extracts file_path for lowercase devin file tools", () => {
+		expect(toolCallFilePath("read", { file_path: "/a.ts" })).toBe("/a.ts");
+		expect(toolCallFilePath("edit", { file_path: "/b.ts" })).toBe("/b.ts");
+		expect(toolCallFilePath("write", { file_path: "/c.ts" })).toBe("/c.ts");
+		expect(toolCallFilePath("notebook_edit", { notebook_path: "/n.ipynb" })).toBe("/n.ipynb");
+	});
+
 	it("returns undefined for non-file tools", () => {
 		expect(toolCallFilePath("Bash", { file_path: "/a.ts" })).toBeUndefined();
+		expect(toolCallFilePath("exec", { file_path: "/a.ts" })).toBeUndefined();
 	});
 
 	it("returns undefined for missing/invalid tool name or input", () => {
@@ -33,8 +41,13 @@ describe("toolCallSkillName", () => {
 		expect(toolCallSkillName("Skill", { skill: "commit-push-pr" })).toBe("commit-push-pr");
 	});
 
+	it("extracts the skill name for lowercase devin skill calls", () => {
+		expect(toolCallSkillName("skill", { skill: "sk-flow" })).toBe("sk-flow");
+	});
+
 	it("returns undefined for non-Skill tools", () => {
 		expect(toolCallSkillName("Bash", { skill: "commit-push-pr" })).toBeUndefined();
+		expect(toolCallSkillName("exec", { skill: "sk-flow" })).toBeUndefined();
 	});
 
 	it("returns undefined for missing/invalid input", () => {

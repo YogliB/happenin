@@ -302,6 +302,78 @@ describe("record", () => {
 		db.close();
 	});
 
+	it("records a devin event from hook_event_name with no response", () => {
+		const payload = JSON.stringify({
+			hook_event_name: "PreToolUse",
+			session_id: "devin-s-1",
+			prompt_id: "p-1",
+			tool_name: "edit",
+			tool_input: { file_path: "/src/a.ts" },
+		});
+		const response = recordFromRaw(["devin"], payload);
+		expect(response).toBeUndefined();
+
+		const db = initDb();
+		const rows = getEvents(db, { limit: 10 });
+		expect(rows.length).toBe(1);
+		expect(rows[0].event).toBe("PreToolUse");
+		expect(rows[0].source).toBe("devin");
+		expect(rows[0].client).toBe("devin");
+		expect(rows[0].sessionId).toBe("devin-s-1");
+		expect(rows[0].toolName).toBe("edit");
+		expect(rows[0].filePath).toBe("/src/a.ts");
+		db.close();
+	});
+
+	it("uses DEVIN_PROJECT_DIR as the devin project path fallback", () => {
+		const original = process.env.DEVIN_PROJECT_DIR;
+		process.env.DEVIN_PROJECT_DIR = "/devin/project";
+		try {
+			recordFromRaw(
+				["devin"],
+				JSON.stringify({ hook_event_name: "SessionStart", session_id: "devin-s-2" }),
+			);
+		} finally {
+			if (original === undefined) delete process.env.DEVIN_PROJECT_DIR;
+			else process.env.DEVIN_PROJECT_DIR = original;
+		}
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "devin-s-2", limit: 10 });
+		expect(rows[0].projectPath).toBe("/devin/project");
+		db.close();
+	});
+
+	it("prefers payload path fields over DEVIN_PROJECT_DIR for devin", () => {
+		const original = process.env.DEVIN_PROJECT_DIR;
+		process.env.DEVIN_PROJECT_DIR = "/devin/project";
+		try {
+			recordFromRaw(
+				["devin"],
+				JSON.stringify({
+					hook_event_name: "SessionStart",
+					session_id: "devin-s-4",
+					cwd: "/payload/cwd",
+				}),
+			);
+		} finally {
+			if (original === undefined) delete process.env.DEVIN_PROJECT_DIR;
+			else process.env.DEVIN_PROJECT_DIR = original;
+		}
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "devin-s-4", limit: 10 });
+		expect(rows[0].projectPath).toBe("/payload/cwd");
+		db.close();
+	});
+
+	it("records a devin event without hook_event_name", () => {
+		const response = recordFromRaw(["devin"], JSON.stringify({ session_id: "devin-s-3" }));
+		expect(response).toBeUndefined();
+		const db = initDb();
+		const rows = getEvents(db, { sessionId: "devin-s-3", limit: 10 });
+		expect(rows[0].event).toBeNull();
+		db.close();
+	});
+
 	it("records from stdin via runRecord", async () => {
 		const payload = JSON.stringify({
 			hook_event_name: "beforeSubmitPrompt",

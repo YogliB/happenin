@@ -1,6 +1,6 @@
 ---
 name: happenin
-description: Use the happenin CLI to capture, query, and dashboard Cursor and Claude Code agent events from the local machine.
+description: Use the happenin CLI to capture, query, and dashboard Cursor, Claude Code, and Devin agent events from the local machine.
 allowed-tools:
   - exec
   - read
@@ -9,7 +9,7 @@ allowed-tools:
 
 # Using happenin
 
-`happenin` is a local CLI that captures Cursor and Claude Code hook events into a SQLite database and serves a real-time dashboard. All data stays on the user's machine.
+`happenin` is a local CLI that captures Cursor, Claude Code, and Devin hook events into a SQLite database and serves a real-time dashboard. All data stays on the user's machine.
 
 This is a cross-agent skill. Any agent that supports `SKILL.md` files can load it.
 
@@ -28,7 +28,7 @@ nub install
 nub run build
 ```
 
-The Cursor and Claude Code plugins bundle this skill, so installing the plugin is enough for those clients. For any other agent, add it from the repository:
+The Cursor, Claude Code, and Devin plugins bundle this skill, so installing the plugin is enough for those clients. For any other agent, add it from the repository:
 
 ```bash
 npx skills add YogliB/happenin --skill happenin
@@ -36,9 +36,9 @@ npx skills add YogliB/happenin --skill happenin
 
 For a global install, add the `-g` flag. You can also copy `skills/happenin/SKILL.md` from this repository into your agent's skills directory.
 
-## `happenin install [--cursor] [--claude]`
+## `happenin install [--cursor] [--claude] [--devin]`
 
-Shows the supported plugin setup for Cursor and Claude Code. The packaged hooks use `npx -y happenin record`, so the normal setup does not edit user configuration. Use `--cursor` or `--claude` to show one client only.
+Shows the supported plugin setup for Cursor, Claude Code, and Devin. The packaged hooks use `npx -y happenin record`, so the normal setup does not edit user configuration. Use `--cursor`, `--claude`, or `--devin` to show one client only.
 
 Migrating from a pre-plugin install? Remove the old `happenin record` entries from `~/.cursor/hooks.json` and `~/.claude/settings.json` by hand (one-time step). Keep every unrelated hook.
 
@@ -46,8 +46,8 @@ Migrating from a pre-plugin install? Remove the old `happenin record` entries fr
 
 The hook target. It reads a JSON payload from stdin, writes it to `~/.happenin/happenin.db`, and prints the required response the agent expects.
 
-- `<source>` — `cursor` or `claude`.
-- `[event]` — only required for Claude; Cursor payloads include `hook_event_name`.
+- `<source>` — `cursor`, `claude`, or `devin`.
+- `[event]` — only required for Claude; Cursor and Devin payloads include `hook_event_name`.
 
 Record an event directly by piping JSON to stdin:
 
@@ -55,25 +55,27 @@ Record an event directly by piping JSON to stdin:
 echo '{"hook_event_name":"sessionStart","sessionId":"abc123","projectPath":"/path/to/project"}' | happenin record cursor
 
 echo '{"sessionId":"abc123","projectPath":"/path/to/project"}' | happenin record claude SessionStart
+
+echo '{"hook_event_name":"PreToolUse","session_id":"abc123","tool_name":"exec","tool_input":{"command":"ls"}}' | happenin record devin
 ```
 
 ### Field extraction
 
 `record` extracts common fields from the raw payload before storing it:
 
-| Stored field     | Payload keys searched (first match wins)                                                                                                                       |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `event`          | `hook_event_name` (Cursor only); otherwise the second CLI argument                                                                                             |
-| `sessionId`      | `sessionId`, `session_id`; for `subagentStart` also `parent_conversation_id`, `conversation_id`                                                                |
-| `happenedAt`     | `happenedAt`, `timestamp`, `happened_at`, `time`, `ts`, `createdAt`, `created_at`                                                                              |
-| `projectPath`    | `projectPath`, `cwd`, `project_path`, `workspaceRoot`, `workspaceRoots`, `workspace_roots`, `workspace_root`, `workspace_path`                                 |
-| `filePath`       | `filePath`, `file_path`, `path` at the top level; otherwise `tool_input.file_path`/`notebook_path`/`path` for `Read`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit` |
-| `toolName`       | `toolName`, `tool_name`, `tool`                                                                                                                                |
-| `skillName`      | `tool_input.skill`, only when `toolName` is `Skill`                                                                                                            |
-| `client`         | `client`; defaults to `cursor` or `claude_code`                                                                                                                |
-| `subagentId`     | `subagent_id` (Cursor `subagentStart` only)                                                                                                                    |
-| `subagentType`   | `subagent_type` (Cursor `subagentStart` only)                                                                                                                  |
-| `transcriptPath` | `transcript_path` (Cursor `subagentStart` only)                                                                                                                |
+| Stored field     | Payload keys searched (first match wins)                                                                                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `event`          | `hook_event_name` (Cursor and Devin); otherwise the second CLI argument                                                                                                                              |
+| `sessionId`      | `sessionId`, `session_id`; for `subagentStart` also `parent_conversation_id`, `conversation_id`                                                                                                      |
+| `happenedAt`     | `happenedAt`, `timestamp`, `happened_at`, `time`, `ts`, `createdAt`, `created_at`                                                                                                                    |
+| `projectPath`    | `projectPath`, `cwd`, `project_path`, `workspaceRoot`, `workspaceRoots`, `workspace_roots`, `workspace_root`, `workspace_path`; for `devin` events, the `DEVIN_PROJECT_DIR` env var                  |
+| `filePath`       | `filePath`, `file_path`, `path` at the top level; otherwise `tool_input.file_path`/`notebook_path`/`path` for `Read`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`read`/`edit`/`write`/`notebook_edit` |
+| `toolName`       | `toolName`, `tool_name`, `tool`                                                                                                                                                                      |
+| `skillName`      | `tool_input.skill`, only when `toolName` is `Skill` or `skill`                                                                                                                                       |
+| `client`         | `client`; defaults to `cursor`, `claude_code`, or `devin`                                                                                                                                            |
+| `subagentId`     | `subagent_id` (Cursor `subagentStart` only)                                                                                                                                                          |
+| `subagentType`   | `subagent_type` (Cursor `subagentStart` only)                                                                                                                                                        |
+| `transcriptPath` | `transcript_path` (Cursor `subagentStart` only)                                                                                                                                                      |
 
 For Cursor `subagentStart` payloads, `parent_conversation_id` and `conversation_id` are used as `sessionId` fallbacks so the subagent event groups with the main Cursor session. `conversation_id` and `parent_conversation_id` are not used as `sessionId` fallbacks for any other event.
 
@@ -89,8 +91,9 @@ If the event is a blocking hook, `record` prints a JSON response to stdout so th
 - **Claude**
   - `UserPromptSubmit`, `UserPromptExpansion` → `{"continue":true}`
   - `PreToolUse`, `PermissionRequest`, `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `Stop`, `WorktreeCreate`, `WorktreeRemove` → `{"decision":"approve"}`
+- **Devin** — no event requires a response; `record` never writes to stdout for `devin` events.
 
-Observer hooks produce no stdout output.
+Other observer hooks produce no stdout output.
 
 `record` is fail-open: if the database is locked by a concurrent operation (for example, the one-time backfill after an upgrade), it still prints the expected response for a blocking hook, but the event is not written to the database.
 
@@ -121,7 +124,7 @@ happenin query --q "subagent" --format jsonl
 happenin query --session abc123 --format summary
 ```
 
-- `--source <source>` — filter by `cursor` or `claude`.
+- `--source <source>` — filter by `cursor`, `claude`, or `devin`.
 - `--event <event>` — filter by event name.
 - `--session <id>` — filter by session id (partial match).
 - `--q <text>` — search event payloads.
@@ -141,7 +144,7 @@ happenin sessions --source cursor --format jsonl
 happenin sessions --session abc123 --format summary
 ```
 
-- `--source <source>` — filter by `cursor` or `claude`.
+- `--source <source>` — filter by `cursor`, `claude`, or `devin`.
 - `--event <event>` — filter by event name.
 - `--session <id>` — filter by session id (partial match).
 - `--q <text>` — search event payloads.

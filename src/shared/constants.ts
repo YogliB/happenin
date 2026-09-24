@@ -57,6 +57,17 @@ export const CLAUDE_HOOK_EVENTS = [
 	"ElicitationResult",
 ];
 
+export const DEVIN_HOOK_EVENTS = [
+	"SessionStart",
+	"SessionEnd",
+	"UserPromptSubmit",
+	"PreToolUse",
+	"PostToolUse",
+	"PermissionRequest",
+	"Stop",
+	"PostCompaction",
+];
+
 const CURSOR_CONTINUE = new Set(["beforeSubmitPrompt"]);
 
 const CURSOR_PERMISSION = new Set([

@@ -12,14 +12,14 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v3.0%20adopted-ff69b4.svg)](docs/CODE_OF_CONDUCT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-A CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
+A CLI that records Cursor, Claude Code, and Devin agent events to a local SQLite database and serves a live browser dashboard.
 
 ![happenin dashboard](docs/dashboard.gif)
 
 ## Try it
 
 ```bash
-npx -y happenin install   # show plugin setup for Cursor and Claude Code
+npx -y happenin install   # show plugin setup for Cursor, Claude Code, and Devin
 npx -y happenin import    # import existing transcripts
 npx -y happenin dashboard # open the live dashboard
 ```
@@ -28,7 +28,7 @@ No global install needed: the packaged hooks run through `npx`. For a permanent 
 
 ## Why
 
-Cursor and Claude Code can emit local hooks for each session, tool use, prompt, file edit, and lifecycle event. `happenin` adds `record` hooks to those agents, writes the payloads to a local SQLite database, and serves a live browser dashboard. Data never leaves your machine.
+Cursor, Claude Code, and Devin can emit local hooks for each session, tool use, prompt, file edit, and lifecycle event. `happenin` adds `record` hooks to those agents, writes the payloads to a local SQLite database, and serves a live browser dashboard. Data never leaves your machine.
 
 ## Stability
 
@@ -59,7 +59,7 @@ npm run build
 ## Quick start
 
 ```bash
-# Show the plugin setup for Cursor and Claude Code
+# Show the plugin setup for Cursor, Claude Code, and Devin
 happenin install
 
 # Import existing transcripts
@@ -73,29 +73,31 @@ The dashboard opens at `http://localhost:8765`. New events appear automatically.
 
 ## Commands
 
-### `happenin install [--cursor] [--claude]`
+### `happenin install [--cursor] [--claude] [--devin]`
 
-Prints the supported plugin setup for Cursor and Claude Code. The packaged plugins call `npx -y happenin record`, so they work with both the trial and global-install flows without rewriting `~/.cursor/hooks.json` or `~/.claude/settings.json`. Use `--cursor` or `--claude` to show one client only.
+Prints the supported plugin setup for Cursor, Claude Code, and Devin. The packaged plugins call `npx -y happenin record`, so they work with both the trial and global-install flows without rewriting `~/.cursor/hooks.json` or `~/.claude/settings.json`. Use `--cursor`, `--claude`, or `--devin` to show one client only.
 
 Migrating from a pre-plugin install? Remove the old `happenin record` entries from `~/.cursor/hooks.json` and `~/.claude/settings.json` by hand (one-time step). Keep every unrelated hook.
 
 ```bash
 happenin install --cursor
 happenin install --claude
+happenin install --devin
 ```
 
 ### `happenin record <source> [event]`
 
 The hook target. Reads a JSON payload from stdin, writes it to `~/.happenin/happenin.db`, and prints the required non-blocking response for the agent.
 
-- `source` — `cursor` or `claude`.
-- `event` — only required for Claude; Cursor payloads include `hook_event_name`.
+- `source` — `cursor`, `claude`, or `devin`.
+- `event` — only required for Claude; Cursor and Devin payloads include `hook_event_name`.
 
 This command is normally called by the agent hooks, not directly:
 
 ```bash
 echo '{"hook_event_name":"sessionStart","sessionId":"abc123"}' | happenin record cursor
 echo '{"sessionId":"abc123"}' | happenin record claude SessionStart
+echo '{"hook_event_name":"PreToolUse","session_id":"abc123","tool_name":"exec"}' | happenin record devin
 ```
 
 ### `happenin import [--force]`
@@ -237,7 +239,7 @@ See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
 
 ## Agent skill
 
-The Cursor and Claude Code plugins bundle the reusable `happenin` skill, so installing the plugin installs the skill too. For other agents that support `SKILL.md` files, install it directly:
+The Cursor, Claude Code, and Devin plugins bundle the reusable `happenin` skill, so installing the plugin installs the skill too. For other agents that support `SKILL.md` files, install it directly:
 
 ```bash
 npx skills add YogliB/happenin --skill happenin
