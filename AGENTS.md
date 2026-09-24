@@ -23,7 +23,7 @@ Agent-facing entry point. For the open format, see [agents.md](https://agents.md
 
 ### What happenin is
 
-A CLI that records Cursor and Claude Code agent events to a local SQLite database and serves a live browser dashboard.
+A CLI that records Cursor, Claude Code, and Devin agent events to a local SQLite database and serves a live browser dashboard.
 
 `happenin` is pre-1.0. The CLI, database schema, and dashboard output may change in small ways until v1.0.0; breaking changes are noted in the changelog.
 
@@ -52,7 +52,7 @@ Common commands:
 
 - Zero runtime dependencies. Everything uses Node built-in modules and the dashboard loads small JS libraries from a CDN.
 - SQLite via `node:sqlite` with WAL mode.
-- Plugin-only setup. Hooks ship as Cursor and Claude plugins; `install` prints setup instructions and never edits user config files.
+- Plugin-only setup. Hooks ship as Cursor, Claude, and Devin plugins; `install` prints setup instructions and never edits user config files.
 - Fail-open responses. `record` returns the minimum required non-blocking response and no output for observer hooks.
 - Keep docs short, clear, and concise. `AGENTS.md` is a condensed version of the human docs; link to the full doc when detail is needed. Diagrams in docs use mermaid fenced blocks — `lint:ci` flags ASCII diagrams.
 - PRs must be focused, pass `build`, `typecheck`, `format:ci`, `lint:ci`, `duplicates:ci`, `knip:ci`, and `test:ci`, and use a Conventional Commit message.
