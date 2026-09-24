@@ -101,7 +101,7 @@ happenin query --session abc123 --format summary
 
 ### `happenin sessions [options]`
 
-Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes. Each session includes `tools`, `skills`, and `files` — the distinct tool names, skill names (from `Skill` tool calls), and file paths (from `Read`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit` calls) seen in that session. The dashboard's session detail view shows the same three lists.
+Summarize recorded events grouped by session. Useful for reviewing activity across many sessions and event volumes. Each session includes `tools`, `skills`, and `files` — the distinct tool names, skill names (from `Skill`/`skill` tool calls), and file paths (from `Read`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`read`/`edit`/`write`/`notebook_edit` calls) seen in that session. The dashboard's session detail view shows the same three lists.
 
 - `--source <source>` — filter sessions by source.
 - `--event <event>` — filter sessions by event name.
