@@ -1,4 +1,14 @@
-const FILE_PATH_TOOLS = new Set(["Read", "Edit", "Write", "MultiEdit", "NotebookEdit"]);
+const FILE_PATH_TOOLS = new Set([
+	"Read",
+	"Edit",
+	"Write",
+	"MultiEdit",
+	"NotebookEdit",
+	"read",
+	"edit",
+	"write",
+	"notebook_edit",
+]);
 
 function asNonEmptyString(value: unknown): string | undefined {
 	return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -20,7 +30,11 @@ export function toolCallSkillName(
 	toolName: string | undefined,
 	input: unknown,
 ): string | undefined {
-	if (toolName !== "Skill" || typeof input !== "object" || input === null) {
+	if (
+		(toolName !== "Skill" && toolName !== "skill") ||
+		typeof input !== "object" ||
+		input === null
+	) {
 		return undefined;
 	}
 	return asNonEmptyString((input as Record<string, unknown>).skill);

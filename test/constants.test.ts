@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_RESPONSES } from "../src/shared/constants.js";
+import { DEFAULT_RESPONSES, DEVIN_HOOK_EVENTS } from "../src/shared/constants.js";
 import type { Source } from "../src/shared/types.js";
 
 describe("DEFAULT_RESPONSES", () => {
@@ -58,6 +58,13 @@ describe("DEFAULT_RESPONSES", () => {
 	it("returns undefined for unknown claude events", () => {
 		expect(DEFAULT_RESPONSES("claude" as Source, "SessionStart")).toBeUndefined();
 		expect(DEFAULT_RESPONSES("claude" as Source, "unknown")).toBeUndefined();
+	});
+
+	it("returns undefined for all devin events", () => {
+		for (const event of DEVIN_HOOK_EVENTS) {
+			expect(DEFAULT_RESPONSES("devin" as Source, event)).toBeUndefined();
+		}
+		expect(DEFAULT_RESPONSES("devin" as Source, "unknown")).toBeUndefined();
 	});
 
 	it("returns undefined for transcript and unknown sources", () => {
