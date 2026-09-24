@@ -3,17 +3,31 @@ import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CURSOR_HOOK_EVENTS, CLAUDE_HOOK_EVENTS } from "../src/shared/constants.js";
+import {
+	CURSOR_HOOK_EVENTS,
+	CLAUDE_HOOK_EVENTS,
+	DEVIN_HOOK_EVENTS,
+} from "../src/shared/constants.js";
 import process from "node:process";
 import { runInstall, parseTargets, formatError } from "../src/cli/install.js";
 import { homeDir } from "../src/shared/homeDir.js";
 
 describe("install", () => {
-	it("parseTargets defaults to both, and respects flags", () => {
-		expect(parseTargets([])).toEqual({ cursor: true, claude: true });
-		expect(parseTargets(["--cursor"])).toEqual({ cursor: true, claude: false });
-		expect(parseTargets(["--claude"])).toEqual({ cursor: false, claude: true });
-		expect(parseTargets(["--cursor", "--claude"])).toEqual({ cursor: true, claude: true });
+	it("parseTargets defaults to all, and respects flags", () => {
+		expect(parseTargets([])).toEqual({ cursor: true, claude: true, devin: true });
+		expect(parseTargets(["--cursor"])).toEqual({ cursor: true, claude: false, devin: false });
+		expect(parseTargets(["--claude"])).toEqual({ cursor: false, claude: true, devin: false });
+		expect(parseTargets(["--devin"])).toEqual({ cursor: false, claude: false, devin: true });
+		expect(parseTargets(["--cursor", "--claude"])).toEqual({
+			cursor: true,
+			claude: true,
+			devin: false,
+		});
+		expect(parseTargets(["--cursor", "--claude", "--devin"])).toEqual({
+			cursor: true,
+			claude: true,
+			devin: true,
+		});
 	});
 
 	it("formatError extracts messages from Error and strings", () => {
@@ -50,6 +64,13 @@ describe("install", () => {
 		await runInstall(["--claude"]);
 		expect(output).toHaveBeenCalledWith(expect.stringContaining("Claude Code: run"));
 		expect(output).not.toHaveBeenCalledWith(expect.stringContaining("Cursor: open Customize"));
+		output.mockClear();
+		await runInstall(["--devin"]);
+		expect(output).toHaveBeenCalledWith(
+			expect.stringContaining("Devin: run devin plugins install"),
+		);
+		expect(output).not.toHaveBeenCalledWith(expect.stringContaining("Cursor: open Customize"));
+		expect(output).not.toHaveBeenCalledWith(expect.stringContaining("Claude Code: run"));
 		output.mockRestore();
 	});
 
@@ -67,7 +88,7 @@ describe("install", () => {
 		output.mockRestore();
 	});
 
-	it("packages every supported event in both plugin hook files", () => {
+	it("packages every supported event in all plugin hook files", () => {
 		const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 		const cursor = JSON.parse(
 			readFileSync(path.join(root, "plugins/cursor/hooks/hooks.json"), "utf8"),
@@ -75,8 +96,10 @@ describe("install", () => {
 		const claude = JSON.parse(
 			readFileSync(path.join(root, "plugins/claude/hooks/hooks.json"), "utf8"),
 		);
-		expect(Object.keys(cursor.hooks).sort()).toEqual([...CURSOR_HOOK_EVENTS].sort());
-		expect(Object.keys(claude.hooks).sort()).toEqual([...CLAUDE_HOOK_EVENTS].sort());
+		const devin = JSON.parse(readFileSync(path.join(root, "plugins/devin/hooks.json"), "utf8"));
+		expect(Object.keys(cursor.hooks).toSorted()).toEqual([...CURSOR_HOOK_EVENTS].toSorted());
+		expect(Object.keys(claude.hooks).toSorted()).toEqual([...CLAUDE_HOOK_EVENTS].toSorted());
+		expect(Object.keys(devin).toSorted()).toEqual([...DEVIN_HOOK_EVENTS].toSorted());
 		for (const entries of Object.values(cursor.hooks) as Array<Array<{ command: string }>>) {
 			expect(entries[0].command).toBe("npx -y happenin record cursor");
 		}
@@ -85,12 +108,17 @@ describe("install", () => {
 		>) {
 			expect(entries[0].hooks[0].command).toBe(`npx -y happenin record claude ${event}`);
 		}
+		for (const entries of Object.values(devin) as Array<
+			Array<{ hooks: Array<{ command: string }> }>
+		>) {
+			expect(entries[0].hooks[0].command).toBe("npx -y happenin record devin");
+		}
 	});
 
 	it("ships bundled skill copies identical to the root skill", () => {
 		const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 		const source = readFileSync(path.join(root, "skills/happenin/SKILL.md"), "utf8");
-		for (const plugin of ["claude", "cursor"]) {
+		for (const plugin of ["claude", "cursor", "devin"]) {
 			const bundled = readFileSync(
 				path.join(root, `plugins/${plugin}/skills/happenin/SKILL.md`),
 				"utf8",

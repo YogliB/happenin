@@ -47,15 +47,15 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 	}
 
 	const source = argv[0];
-	if (source !== "cursor" && source !== "claude") {
+	if (source !== "cursor" && source !== "claude" && source !== "devin") {
 		return undefined;
 	}
 
 	let event: string | undefined;
-	if (source === "cursor") {
-		event = asString(payload.hook_event_name);
-	} else {
+	if (source === "claude") {
 		event = argv[1];
+	} else {
+		event = asString(payload.hook_event_name);
 	}
 
 	const isSubagentStart = source === "cursor" && event === "subagentStart";
@@ -75,13 +75,16 @@ export function recordFromRaw(argv: string[], raw: string, dbPath?: string): str
 		firstString(payload.workspaceRoots) ??
 		firstString(payload.workspace_roots) ??
 		firstString(payload.workspace_root) ??
-		asString(payload.workspace_path);
+		asString(payload.workspace_path) ??
+		(source === "devin" ? asString(process.env.DEVIN_PROJECT_DIR) : undefined);
 	const toolName = asString(payload.toolName ?? payload.tool_name ?? payload.tool);
 	const filePath =
 		asString(payload.filePath ?? payload.file_path ?? payload.path) ??
 		toolCallFilePath(toolName, payload.tool_input);
 	const skillName = toolCallSkillName(toolName, payload.tool_input);
-	const client = asString(payload.client) ?? (source === "cursor" ? "cursor" : "claude_code");
+	const client =
+		asString(payload.client) ??
+		(source === "cursor" ? "cursor" : source === "devin" ? "devin" : "claude_code");
 
 	const subagentId = asString(payload.subagent_id) ?? undefined;
 	const subagentType = asString(payload.subagent_type) ?? undefined;

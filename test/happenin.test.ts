@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -316,6 +316,25 @@ describe("happenin", () => {
 			const payload = JSON.stringify({ prompt: "what is 2+2?" });
 			const response = recordFromRaw(["claude", "UserPromptSubmit"], payload);
 			expect(response).toBe(JSON.stringify({ continue: true }));
+		});
+
+		it("records a Devin PreToolUse event with no response", () => {
+			const payload = JSON.stringify({
+				hook_event_name: "PreToolUse",
+				tool_name: "exec",
+				tool_input: { command: "ls" },
+				session_id: "devin-s-1",
+			});
+			const response = recordFromRaw(["devin"], payload);
+			expect(response).toBeUndefined();
+			const db = initDb();
+			const rows = getEvents(db, { limit: 10 });
+			expect(rows.length).toBe(1);
+			expect(rows[0].source).toBe("devin");
+			expect(rows[0].client).toBe("devin");
+			expect(rows[0].event).toBe("PreToolUse");
+			expect(rows[0].toolName).toBe("exec");
+			expect(rows[0].sessionId).toBe("devin-s-1");
 		});
 
 		it("extracts subagent metadata from a Cursor subagentStart event", () => {
