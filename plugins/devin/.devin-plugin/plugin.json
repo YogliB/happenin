@@ -1,0 +1,10 @@
+{
+	"name": "happenin",
+	"version": "0.6.0",
+	"description": "Record local Devin agent events for the happenin dashboard.",
+	"author": { "name": "Yogev Boaron Ben-Har" },
+	"repository": "https://github.com/YogliB/happenin",
+	"homepage": "https://github.com/YogliB/happenin",
+	"license": "MIT",
+	"keywords": ["hooks", "observability", "sessions"]
+}

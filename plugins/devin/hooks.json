@@ -1,0 +1,90 @@
+{
+	"SessionStart": [
+		{
+			"matcher": "",
+			"hooks": [
+				{
+					"type": "command",
+					"command": "npx -y happenin record devin"
+				}
+			]
+		}
+	],
+	"SessionEnd": [
+		{
+			"matcher": "",
+			"hooks": [
+				{
+					"type": "command",
+					"command": "npx -y happenin record devin"
+				}
+			]
+		}
+	],
+	"UserPromptSubmit": [
+		{
+			"matcher": "",
+			"hooks": [
+				{
+					"type": "command",
+					"command": "npx -y happenin record devin"
+				}
+			]
+		}
+	],
+	"PreToolUse": [
+		{
+			"matcher": "",
+			"hooks": [
+				{
+					"type": "command",
+					"command": "npx -y happenin record devin"
+				}
+			]
+		}
+	],
+	"PostToolUse": [
+		{
+			"matcher": "",
+			"hooks": [
+				{
+					"type": "command",
+					"command": "npx -y happenin record devin"
+				}
+			]
+		}
+	],
+	"PermissionRequest": [
+		{
+			"matcher": "",
+			"hooks": [
+				{
+					"type": "command",
+					"command": "npx -y happenin record devin"
+				}
+			]
+		}
+	],
+	"Stop": [
+		{
+			"matcher": "",
+			"hooks": [
+				{
+					"type": "command",
+					"command": "npx -y happenin record devin"
+				}
+			]
+		}
+	],
+	"PostCompaction": [
+		{
+			"matcher": "",
+			"hooks": [
+				{
+					"type": "command",
+					"command": "npx -y happenin record devin"
+				}
+			]
+		}
+	]
+}
