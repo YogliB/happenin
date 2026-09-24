@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
@@ -15,6 +15,7 @@ import {
 	getUserVersion,
 	ensureSubagentColumns,
 	ensureSkillNameColumn,
+	mergeTranscriptSources,
 	getEventById,
 	getImportMtime,
 	trackImport,
@@ -30,6 +31,7 @@ import {
 	getSubagentsBySession,
 	sessionStatus,
 } from "../src/shared/db.js";
+import { importTranscripts } from "../src/cli/import.js";
 
 function tempDir(): string {
 	return mkdtempSync(path.join(tmpdir(), "happenin-"));
@@ -418,6 +420,117 @@ describe("db edge cases", () => {
 			expect(() => ensureSkillNameColumn(db)).not.toThrow();
 			expect(getUserVersion(db)).toBe(3);
 		} finally {
+			db.close();
+		}
+	});
+
+	it("merges transcript sources into their base sources", () => {
+		const dir = tempDir();
+		const dbPath = path.join(dir, "happenin.db");
+		const seed = initDb(dbPath);
+		seed
+			.prepare(
+				"INSERT INTO events (source, received_at, payload) VALUES ('claude-transcript', 1, '{}')",
+			)
+			.run();
+		seed
+			.prepare(
+				"INSERT INTO events (source, received_at, payload) VALUES ('cursor-transcript', 1, '{}')",
+			)
+			.run();
+		seed
+			.prepare("INSERT INTO events (source, received_at, payload) VALUES ('devin', 1, '{}')")
+			.run();
+		seed.exec("PRAGMA user_version = 3;");
+		seed.close();
+
+		const db = initDb(dbPath);
+		try {
+			const sources = getEvents(db, { limit: 10 })
+				.map((row) => row.source)
+				.toSorted();
+			expect(sources).toEqual(["claude", "cursor", "devin"]);
+			expect(getUserVersion(db)).toBe(4);
+		} finally {
+			db.close();
+			cleanup(dir);
+		}
+	});
+
+	it("dedupes migrated transcript rows on re-import", async () => {
+		const home = process.env.HOME as string;
+		const claudeDir = path.join(home, ".claude/projects/foo");
+		mkdirSync(claudeDir, { recursive: true });
+		const jsonl = path.join(claudeDir, "s.jsonl");
+		writeFileSync(jsonl, JSON.stringify({ type: "user", sessionId: "s" }));
+
+		const dbPath = process.env.HAPPENIN_DB as string;
+		const seed = initDb(dbPath);
+		seed
+			.prepare(
+				"INSERT INTO events (source, received_at, payload, source_path) VALUES ('claude-transcript', 1, '{\"stale\":true}', ?)",
+			)
+			.run(jsonl);
+		seed.exec("PRAGMA user_version = 3;");
+		seed.close();
+
+		const db = initDb(dbPath);
+		try {
+			await importTranscripts(db);
+			const rows = getEvents(db, { limit: 10 });
+			expect(rows.length).toBe(1);
+			expect(rows[0].source).toBe("claude");
+			expect(rows[0].sourcePath).toBe(jsonl);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("rolls back a race during transcript source merge", () => {
+		const db = initDb(":memory:");
+		db.exec("PRAGMA user_version = 3;");
+
+		let calls = 0;
+		const spy = vi.spyOn(DatabaseSync.prototype, "prepare").mockImplementation(function (
+			this: DatabaseSync,
+			sql: string,
+		) {
+			if (String(sql).trim() === "PRAGMA user_version") {
+				calls += 1;
+				return {
+					get: () => ({ user_version: calls === 1 ? 3 : 4 }),
+				} as ReturnType<DatabaseSync["prepare"]>;
+			}
+			return DatabaseSync.prototype.prepare.call(this, sql);
+		});
+
+		try {
+			expect(() => mergeTranscriptSources(db)).not.toThrow();
+		} finally {
+			spy.mockRestore();
+			db.close();
+		}
+	});
+
+	it("rethrows and rolls back when merging transcript sources fails", () => {
+		const db = initDb(":memory:");
+		db.exec("PRAGMA user_version = 3;");
+
+		const originalExec = DatabaseSync.prototype.exec;
+		const spy = vi.spyOn(DatabaseSync.prototype, "exec").mockImplementation(function (
+			this: DatabaseSync,
+			sql: string,
+		) {
+			if (String(sql).includes("UPDATE events") || String(sql).trim() === "ROLLBACK;") {
+				throw new Error("merge failed");
+			}
+			return originalExec.call(this, sql);
+		});
+
+		try {
+			expect(() => mergeTranscriptSources(db)).toThrow("merge failed");
+		} finally {
+			spy.mockRestore();
 			db.close();
 		}
 	});
@@ -1088,7 +1201,7 @@ describe("db edge cases", () => {
 	it("buckets events into mcp servers, markdown files, bloatware, and actual value", () => {
 		const db = initDb(":memory:");
 		insertEvent(db, {
-			source: "claude-transcript",
+			source: "claude",
 			client: "claude_code",
 			event: "assistant",
 			sessionId: "s-1",
@@ -1129,7 +1242,7 @@ describe("db edge cases", () => {
 			payload: JSON.stringify({ tool: "Bash" }),
 		});
 		insertEvent(db, {
-			source: "claude-transcript",
+			source: "claude",
 			client: "claude_code",
 			event: "assistant",
 			sessionId: "s-1",
@@ -1144,7 +1257,7 @@ describe("db edge cases", () => {
 			}),
 		});
 		insertEvent(db, {
-			source: "cursor-transcript",
+			source: "cursor",
 			client: "cursor",
 			event: "other-metadata",
 			sessionId: "s-2",

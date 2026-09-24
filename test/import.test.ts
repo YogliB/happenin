@@ -74,13 +74,9 @@ describe("import", () => {
 
 		const all = getEvents(db, { limit: 100 });
 		expect(all.length).toBe(5);
-		expect(all.filter((r) => r.source === "claude-transcript").length).toBe(2);
-		expect(all.filter((r) => r.source === "cursor-transcript" && r.event === "prompt").length).toBe(
-			2,
-		);
-		expect(
-			all.filter((r) => r.source === "cursor-transcript" && r.event === "session_meta").length,
-		).toBe(1);
+		expect(all.filter((r) => r.source === "claude").length).toBe(2);
+		expect(all.filter((r) => r.source === "cursor" && r.event === "prompt").length).toBe(2);
+		expect(all.filter((r) => r.source === "cursor" && r.event === "session_meta").length).toBe(1);
 
 		db.close();
 	});

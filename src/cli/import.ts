@@ -14,8 +14,8 @@ import {
 import { toolCallFilePath, toolCallSkillName } from "../shared/toolCalls.js";
 import type { Source } from "../shared/types.js";
 
-const CLAUDE_SOURCE: Source = "claude-transcript";
-const CURSOR_SOURCE: Source = "cursor-transcript";
+const CLAUDE_SOURCE: Source = "claude";
+const CURSOR_SOURCE: Source = "cursor";
 const CLAUDE_CLIENT = "claude_code";
 const CURSOR_CLIENT = "cursor";
 
@@ -95,7 +95,7 @@ function findJsonlFiles(dir: string): string[] {
 		const child = path.join(dir, entry.name);
 		if (entry.isDirectory()) {
 			paths.push(...findJsonlFiles(child));
-		} else if (entry.isFile() && entry.name.endsWith(".jsonl") && entry.name !== "store.db") {
+		} else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
 			paths.push(child);
 		}
 	}

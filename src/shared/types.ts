@@ -1,4 +1,4 @@
-export type Source = "cursor" | "claude" | "devin" | "claude-transcript" | "cursor-transcript";
+export type Source = "cursor" | "claude" | "devin";
 
 export type EventInsert = {
 	source: Source;

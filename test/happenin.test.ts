@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -19,7 +19,7 @@ import {
 } from "../src/shared/db.js";
 
 import { recordFromRaw } from "../src/cli/record.js";
-import { importTranscripts } from "../src/cli/import.js";
+
 import { dashboardHtml } from "../src/UI/dashboard/page.js";
 import { parseQuery } from "../src/UI/dashboard/fragments.js";
 import { eventView } from "../src/shared/view.js";
@@ -104,15 +104,15 @@ describe("happenin", () => {
 				payload: JSON.stringify({}),
 			});
 			insertEvent(db, {
-				source: "cursor-transcript",
-				client: "cursor",
+				source: "devin",
+				client: "devin",
 				event: "prompt",
 				sessionId: "s-3",
 				payload: JSON.stringify({}),
 			});
 
 			const options = getFilterOptions(db);
-			expect(options.sources).toEqual(["claude", "cursor", "cursor-transcript"]);
+			expect(options.sources).toEqual(["claude", "cursor", "devin"]);
 			expect(options.events).toEqual(["PreToolUse", "preToolUse", "prompt"]);
 		});
 
@@ -162,7 +162,7 @@ describe("happenin", () => {
 				const version = db.prepare("PRAGMA user_version").get() as
 					| { user_version: number }
 					| undefined;
-				expect(version?.user_version).toBe(3);
+				expect(version?.user_version).toBe(4);
 
 				const columns = db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
 				const names = columns.map((col) => col.name);
@@ -199,7 +199,7 @@ describe("happenin", () => {
 				const version = db2.prepare("PRAGMA user_version").get() as
 					| { user_version: number }
 					| undefined;
-				expect(version?.user_version).toBe(3);
+				expect(version?.user_version).toBe(4);
 			} finally {
 				db2.close();
 				cleanup(dir);
@@ -381,69 +381,6 @@ describe("happenin", () => {
 			expect(recordFromRaw(["cursor"], "")).toBeUndefined();
 			expect(recordFromRaw(["cursor"], "not-json")).toBeUndefined();
 			expect(recordFromRaw(["unknown"], "{}")).toBeUndefined();
-		});
-	});
-
-	describe("import", () => {
-		const originalHome = process.env.HOME;
-
-		beforeEach(() => {
-			process.env.HOME = tempDir();
-		});
-
-		afterEach(() => {
-			if (process.env.HOME && process.env.HOME.startsWith(tmpdir())) {
-				cleanup(process.env.HOME);
-			}
-			process.env.HOME = originalHome;
-		});
-
-		it("imports Claude JSONL and Cursor transcripts", async () => {
-			const home = process.env.HOME as string;
-
-			const claudeDir = path.join(home, ".claude/projects/foo");
-			mkdirSync(claudeDir, { recursive: true });
-			writeFileSync(
-				path.join(claudeDir, "session-1.jsonl"),
-				[
-					JSON.stringify({
-						type: "user",
-						sessionId: "session-1",
-						timestamp: "2024-01-01T00:00:00Z",
-						message: "hello",
-					}),
-					JSON.stringify({
-						type: "assistant",
-						sessionId: "session-1",
-						timestamp: "2024-01-01T00:00:01Z",
-						message: "hi",
-					}),
-				].join("\n"),
-			);
-
-			const cursorDir = path.join(home, ".cursor/chats/hash/session-2");
-			mkdirSync(cursorDir, { recursive: true });
-			writeFileSync(
-				path.join(cursorDir, "prompt_history.json"),
-				JSON.stringify(["first prompt", "second prompt"]),
-			);
-			writeFileSync(
-				path.join(cursorDir, "meta.json"),
-				JSON.stringify({ createdAtMs: 1700000000000 }),
-			);
-
-			const db = initDb(":memory:");
-			await importTranscripts(db);
-
-			const all = getEvents(db, { limit: 100 });
-			expect(all.length).toBe(5);
-			expect(all.filter((r) => r.source === "claude-transcript").length).toBe(2);
-			expect(
-				all.filter((r) => r.source === "cursor-transcript" && r.event === "prompt").length,
-			).toBe(2);
-			expect(
-				all.filter((r) => r.source === "cursor-transcript" && r.event === "session_meta").length,
-			).toBe(1);
 		});
 	});
 
