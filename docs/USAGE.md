@@ -71,6 +71,9 @@ Imports existing transcripts:
   usage, skills used, and files touched are queryable and show up on the dashboard.
 - Cursor `prompt_history.json` and `meta.json` from `~/.cursor/chats/<hash>/<session>/`.
 
+Imported events share the agent `source` (`claude`/`cursor`); the imported file is kept in
+`source_path` (`sourcePath` in query output), which live hook events leave empty.
+
 `store.db` is skipped because it is encrypted.
 
 Files are only re-parsed when their modification time changes. `--force` clears that tracking and
