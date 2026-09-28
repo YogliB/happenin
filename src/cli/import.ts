@@ -137,10 +137,7 @@ async function importClaudeJsonl(db: DatabaseSync, filePath: string): Promise<vo
 		}
 	}
 
-	db.prepare("DELETE FROM events WHERE source = ? AND source_path = ?").run(
-		CLAUDE_SOURCE,
-		filePath,
-	);
+	db.prepare("DELETE FROM events WHERE source_path = ?").run(filePath);
 
 	for (const { obj, line } of records) {
 		const base = {
@@ -202,10 +199,7 @@ async function importCursorPromptHistory(
 	}
 	if (Array.isArray(parsed)) prompts = parsed;
 
-	db.prepare("DELETE FROM events WHERE source = ? AND source_path = ?").run(
-		CURSOR_SOURCE,
-		filePath,
-	);
+	db.prepare("DELETE FROM events WHERE source_path = ?").run(filePath);
 
 	for (const prompt of prompts) {
 		if (typeof prompt !== "string") continue;
@@ -231,10 +225,7 @@ async function importCursorMeta(
 	if (found === undefined) return;
 	const { content, mtime } = found;
 
-	db.prepare("DELETE FROM events WHERE source = ? AND source_path = ?").run(
-		CURSOR_SOURCE,
-		filePath,
-	);
+	db.prepare("DELETE FROM events WHERE source_path = ?").run(filePath);
 
 	insertEvent(db, {
 		source: CURSOR_SOURCE,
