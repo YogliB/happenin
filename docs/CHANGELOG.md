@@ -4,6 +4,8 @@
 
 - Pre-1.0: the CLI, database schema, and dashboard output may change in small ways until v1.0.0. Breaking changes will be listed here.
 
+## [0.7.0]
+
 - Added a Devin plugin (`plugins/devin`) that records Devin CLI and Devin Desktop hook events; `happenin install --devin` prints the setup.
 
 - Dashboard filter bar labels are now associated with their inputs (`for`/`id` on selects and inputs, `aria-labelledby` on the multi-selects), fixing screen-reader announcement of the filter controls. (#35)
@@ -50,7 +52,8 @@
 
 - Initial release of `happenin`: track Cursor and Claude Code agent events locally.
 
-[Unreleased]: https://github.com/YogliB/happenin/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/YogliB/happenin/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/YogliB/happenin/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/YogliB/happenin/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/YogliB/happenin/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/YogliB/happenin/compare/v0.3.0...v0.4.0
