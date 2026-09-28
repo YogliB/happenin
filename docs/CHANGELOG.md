@@ -8,6 +8,8 @@
 
 - Dashboard filter bar labels are now associated with their inputs (`for`/`id` on selects and inputs, `aria-labelledby` on the multi-selects), fixing screen-reader announcement of the filter controls. (#35)
 
+- Imported transcripts now record under the agent source (`claude`, `cursor`) instead of separate `*-transcript` sources; imported rows remain identifiable by a non-null `source_path`. Existing `*-transcript` rows are rewritten on first open, and re-importing a file now deletes all previous rows for that file regardless of their source, so rows imported by an older version can't linger or duplicate.
+
 ## [0.6.0]
 
 - The packaged Cursor and Claude Code plugins now bundle the `happenin` agent skill, so installing a plugin also installs the skill.

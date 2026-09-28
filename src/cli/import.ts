@@ -14,8 +14,8 @@ import {
 import { toolCallFilePath, toolCallSkillName } from "../shared/toolCalls.js";
 import type { Source } from "../shared/types.js";
 
-const CLAUDE_SOURCE: Source = "claude-transcript";
-const CURSOR_SOURCE: Source = "cursor-transcript";
+const CLAUDE_SOURCE: Source = "claude";
+const CURSOR_SOURCE: Source = "cursor";
 const CLAUDE_CLIENT = "claude_code";
 const CURSOR_CLIENT = "cursor";
 
@@ -95,7 +95,7 @@ function findJsonlFiles(dir: string): string[] {
 		const child = path.join(dir, entry.name);
 		if (entry.isDirectory()) {
 			paths.push(...findJsonlFiles(child));
-		} else if (entry.isFile() && entry.name.endsWith(".jsonl") && entry.name !== "store.db") {
+		} else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
 			paths.push(child);
 		}
 	}
@@ -137,10 +137,7 @@ async function importClaudeJsonl(db: DatabaseSync, filePath: string): Promise<vo
 		}
 	}
 
-	db.prepare("DELETE FROM events WHERE source = ? AND source_path = ?").run(
-		CLAUDE_SOURCE,
-		filePath,
-	);
+	db.prepare("DELETE FROM events WHERE source_path = ?").run(filePath);
 
 	for (const { obj, line } of records) {
 		const base = {
@@ -202,10 +199,7 @@ async function importCursorPromptHistory(
 	}
 	if (Array.isArray(parsed)) prompts = parsed;
 
-	db.prepare("DELETE FROM events WHERE source = ? AND source_path = ?").run(
-		CURSOR_SOURCE,
-		filePath,
-	);
+	db.prepare("DELETE FROM events WHERE source_path = ?").run(filePath);
 
 	for (const prompt of prompts) {
 		if (typeof prompt !== "string") continue;
@@ -231,10 +225,7 @@ async function importCursorMeta(
 	if (found === undefined) return;
 	const { content, mtime } = found;
 
-	db.prepare("DELETE FROM events WHERE source = ? AND source_path = ?").run(
-		CURSOR_SOURCE,
-		filePath,
-	);
+	db.prepare("DELETE FROM events WHERE source_path = ?").run(filePath);
 
 	insertEvent(db, {
 		source: CURSOR_SOURCE,

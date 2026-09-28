@@ -153,6 +153,33 @@ export function ensureSkillNameColumn(db: DatabaseSync): void {
 	}
 }
 
+export const mergeTranscriptSources = (db: DatabaseSync): void => {
+	let version = getUserVersion(db);
+	if (version >= 4) return;
+
+	db.exec("BEGIN IMMEDIATE;");
+	version = getUserVersion(db);
+	if (version >= 4) {
+		db.exec("ROLLBACK;");
+		return;
+	}
+
+	try {
+		db.exec(`
+			UPDATE events
+			SET source = replace(source, '-transcript', '')
+			WHERE source IN ('claude-transcript', 'cursor-transcript');
+		`);
+		db.exec("PRAGMA user_version = 4;");
+		db.exec("COMMIT;");
+	} catch (err) {
+		try {
+			db.exec("ROLLBACK;");
+		} catch {}
+		throw err;
+	}
+};
+
 export const backfillDerivedFields = (db: DatabaseSync): void => {
 	let version = getUserVersion(db);
 	if (version >= 2) return;
@@ -307,6 +334,7 @@ export const initDb = (dbPath?: string, busyTimeout = 5000): DatabaseSync => {
 		ensureSubagentColumns(db);
 		backfillDerivedFields(db);
 		ensureSkillNameColumn(db);
+		mergeTranscriptSources(db);
 		for (const indexSql of indexes) {
 			db.exec(indexSql);
 		}

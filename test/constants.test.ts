@@ -67,9 +67,7 @@ describe("DEFAULT_RESPONSES", () => {
 		expect(DEFAULT_RESPONSES("devin" as Source, "unknown")).toBeUndefined();
 	});
 
-	it("returns undefined for transcript and unknown sources", () => {
-		expect(DEFAULT_RESPONSES("claude-transcript" as Source, "PreToolUse")).toBeUndefined();
-		expect(DEFAULT_RESPONSES("cursor-transcript" as Source, "preToolUse")).toBeUndefined();
+	it("returns undefined for unknown sources", () => {
 		expect(DEFAULT_RESPONSES("unknown" as Source, "event")).toBeUndefined();
 	});
 });
